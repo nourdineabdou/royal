@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rapport Technique — Système de Gestion Royal Complex Groupe</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1a1a2e; line-height: 1.7; background: #fff; }
+
+  /* ── COVER ── */
+  .cover {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 60px 40px; color: #fff;
+    page-break-after: always;
+  }
+  .cover img { height: 120px; object-fit: contain; margin-bottom: 30px; border-radius: 16px; }
+  .cover h1 { font-size: 38px; font-weight: 800; letter-spacing: -1px; margin-bottom: 10px; }
+  .cover h2 { font-size: 20px; font-weight: 400; color: #a0c4ff; margin-bottom: 40px; }
+  .cover hr { border: none; border-top: 2px solid rgba(255,255,255,0.2); width: 120px; margin: 30px auto; }
+  .cover .meta { font-size: 14px; color: #cbd5e1; line-height: 2; }
+  .cover .badge {
+    display: inline-block; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 999px; padding: 6px 20px; font-size: 13px; margin-top: 20px; color: #e2e8f0;
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 860px; margin: 0 auto; padding: 40px 30px; }
+
+  /* ── TOC ── */
+  .toc { page-break-after: always; }
+  .toc h2 { font-size: 24px; font-weight: 700; color: #0f3460; border-bottom: 3px solid #0f3460; padding-bottom: 10px; margin-bottom: 24px; }
+  .toc ol { padding-left: 20px; }
+  .toc ol li { margin-bottom: 8px; font-size: 14px; }
+  .toc ol li a { color: #0f3460; text-decoration: none; }
+  .toc ol li a:hover { text-decoration: underline; }
+  .toc .sub { padding-left: 20px; margin-top: 4px; }
+  .toc .sub li { font-size: 13px; color: #475569; }
+
+  /* ── SECTIONS ── */
+  .section { margin-bottom: 50px; }
+  .section-header {
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg, #0f3460, #16213e);
+    color: #fff; padding: 16px 24px; border-radius: 12px; margin-bottom: 24px;
+  }
+  .section-header .icon { font-size: 28px; }
+  .section-header h2 { font-size: 20px; font-weight: 700; }
+  .section-header .num { font-size: 13px; color: #94a3b8; font-weight: 400; margin-top: 2px; }
+
+  /* Module card */
+  .module-card {
+    border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+    margin-bottom: 30px; page-break-inside: avoid;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .module-card-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 20px; color: #fff; font-weight: 700; font-size: 16px;
+  }
+  .module-card-header .module-icon { font-size: 22px; }
+  .module-card-header .sub-label { font-size: 12px; font-weight: 400; opacity: 0.8; margin-top: 2px; }
+  .module-card-body { padding: 20px 24px; }
+
+  /* Feature list */
+  .feature-list { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .feature-list li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; }
+  .feature-list li::before { content: '✔'; color: #10b981; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .feature-list.single { grid-template-columns: 1fr; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 12.5px; }
+  th { background: #f1f5f9; color: #334155; font-weight: 700; padding: 9px 12px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Info boxes */
+  .info-box { background: #f0f9ff; border-left: 4px solid #0ea5e9; border-radius: 8px; padding: 14px 18px; margin: 14px 0; font-size: 13px; }
+  .info-box strong { color: #0369a1; }
+  .warn-box { background: #fff7ed; border-left: 4px solid #f97316; border-radius: 8px; padding: 14px 18px; margin: 14px 0; font-size: 13px; }
+  .warn-box strong { color: #c2410c; }
+
+  /* Tags / badges */
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; margin: 2px; }
+  .tag-blue { background: #dbeafe; color: #1d4ed8; }
+  .tag-green { background: #d1fae5; color: #065f46; }
+  .tag-orange { background: #ffedd5; color: #9a3412; }
+  .tag-purple { background: #ede9fe; color: #5b21b6; }
+  .tag-teal { background: #ccfbf1; color: #134e4a; }
+  .tag-red { background: #fee2e2; color: #991b1b; }
+  .tag-gray { background: #f1f5f9; color: #475569; }
+
+  /* Separateur */
+  .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+
+  h3 { font-size: 15px; font-weight: 700; color: #1e293b; margin: 18px 0 10px; }
+  h4 { font-size: 13px; font-weight: 700; color: #334155; margin: 12px 0 6px; }
+  p { margin-bottom: 10px; color: #334155; }
+  ul { padding-left: 18px; margin-bottom: 10px; }
+  ul li { margin-bottom: 4px; font-size: 13px; color: #475569; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { font-size: 12px; }
+    .cover { min-height: 100vh; }
+    .no-print { display: none; }
+    .print-btn {
+      position: fixed; bottom: 30px; right: 30px; z-index: 9999;
+      background: linear-gradient(135deg, #0f3460, #16213e);
+      color: #fff; border: none; border-radius: 50px;
+      padding: 14px 26px; font-size: 15px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      display: flex; align-items: center; gap: 10px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .print-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+    .module-card { page-break-inside: avoid; }
+    .section { page-break-before: auto; }
+    a { color: inherit; text-decoration: none; }
+  }
+
+  /* Colors per module */
+  .bg-pos      { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+  .bg-prod     { background: linear-gradient(135deg, #ea580c, #c2410c); }
+  .bg-res      { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
+  .bg-stock    { background: linear-gradient(135deg, #0891b2, #0e7490); }
+  .bg-purchase { background: linear-gradient(135deg, #0d9488, #0f766e); }
+  .bg-hr       { background: linear-gradient(135deg, #db2777, #be185d); }
+  .bg-catering { background: linear-gradient(135deg, #0f766e, #115e59); }
+  .bg-event    { background: linear-gradient(135deg, #9333ea, #7e22ce); }
+  .bg-param    { background: linear-gradient(135deg, #475569, #334155); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════ COVER -->
+<div class="cover">
+  <img src="/royal_complex_groupe.png" alt="Royal Complex Groupe" onerror="this.style.display='none'">
+  <h1>Royal Complex Groupe</h1>
+  <h2>Système de Gestion Intégrée — Documentation Complète</h2>
+  <hr>
+  <div class="meta">
+    <div><strong>Date du rapport :</strong> Avril 2026</div>
+    <div><strong>Type :</strong> Documentation fonctionnelle & technique</div>
+    <div><strong>Technologie :</strong> Laravel 12 · PHP 8.2 · Tailwind CSS</div>
+  </div>
+  <div class="badge">Confidentiel — Usage interne</div>
+</div>
+
+<div class="container">
+
+<!-- ══════════════════════════════════════════════════════ TABLE DES MATIÈRES -->
+<div class="toc">
+  <h2>Table des matières</h2>
+  <ol>
+    <li><a href="#intro">Présentation générale de l'application</a></li>
+    <li><a href="#archi">Architecture technique</a></li>
+    <li><a href="#auth">Authentification &amp; Sécurité</a></li>
+    <li><a href="#roles">Rôles &amp; Permissions</a></li>
+    <li>
+      <a href="#modules">Modules de gestion</a>
+      <ol class="sub">
+        <li><a href="#pos">5.1 Point de Vente (POS)</a></li>
+        <li><a href="#prod">5.2 Production — Royal Grill</a></li>
+        <li><a href="#res">5.3 Résidence — Royal Palm</a></li>
+        <li><a href="#stock">5.4 Gestion des Stocks</a></li>
+        <li><a href="#purchase">5.5 Achats &amp; Fournisseurs</a></li>
+        <li><a href="#hr">5.6 Ressources Humaines</a></li>
+        <li><a href="#catering">5.7 Catering</a></li>
+        <li><a href="#event">5.8 Événementiel</a></li>
+        <li><a href="#param">5.9 Paramètres &amp; Administration</a></li>
+      </ol>
+    </li>
+    <li><a href="#print">Impressions &amp; Exports</a></li>
+    <li><a href="#db">Base de données — Vue d'ensemble</a></li>
+    <li><a href="#suggest">Recommandations &amp; axes d'amélioration</a></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ 1. PRÉSENTATION -->
+<div class="section" id="intro">
+  <div class="section-header">
+    <span class="icon">🏢</span>
+    <div>
+      <h2>1. Présentation générale</h2>
+      <div class="num">Vue d'ensemble du système</div>
+    </div>
+  </div>
+
+  <p>
+    <strong>Royal Complex Groupe</strong> est un système de gestion intégrée (ERP) développé sur mesure pour un groupe hôtelier et de restauration. Il regroupe sous une seule plateforme web l'ensemble des activités opérationnelles du groupe : restauration, hôtellerie, catering, événementiel, achats, stocks et ressources humaines.
+  </p>
+
+  <h3>Entités du groupe couvertes</h3>
+  <table>
+    <tr><th>Entité</th><th>Description</th><th>Module(s)</th></tr>
+    <tr><td><strong>Royal Complex Groupe</strong></td><td>Siège — coordination globale</td><td>Achats, Paramètres, RH</td></tr>
+    <tr><td><strong>Royal Grill</strong></td><td>Restaurant &amp; cuisine</td><td>Production, POS</td></tr>
+    <tr><td><strong>Royal Palm</strong></td><td>Résidence hôtelière</td><td>Résidence</td></tr>
+    <tr><td><strong>Catering</strong></td><td>Service de restauration contractuelle</td><td>Catering</td></tr>
+  </table>
+
+  <h3>Objectifs du système</h3>
+  <ul>
+    <li>Centraliser la gestion de toutes les activités du groupe</li>
+    <li>Contrôler les flux financiers (caisse, paiements, achats)</li>
+    <li>Suivre les stocks et les approvisionnements en temps réel</li>
+    <li>Gérer le personnel : présences, congés, paie, avances</li>
+    <li>Assurer la traçabilité complète de toutes les opérations</li>
+    <li>Produire des documents imprimables (bons, reçus, factures)</li>
+  </ul>
+
+  <div class="info-box">
+    <strong>Accès à l'application :</strong> L'application est accessible via navigateur web sur le réseau local. Chaque utilisateur se connecte avec ses identifiants personnels et n'accède qu'aux modules et fonctionnalités autorisés par son rôle.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ 2. ARCHITECTURE -->
+<div class="section" id="archi">
+  <div class="section-header">
+    <span class="icon">⚙️</span>
+    <div>
+      <h2>2. Architecture technique</h2>
+      <div class="num">Technologies utilisées</div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Composant</th><th>Technologie</th><th>Rôle</th></tr>
+    <tr><td>Langage backend</td><td>PHP 8.2</td><td>Logique métier &amp; API</td></tr>
+    <tr><td>Framework</td><td>Laravel 12</td><td>MVC, routing, ORM, sécurité</td></tr>
+    <tr><td>Base de données</td><td>MySQL</td><td>Stockage persistant des données</td></tr>
+    <tr><td>Interface (CSS)</td><td>Tailwind CSS (CDN)</td><td>Design responsive moderne</td></tr>
+    <tr><td>Icônes</td><td>Font Awesome 6</td><td>Pictogrammes d'interface</td></tr>
+    <tr><td>Graphiques</td><td>Chart.js 4</td><td>Visualisations statistiques</td></tr>
+    <tr><td>Permissions</td><td>Spatie Laravel Permission</td><td>RBAC — Rôles &amp; permissions</td></tr>
+    <tr><td>Pattern</td><td>MVC (Model-View-Controller)</td><td>Séparation des responsabilités</td></tr>
+  </table>
+
+  <h3>Structure de l'application</h3>
+  <ul>
+    <li><strong>app/Models/</strong> — 55+ modèles Eloquent (une classe par entité métier)</li>
+    <li><strong>app/Http/Controllers/</strong> — 15+ contrôleurs gérant la logique</li>
+    <li><strong>resources/views/</strong> — Vues Blade organisées par module</li>
+    <li><strong>routes/web.php</strong> — 120+ routes HTTP définies</li>
+    <li><strong>database/migrations/</strong> — 70+ migrations de base de données</li>
+    <li><strong>public/</strong> — Logos et images accessibles publiquement</li>
+  </ul>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ 3. AUTH -->
+<div class="section" id="auth">
+  <div class="section-header">
+    <span class="icon">🔐</span>
+    <div>
+      <h2>3. Authentification &amp; Sécurité</h2>
+      <div class="num">Contrôle d'accès</div>
+    </div>
+  </div>
+
+  <p>L'accès à l'application est entièrement sécurisé. Toutes les pages (sauf la page de connexion) exigent une authentification préalable.</p>
+
+  <h3>Processus de connexion</h3>
+  <ul>
+    <li>Page de connexion avec formulaire email + mot de passe</li>
+    <li>Protection CSRF sur tous les formulaires</li>
+    <li>Redirection automatique vers le tableau de bord après connexion</li>
+    <li>Session sécurisée — déconnexion en un clic</li>
+    <li>Les pages déjà authentifiées redirigent les visiteurs non connectés vers /login</li>
+  </ul>
+
+  <h3>Protection des routes</h3>
+  <ul>
+    <li>Toutes les routes métier sont protégées par le middleware <code>auth</code></li>
+    <li>Les routes de connexion/inscription sont protégées par le middleware <code>guest</code> (inaccessibles si déjà connecté)</li>
+    <li>Les permissions granulaires sont vérifiables via les directives <code>@can</code> dans les vues</li>
+  </ul>
+
+  <div class="info-box">
+    <strong>Sécurité :</strong> L'application suit les bonnes pratiques OWASP — protection CSRF, validation serveur sur tous les formulaires, hashage des mots de passe (bcrypt), et requêtes paramétrées via l'ORM Eloquent (protection injection SQL).
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ 4. RÔLES -->
+<div class="section" id="roles">
+  <div class="section-header">
+    <span class="icon">👥</span>
+    <div>
+      <h2>4. Rôles &amp; Permissions</h2>
+      <div class="num">Gestion des accès utilisateurs</div>
+    </div>
+  </div>
+
+  <p>
+    Le système de permissions est basé sur la bibliothèque <strong>Spatie Laravel Permission</strong>, qui implémente le modèle <strong>RBAC</strong> (Role-Based Access Control). Chaque utilisateur se voit attribuer un ou plusieurs rôles, et chaque rôle regroupe un ensemble de permissions.
+  </p>
+
+  <h3>Concept</h3>
+  <table>
+    <tr><th>Entité</th><th>Description</th></tr>
+    <tr><td><strong>Utilisateur</strong></td><td>Personne ayant accès à l'application (email + mot de passe)</td></tr>
+    <tr><td><strong>Rôle</strong></td><td>Profil de groupe (ex : Caissier, Manager, RH, Admin)</td></tr>
+    <tr><td><strong>Permission</strong></td><td>Action précise autorisée (ex : residence.bookings.create)</td></tr>
+  </table>
+
+  <h3>Fonctionnalités de la gestion des rôles</h3>
+  <ul class="feature-list">
+    <li>Créer, modifier, supprimer des rôles</li>
+    <li>Attribuer des permissions à un rôle</li>
+    <li>Assigner un rôle à un utilisateur</li>
+    <li>Attribuer des permissions directes à un utilisateur</li>
+    <li>Voir la liste de tous les rôles</li>
+    <li>Voir la liste de toutes les permissions</li>
+  </ul>
+
+  <h3>Gestion des utilisateurs</h3>
+  <ul>
+    <li>Créer un utilisateur (nom, email, mot de passe, rôle initial)</li>
+    <li>Modifier les informations d'un utilisateur</li>
+    <li>Supprimer un utilisateur</li>
+    <li>Voir et modifier les permissions spécifiques d'un utilisateur</li>
+  </ul>
+
+  <div class="info-box">
+    <strong>Exemple de permissions :</strong> <code>residence.bookings.create</code>, <code>pos.orders.view</code>, <code>hr.payroll.manage</code> — chaque fonctionnalité sensible peut être restreinte à certains profils seulement.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ 5. MODULES -->
+<div class="section" id="modules">
+  <div class="section-header">
+    <span class="icon">📦</span>
+    <div>
+      <h2>5. Modules de gestion</h2>
+      <div class="num">Détail complet de chaque module</div>
+    </div>
+  </div>
+
+  <!-- ── 5.1 POS -->
+  <div class="module-card" id="pos">
+    <div class="module-card-header bg-pos">
+      <span class="module-icon">🖥️</span>
+      <div>
+        <div>5.1 — Point de Vente (POS)</div>
+        <div class="sub-label">Caisse enregistreuse &amp; gestion des commandes restaurant</div>
+      </div>
+    </div>
+    <div class="module-card-body">
+      <p>Le module POS est le cœur opérationnel du restaurant. Il permet la prise de commande, l'encaissement et le suivi comptable des caisses en temps réel.</p>
+
+      <h3>Interface de commande (Terminal caissier)</h3>
+      <ul>
+        <li>Affichage de la carte des repas disponibles avec prix</li>
+        <li>Ajout de repas au panier avec sélection des accompagnements</li>
+        <li>Création de commandes avec module associé (Royal Grill, Royal Palm…)</li>
+        <li>Impression du <strong>ticket cuisine</strong> pour la préparation</li>
+        <li>Sélection du mode de paiement (espèces, carte, virement…)</li>
+        <li>Impression du <strong>reçu client</strong> avec logo du module</li>
+      </ul>
+
+      <h3>Gestion des commandes</h3>
+      <ul class="feature-list">
+        <li>Liste de toutes les commandes</li>
+        <li>Détail d'une commande</li>
+        <li>Marquer une commande comme payée</li>
+        <li>Annuler une commande</li>
+        <li>Commandes en attente de paiement</li>
+        <li>Ticket cuisine imprimable</li>
+      </ul>
+
+      <h3>Gestion des caisses (Comptabilité)</h3>
+      <p>Chaque caisse correspond à une session de travail entière avec ouverture et fermeture.</p>
+      <table>
+        <tr><th>Action</th><th>Description</th></tr>
+        <tr><td>Ouvrir une caisse</td><td>Saisie du fond de caisse initial</td></tr>
+        <tr><td>Clôturer une caisse</td><td>Saisie de la balance de fermeture par type de paiement</td></tr>
+        <tr><td>Valider une caisse</td><td>Validation officielle par un superviseur</td></tr>
+        <tr><td>Réouvrir une caisse</td><td>Correction en cas d'erreur</td></tr>
+        <tr><td>Modifier la clôture</td><td>Ajustement du montant de fermeture</td></tr>
+      </table>
+
+      <h3>Rapport de rentabilité</h3>
+      <ul>
+        <li>Calcul du chiffre d'affaires par période</li>
+        <li>Calcul du coût de revient des plats vendus</li>
+        <li>Marge brute et taux de rentabilité</li>
+      </ul>
+
+      <h3>Traces comptables &amp; Exports</h3>
+      <ul class="feature-list">
+        <li>Journal de toutes les transactions</li>
+        <li>Filtrage par date, module, caisse</li>
+        <li>Export CSV — traces complètes</li>
+        <li>Export CSV — sessions de caisse</li>
+        <li>Export PDF — sessions de caisse</li>
+        <li>Export PDF — traces comptables</li>
+      </ul>
+
+      <div class="info-box">
+        <strong>Multi-module :</strong> Une caisse peut être affectée à un module spécifique (Royal Grill, Royal Palm, Catering). Le reçu imprimé affiche automatiquement le logo et le nom du module correspondant.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 5.2 PRODUCTION -->
+  <div class="module-card" id="prod">
+    <div class="module-card-header bg-prod">
+      <span class="module-icon">🍳</span>
+      <div>
+        <div>5.2 — Production — Royal Grill</div>
+        <div class="sub-label">Gestion de la cuisine, des repas et des recettes</div>
+      </div>
+    </div>
+    <div class="module-card-body">
+      <p>Le module Production gère l'ensemble de l'offre culinaire du restaurant Royal Grill : création des plats avec photos, organisation par catégories, accompagnements et recettes.</p>
+
+      <h3>Tableau de bord</h3>
+      <ul>
+        <li>Statistiques en temps réel : nombre de repas, catégories, commandes du jour</li>
+        <li>Chiffre d'affaires du jour</li>
+        <li>Graphiques de visualisation</li>
+        <li>Accès rapide à toutes les sous-sections</li>
+      </ul>
+
+      <h3>Gestion des repas (Meals)</h3>
+      <ul class="feature-list">
+        <li>Créer un repas avec photo</li>
+        <li>Définir le prix de vente</li>
+        <li>Catégoriser le repas</li>
+        <li>Associer des accompagnements (multi-sélection)</li>
+        <li>Modifier un repas</li>
+        <li>Supprimer un repas</li>
+        <li>Voir la fiche détaillée</li>
+        <li>Pagination et recherche</li>
+      </ul>
+
+      <h3>Gestion des catégories</h3>
+      <ul>
+        <li>Créer, modifier, supprimer des catégories de repas (entrée, plat, dessert…)</li>
+        <li>Voir le nombre de repas par catégorie</li>
+      </ul>
+
+      <h3>Gestion des accompagnements</h3>
+      <ul>
+        <li>Créer, modifier, supprimer des accompagnements (riz, frites, salade…)</li>
+        <li>Association multiple aux repas</li>
+        <li>Sélectionnés par le caissier lors de la prise de commande</li>
+      </ul>
+
+      <h3>Produits &amp; Conditionnements (Stock production)</h3>
+      <ul class="feature-list">
+        <li>Gestion des produits de base</li>
+        <li>Unités de mesure (kg, litre, pièce…)</li>
+        <li>Conditionnements (boîte, sac, carton…)</li>
+        <li>Lien entre produit et packaging</li>
+        <li>Matière en vrac ou à l'unité</li>
+        <li>CRUD complet</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── 5.3 RÉSIDENCE -->
+  <div class="module-card" id="res">
+    <div class="module-card-header bg-res">
+      <span class="module-icon">🏨</span>
+      <div>
+        <div>5.3 — Résidence — Royal Palm</div>
+        <div class="sub-label">Gestion hôtelière : chambres, réservations, caisse</div>
+      </div>
+    </div>
+    <div class="module-card-body">
+      <p>Le module Résidence gère l'hôtellerie Royal Palm : configuration des chambres, réservations clients, check-in/check-out, extras, paiements et caisse.</p>
+
+      <h3>Tableau de bord</h3>
+      <ul>
+        <li>Vue en temps réel : nombre de chambres total, disponibles, occupées, en maintenance</li>
+        <li>Check-ins et check-outs du jour</li>
+        <li>Taux d'occupation et chiffre d'affaires du mois</li>
+      </ul>
+
+      <h3>Types de chambres</h3>
+      <ul>
+        <li>Créer des catégories : chambre simple, double, suite, appartement…</li>
+        <li>Définir le prix par nuit pour chaque type</li>
+        <li>Modifier et supprimer les types</li>
+      </ul>
+
+      <h3>Chambres</h3>
+      <ul>
+        <li>Créer une chambre (numéro, étage, type, statut initial)</li>
+        <li>Statuts : Disponible / Occupée / Maintenance</li>
+        <li>Voir toutes les chambres avec leur statut en couleur</li>
+        <li>Modifier et supprimer</li>
+      </ul>
+
+      <h3>Calendrier des réservations</h3>
+      <ul>
+        <li>Vue calendrier mensuelle des réservations</li>
+        <li>Visualisation des disponibilités par chambre</li>
+      </ul>
+
+      <h3>Réservations</h3>
+      <table>
+        <tr><th>Fonctionnalité</th><th>Détail</th></tr>
+        <tr><td>Nouvelle réservation</td><td>Client, chambre, dates, nombre de personnes, notes</td></tr>
+        <tr><td>Fiche réservation</td><td>Détail complet : client, chambre, dates, extras, paiements</td></tr>
+        <tr><td>Check-in</td><td>Enregistrement de l'arrivée du client</td></tr>
+        <tr><td>Check-out</td><td>Départ du client — libération de la chambre</td></tr>
+        <tr><td>Extras</td><td>Ajout de services supplémentaires (mini-bar, restauration…)</td></tr>
+        <tr><td>Paiement</td><td>Encaissement partiel ou total avec type de paiement</td></tr>
+        <tr><td>Annulation</td><td>Annuler une réservation</td></tr>
+      </table>
+
+      <h3>Caisse Résidence</h3>
+      <ul>
+        <li>Ouverture de caisse avec fond initial</li>
+        <li>Suivi des encaissements de la session</li>
+        <li>Fermeture et clôture de caisse</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── 5.4 STOCK -->
+  <div class="module-card" id="stock">
+    <div class="module-card-header bg-stock">
+      <span class="module-icon">🏭</span>
+      <div>
+        <div>5.4 — Gestion des Stocks</div>
+        <div class="sub-label">Inventaire, mouvements et transferts</div>
+      </div>
+    </div>
+    <div class="module-card-body">
+      <p>Le module Stock permet de gérer plusieurs entrepôts/dépôts distincts, de suivre les entrées/sorties de produits et les transferts entre stocks.</p>
+
+      <h3>Vue globale des stocks</h3>
+      <ul>
+        <li>Liste de tous les dépôts/stocks avec leur module assigné</li>
+        <li>Valeur totale par stock</li>
+        <li>Accès rapide à chaque stock</li>
+        <li><strong>Export CSV</strong> de l'inventaire global</li>
+      </ul>
+
+      <h3>Détail d'un stock</h3>
+      <ul class="feature-list">
+        <li>Inventaire complet des produits</li>
+        <li>Quantité disponible par produit</li>
+        <li>Valeur unitaire et totale</li>
+        <li>Seuil d'alerte de rupture</li>
+        <li>Ajouter un produit au stock</li>
+        <li>Export CSV de l'inventaire du stock</li>
+      </ul>
+
+      <h3>Mouvements de stock</h3>
+      <ul>
+        <li>Historique de tous les mouvements (entrées, sorties, transferts)</li>
+        <li>Filtrage par date, type, produit, stock</li>
+        <li>Mouvements liés aux commandes d'achat (entrée automatique)</li>
+        <li>Mouvements liés aux ventes et événements (sortie automatique)</li>
+        <li><strong>Export CSV</strong> des mouvements avec filtres appliqués</li>
+      </ul>
+
+      <h3>Transferts entre stocks</h3>
+      <ul>
+        <li>Transférer des produits d'un dépôt à un autre</li>
+        <li>Sélection du produit, quantité, stock source et destination</li>
+        <li>Traçabilité complète du transfert</li>
+      </ul>
+
+      <h3>Affectation de modules</h3>
+      <ul>
+        <li>Rattacher un stock à un module (Production, Résidence, Catering…)</li>
+        <li>Gestion des stocks dédiés par entité du groupe</li>
+      </ul>
+
+      <div class="warn-box">
+        <strong>Alerte de rupture :</strong> Le module Achats signale automatiquement les produits en rupture ou en dessous du seuil critique, permettant de déclencher une nouvelle commande fournisseur à temps.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 5.5 ACHATS -->
+  <div class="module-card" id="purchase">
+    <div class="module-card-header bg-purchase">
+      <span class="module-icon">🛒</span>
+      <div>
+        <div>5.5 — Achats &amp; Fournisseurs</div>
+        <div class="sub-label">Commandes, réceptions, paiements fournisseurs</div>
+      </div>
+    </div>
+    <div class="module-card-body">
+      <p>Le module Achats gère l'ensemble du cycle d'approvisionnement : de la sélection du fournisseur jusqu'au paiement, en passant par la réception des marchandises.</p>
+
+      <h3>Tableau de bord Achats</h3>
+      <ul>
+        <li>Total des commandes, montants engagés, montants payés, soldes restants</li>
+        <li>Commandes récentes et en attente</li>
+        <li>Alertes de rupture de stock</li>
+      </ul>
+
+      <h3>Gestion des fournisseurs</h3>
+      <ul class="feature-list">
+        <li>Ajouter un fournisseur (nom, contact, téléphone, adresse)</li>
+        <li>Modifier les informations</li>
+        <li>Supprimer un fournisseur</li>
+        <li>Liste avec recherche</li>
+      </ul>
+
+      <h3>Commandes d'achat (Bons de commande)</h3>
+      <table>
+        <tr><th>Étape</th><th>Description</th></tr>
+        <tr><td>Création</td><td>Sélection fournisseur + ajout de lignes produits avec quantité et prix unitaire</td></tr>
+        <tr><td>Confirmation</td><td>Validation de la commande pour envoi au fournisseur</td></tr>
+        <tr><td>Réception</td><td>Enregistrement de la livraison (partielle ou totale) → entrée automatique en stock</td></tr>
+        <tr><td>Paiement</td><td>Enregistrement des paiements effectués au fournisseur</td></tr>
+        <tr><td>Annulation</td><td>Annuler une commande non encore reçue</td></tr>
+      </table>
+
+      <h3>Ruptures de stock</h3>
+      <ul>
+        <li>Liste des produits en dessous du seuil d'alerte</li>
+        <li>Actions rapides pour déclencher une commande</li>
+      </ul>
+
+      <h3>Documents imprimables (A4)</h3>
+      <ul class="feature-list">
+        <li>Bon de commande</li>
+        <li>Facture fournisseur</li>
+        <li>Bon de livraison</li>
+        <li>Reçu de paiement</li>
+      </ul>
+
+      <div class="info-box">
+        <strong>Intégration Stock :</strong> Chaque réception de marchandise génère automatiquement un mouvement d'entrée dans le stock correspondant. Le stock est mis à jour en temps réel.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 5.6 RH -->
+  <div class="module-card" id="hr">
+    <div class="module-card-header bg-hr">
+      <span class="module-icon">👔</span>
+      <div>
+        <div>5.6 — Ressources Humaines</div>
+        <div class="sub-label">Personnel, présences, congés, paie, avances</div>
+      </div>
+    </div>
+    <div class="module-card-body">
+      <p>Le module RH centralise la gestion du personnel de l'ensemble du groupe : de l'embauche à la paie mensuelle.</p>
+
+      <h3>Tableau de bord RH</h3>
+      <ul>
+        <li>Nombre total d'employés actifs</li>
+        <li>Présences du jour</li>
+        <li>Congés en cours et demandes en attente</li>
+        <li>Masse salariale du mois</li>
+      </ul>
+
+      <h3>Gestion des employés</h3>
+      <ul class="feature-list">
+        <li>Ajouter un employé (nom, prénom, poste, salaire de base, date d'embauche)</li>
+        <li>Poste (Job Title) paramétrable</li>
+        <li>Modifier les informations</li>
+        <li>Supprimer un employé</li>
+        <li>Liste complète avec recherche</li>
+        <li>Fiche employé détaillée</li>
+      </ul>
+
+      <h3>Pointage &amp; Présences</h3>
+      <ul>
+        <li>Enregistrer la présence journalière des employés</li>
+        <li>Statuts : Présent, Absent, En congé, Jour férié</li>
+        <li>Historique des présences par employé et par mois</li>
+      </ul>
+
+      <h3>Gestion des congés</h3>
+      <ul>
+        <li>Soumettre une demande de congé (type, dates, motif)</li>
+        <li>Approuver ou rejeter une demande</li>
+        <li>Historique de tous les congés</li>
+      </ul>
+
+      <h3>Paie (Fiche de paie)</h3>
+      <ul>
+        <li>Génération automatique des fiches de paie mensuelles</li>
+        <li>Calcul basé sur le salaire de base + ajustements (primes, déductions)</li>
+        <li>Déduction automatique des absences non justifiées</li>
+        <li>Marquer une paie comme "Payée"</li>
+        <li>Intégration comptable (lien avec les transactions)</li>
+      </ul>
+
+      <h3>Avances sur salaire</h3>
+      <ul>
+        <li>Enregistrer une demande d'avance</li>
+        <li>Approuver ou rejeter l'avance</li>
+        <li>Suivi des remboursements</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── 5.7 CATERING -->
+  <div class="module-card" id="catering">
+    <div class="module-card-header bg-catering">
+      <span class="module-icon">🍱</span>
+      <div>
+        <div>5.7 — Catering</div>
+        <div class="sub-label">Restauration contractuelle par abonnement</div>
+      </div>
+    </div>
+    <div class="module-card-body">
+      <p>Le module Catering gère les contrats de restauration collective (entreprises, institutions). Les clients souscrivent à des menus hebdomadaires et consomment via un système de codes QR.</p>
+
+      <h3>Tableau de bord</h3>
+      <ul>
+        <li>Nombre de contrats totaux / actifs</li>
+        <li>Codes générés / utilisés</li>
+        <li>Validations du jour</li>
+        <li>Chiffre d'affaires du mois</li>
+        <li>Graphique des consommations par semaine</li>
+      </ul>
+
+      <h3>Gestion des clients</h3>
+      <ul class="feature-list">
+        <li>Ajouter un client (particulier ou entreprise)</li>
+        <li>Informations complètes (nom, contact, adresse, type)</li>
+        <li>Modifier et supprimer</li>
+        <li>Liste avec recherche</li>
+      </ul>
+
+      <h3>Contrats Catering</h3>
+      <ul>
+        <li>Créer un contrat pour un client (dates de début/fin, nombre de repas, tarif)</li>
+        <li>Définir les prix par type de repas dans le contrat</li>
+        <li>Voir le détail complet d'un contrat</li>
+        <li>Modifier et supprimer un contrat</li>
+      </ul>
+
+      <h3>Menus hebdomadaires</h3>
+      <ul>
+        <li>Créer un planning de menu sur une semaine pour un contrat</li>
+        <li>Associer des repas à chaque jour et chaque repas de la journée</li>
+        <li>Visualiser le menu complet de la semaine</li>
+        <li>Suppression d'un menu</li>
+      </ul>
+
+      <h3>Système de validation par code</h3>
+      <table>
+        <tr><th>Étape</th><th>Description</th></tr>
+        <tr><td>Génération de codes</td><td>Pour chaque repas du menu, des codes uniques sont générés</td></tr>
+        <tr><td>Impression des codes</td><td>Impression des codes par repas (format liste)</td></tr>
+        <tr><td>Validation</td><td>Le caissier saisit ou scanne le code pour valider la consommation</td></tr>
+        <tr><td>Confirmation</td><td>Le système vérifie et confirme la validité du code</td></tr>
+        <tr><td>Historique</td><td>Journal de toutes les consommations validées</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 5.8 EVENT -->
+  <div class="module-card" id="event">
+    <div class="module-card-header bg-event">
+      <span class="module-icon">🎉</span>
+      <div>
+        <div>5.8 — Événementiel</div>
+        <div class="sub-label">Gestion des événements et prestations</div>
+      </div>
+    </div>
+    <div class="module-card-body">
+      <p>Le module Événementiel permet d'organiser et suivre des événements (mariages, séminaires, réceptions) avec gestion des services, menus et options.</p>
+
+      <h3>Tableau de bord Événementiel</h3>
+      <ul>
+        <li>Événements en cours / à venir / terminés</li>
+        <li>Chiffre d'affaires par période</li>
+      </ul>
+
+      <h3>Clients (partagés avec Catering)</h3>
+      <ul>
+        <li>Base de données clients commune avec le module Catering</li>
+        <li>Particuliers et entreprises</li>
+      </ul>
+
+      <h3>Catalogue de services</h3>
+      <ul>
+        <li>Créer des services proposés (décoration, sono, traiteur, salle…)</li>
+        <li>Prix unitaire par service</li>
+        <li>Modifier et supprimer</li>
+      </ul>
+
+      <h3>Gestion des événements</h3>
+      <table>
+        <tr><th>Fonctionnalité</th><th>Détail</th></tr>
+        <tr><td>Créer un événement</td><td>Nom, client, date, lieu, description, statut</td></tr>
+        <tr><td>Services fournis</td><td>Ajout de services du catalogue avec quantité et prix</td></tr>
+        <tr><td>Menus de l'événement</td><td>Sélection des repas à préparer avec quantités</td></tr>
+        <tr><td>Options spéciales</td><td>Prestations supplémentaires personnalisées</td></tr>
+        <tr><td>Aperçu stock</td><td>Vérification des besoins en stock avant l'événement</td></tr>
+        <tr><td>Validation</td><td>Confirmer l'exécution de l'événement + sortie stock automatique</td></tr>
+        <tr><td>Complétion</td><td>Clôturer un événement terminé</td></tr>
+        <tr><td>Annulation</td><td>Annuler un événement</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 5.9 PARAMÈTRES -->
+  <div class="module-card" id="param">
+    <div class="module-card-header bg-param">
+      <span class="module-icon">⚙️</span>
+      <div>
+        <div>5.9 — Paramètres &amp; Administration</div>
+        <div class="sub-label">Configuration générale de l'application</div>
+      </div>
+    </div>
+    <div class="module-card-body">
+      <p>Le module Paramètres regroupe les outils de configuration globale de l'application, accessibles aux administrateurs.</p>
+
+      <h3>Types de paiement</h3>
+      <ul>
+        <li>Créer les modes de paiement acceptés (Espèces, Carte bancaire, Virement, Chèque…)</li>
+        <li>Ces types sont utilisés dans tous les modules (POS, Résidence, Achats…)</li>
+        <li>Modifier et supprimer</li>
+      </ul>
+
+      <h3>Gestion des utilisateurs</h3>
+      <ul>
+        <li>Créer un nouvel utilisateur (accès à l'application)</li>
+        <li>Modifier nom, email, mot de passe</li>
+        <li>Attribuer des permissions spécifiques</li>
+        <li>Supprimer un utilisateur</li>
+      </ul>
+
+      <h3>Rôles</h3>
+      <ul>
+        <li>Créer des rôles personnalisés</li>
+        <li>Attribuer des permissions aux rôles</li>
+        <li>Assigner les rôles aux utilisateurs</li>
+      </ul>
+
+      <h3>Permissions</h3>
+      <ul>
+        <li>Liste de toutes les permissions disponibles dans le système</li>
+        <li>Créer de nouvelles permissions</li>
+        <li>Modifier et supprimer</li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /modules -->
+
+<!-- ══════════════════════════════════════════════════════ 6. IMPRESSIONS -->
+<div class="section" id="print">
+  <div class="section-header">
+    <span class="icon">🖨️</span>
+    <div>
+      <h2>6. Impressions &amp; Exports</h2>
+      <div class="num">Documents générés par l'application</div>
+    </div>
+  </div>
+
+  <p>L'application génère plusieurs types de documents imprimables directement depuis le navigateur (format A4), ainsi que des fichiers CSV pour l'analyse de données.</p>
+
+  <h3>Documents imprimables</h3>
+  <table>
+    <tr><th>Document</th><th>Module</th><th>Contenu</th></tr>
+    <tr><td>Reçu de caisse (POS)</td><td>POS</td><td>Détail commande, montant, mode de paiement, logo module</td></tr>
+    <tr><td>Ticket cuisine</td><td>POS</td><td>Liste des plats + accompagnements pour la cuisine</td></tr>
+    <tr><td>Bon de commande fournisseur</td><td>Achats</td><td>En-tête société, fournisseur, liste des articles, total, signatures</td></tr>
+    <tr><td>Facture fournisseur</td><td>Achats</td><td>Articles, livraisons reçues, paiements effectués, solde restant</td></tr>
+    <tr><td>Bon de livraison</td><td>Achats</td><td>Détail de chaque livraison reçue du fournisseur</td></tr>
+    <tr><td>Reçu de paiement fournisseur</td><td>Achats</td><td>Montant payé, mode, récapitulatif de tous les paiements</td></tr>
+    <tr><td>Codes repas Catering</td><td>Catering</td><td>Liste des codes de validation par repas</td></tr>
+  </table>
+
+  <h3>Exports CSV (données)</h3>
+  <table>
+    <tr><th>Export</th><th>Module</th><th>Contenu</th></tr>
+    <tr><td>Inventaire global</td><td>Stock</td><td>Tous les stocks avec tous leurs produits et quantités</td></tr>
+    <tr><td>Inventaire d'un stock</td><td>Stock</td><td>Produits d'un dépôt spécifique avec valeurs</td></tr>
+    <tr><td>Mouvements de stock</td><td>Stock</td><td>Journal des entrées/sorties avec filtres</td></tr>
+    <tr><td>Traces comptables complètes</td><td>POS</td><td>Toutes les transactions avec détails</td></tr>
+    <tr><td>Sessions de caisse</td><td>POS</td><td>Récapitulatif de chaque session de caisse</td></tr>
+  </table>
+
+  <div class="info-box">
+    <strong>Branding :</strong> Tous les documents imprimables affichent le logo de l'entité concernée (Royal Complex Groupe, Royal Grill, Royal Palm ou Catering) selon le contexte. Les logos sont configurables via le fichier de configuration de l'application.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ 7. BASE DE DONNÉES -->
+<div class="section" id="db">
+  <div class="section-header">
+    <span class="icon">🗄️</span>
+    <div>
+      <h2>7. Base de données — Vue d'ensemble</h2>
+      <div class="num">Structure des données</div>
+    </div>
+  </div>
+
+  <p>La base de données contient <strong>55+ tables</strong> organisées par domaine métier.</p>
+
+  <table>
+    <tr><th>Domaine</th><th>Tables principales</th></tr>
+    <tr>
+      <td><span class="tag tag-blue">POS / Commandes</span></td>
+      <td>orders, order_items, order_item_accompaniments, payments, cash_registers, payment_types</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">Production</span></td>
+      <td>meals, categories, accompaniments, meal_accompaniments, recipes, recipe_items</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-purple">Résidence</span></td>
+      <td>room_types, rooms, bookings, booking_details, room_payments</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-teal">Stock</span></td>
+      <td>stocks, stock_items, stock_movements, wastes</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">Produits</span></td>
+      <td>products, units, packagings, product_packagings</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-red">Achats</span></td>
+      <td>suppliers, purchase_orders, purchase_order_items, goods_receipts, goods_receipt_items, supplier_payments</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-red">RH</span></td>
+      <td>employees, job_titles, payrolls, salary_adjustments, advances, leaves, attendances</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-teal">Catering</span></td>
+      <td>catering_contracts, catering_contract_prices, catering_weekly_menus, catering_menu_days, catering_menu_meals, catering_meal_codes, catering_consumptions</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-purple">Événementiel</span></td>
+      <td>events, event_service_items, event_meals, event_meal_items, event_options, event_stock_usages, services</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-gray">Commun</span></td>
+      <td>users, clients, transactions, transaction_details</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-gray">Sécurité</span></td>
+      <td>roles, permissions, model_has_roles, model_has_permissions, role_has_permissions</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ 8. RECOMMANDATIONS -->
+<div class="section" id="suggest">
+  <div class="section-header">
+    <span class="icon">💡</span>
+    <div>
+      <h2>8. Recommandations &amp; axes d'amélioration</h2>
+      <div class="num">Suggestions pour les prochaines évolutions</div>
+    </div>
+  </div>
+
+  <h3>Fonctionnalités à envisager</h3>
+  <table>
+    <tr><th>Suggestion</th><th>Priorité</th><th>Module concerné</th></tr>
+    <tr><td>Tableau de bord global consolidé (toutes entités)</td><td><span class="tag tag-orange">Haute</span></td><td>Tous</td></tr>
+    <tr><td>Notifications en temps réel (ruptures de stock, nouvelles commandes)</td><td><span class="tag tag-orange">Haute</span></td><td>Stock, Achats</td></tr>
+    <tr><td>Application mobile (version simplifiée pour les caissiers)</td><td><span class="tag tag-blue">Moyenne</span></td><td>POS</td></tr>
+    <tr><td>Génération de rapports PDF automatiques mensuel</td><td><span class="tag tag-blue">Moyenne</span></td><td>RH, Comptabilité</td></tr>
+    <tr><td>Sauvegarde automatique de la base de données</td><td><span class="tag tag-orange">Haute</span></td><td>Infrastructure</td></tr>
+    <tr><td>Historique des modifications (journal d'audit)</td><td><span class="tag tag-blue">Moyenne</span></td><td>Tous</td></tr>
+    <tr><td>Gestion des promotions et remises (POS)</td><td><span class="tag tag-gray">Basse</span></td><td>POS</td></tr>
+    <tr><td>Envoi automatique de reçus par email/SMS</td><td><span class="tag tag-gray">Basse</span></td><td>POS, Résidence</td></tr>
+  </table>
+
+  <div class="info-box">
+    <strong>Pour toute demande de modification :</strong> Ce document peut servir de base de référence. Indiquez le numéro de section, le module concerné, et la modification souhaitée. L'équipe de développement pourra planifier les évolutions en conséquence.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ FOOTER -->
+<hr class="divider">
+<div style="text-align:center; color:#94a3b8; font-size:12px; padding:30px 0;">
+  <strong>Royal Complex Groupe</strong> — Système de Gestion Intégrée<br>
+  Document généré le 10 Avril 2026 — Usage confidentiel interne<br>
+  <em>Pour toute question technique, contacter l'équipe de développement.</em>
+</div>
+
+</div><!-- /container -->
+
+<button class="print-btn no-print" onclick="window.print()">
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+  Télécharger en PDF
+</button>
+
+<script>
+if (window.location.search.includes('print')) {
+  window.onload = () => window.print();
+}
+</script>
+</body>
+</html>

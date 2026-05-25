@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Moderne - Gestion Complète</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .sidebar-hidden {
+            transform: translateX(-100%);
+        }
+        .sidebar-visible {
+            transform: translateX(0);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: float 20s infinite linear;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .module-icon {
+            font-size: 3rem;
+            opacity: 0.8;
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 64;
+                height: 100vh;
+                z-index: 40;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="flex items-center justify-between px-4 py-4 md:px-6">
+            <div class="flex items-center gap-4">
+                <button id="menu-toggle" class="md:hidden text-gray-600 hover:text-gray-900">
+                    <i class="fas fa-bars text-2xl"></i>
+                </button>
+                <div class="flex items-center gap-2">
+                    <div class="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-rocket text-white"></i>
+                    </div>
+                    <h1 class="hidden sm:block text-2xl font-bold gradient-text">ProManage</h1>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex items-center bg-gray-100 rounded-lg px-4 py-2">
+                    <i class="fas fa-search text-gray-400 mr-2"></i>
+                    <input type="text" placeholder="Rechercher..." class="bg-transparent outline-none text-sm w-48">
+                </div>
+                
+                <div class="relative">
+                    <button class="relative p-2 text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-bell text-xl"></i>
+                        <span class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full pulse-dot"></span>
+                    </button>
+                </div>
+                
+                <div class="flex items-center gap-3 pl-4 border-l border-gray-200">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-sm font-semibold text-gray-900">Utilisateur</p>
+                        <p class="text-xs text-gray-500">Administrateur</p>
+                    </div>
+                    <div class="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center cursor-pointer hover:shadow-lg transition">
+                        <i class="fas fa-user text-white"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar-visible md:sidebar-visible fixed md:static left-0 top-16 md:top-0 w-64 bg-gradient-to-b from-slate-900 to-slate-800 text-white h-screen overflow-y-auto transition-transform duration-300 z-30">
+            <nav class="p-6">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 transition">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-700 transition">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span>Ventes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-700 transition">
+                            <i class="fas fa-box"></i>
+                            <span>Stock</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-700 transition">
+                            <i class="fas fa-users"></i>
+                            <span>Ressources Humaines</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-700 transition">
+                            <i class="fas fa-cog"></i>
+                            <span>Paramètres</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="mt-8 pt-6 border-t border-slate-700">
+                    <p class="text-xs text-slate-400 mb-4 px-4 font-semibold">RACCOURCIS</p>
+                    <ul class="space-y-2">
+                        <li>
+                            <a href="#" class="flex items-center gap-3 px-4 py-2 text-sm rounded hover:bg-slate-700 transition">
+                                <i class="fas fa-history"></i>
+                                <span>Historique</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center gap-3 px-4 py-2 text-sm rounded hover:bg-slate-700 transition">
+                                <i class="fas fa-download"></i>
+                                <span>Rapports</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <div class="p-4 md:p-8">
+                <!-- Welcome Section -->
+                <div class="mb-8">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <h2 class="text-3xl md:text-4xl font-bold text-gray-900">Bienvenue! 👋</h2>
+                            <p class="text-gray-600 mt-1">Aperçu complet de votre système de gestion d'entreprise</p>
+                        </div>
+                        <button class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition font-semibold flex items-center gap-2 w-fit">
+                            <i class="fas fa-download"></i>
+                            Exporter le rapport
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Stat Card 1 -->
+                    <div class="stat-card rounded-lg p-6 text-white relative">
+                        <div class="relative z-10">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-gray-100 font-semibold">Ventes du jour</h3>
+                                <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-shopping-bag"></i>
+                                </div>
+                            </div>
+                            <p class="text-4xl font-bold mb-2">45.2K</p>
+                            <p class="text-green-100 text-sm">
+                                <i class="fas fa-arrow-up"></i> 12% par rapport à hier
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Stat Card 2 -->
+                    <div class="bg-gradient-to-br from-emerald-400 to-green-600 rounded-lg p-6 text-white relative overflow-hidden">
+                        <div class="relative z-10">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-gray-100 font-semibold">Commandes actives</h3>
+                                <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </div>
+                            </div>
+                            <p class="text-4xl font-bold mb-2">128</p>
+                            <p class="text-green-100 text-sm">
+                                <i class="fas fa-arrow-up"></i> 8 depuis ce matin
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Stat Card 3 -->
+                    <div class="bg-gradient-to-br from-blue-400 to-cyan-600 rounded-lg p-6 text-white relative overflow-hidden">
+                        <div class="relative z-10">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-gray-100 font-semibold">Articles en stock</h3>
+                                <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-boxes"></i>
+                                </div>
+                            </div>
+                            <p class="text-4xl font-bold mb-2">3,482</p>
+                            <p class="text-blue-100 text-sm">
+                                <i class="fas fa-arrow-down"></i> 2% réduction
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Stat Card 4 -->
+                    <div class="bg-gradient-to-br from-orange-400 to-red-600 rounded-lg p-6 text-white relative overflow-hidden">
+                        <div class="relative z-10">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-gray-100 font-semibold">Revenus mensuels</h3>
+                                <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-chart-bar"></i>
+                                </div>
+                            </div>
+                            <p class="text-4xl font-bold mb-2">$125.4K</p>
+                            <p class="text-orange-100 text-sm">
+                                <i class="fas fa-arrow-up"></i> 23% croissance
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modules Section -->
+                <div class="mb-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-2xl font-bold text-gray-900">Modules de gestion</h3>
+                        <a href="#" class="text-purple-600 hover:text-purple-700 font-semibold text-sm">Voir tous →</a>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- POS Module -->
+                        <div class="card-hover bg-white rounded-xl p-6 border border-gray-200 cursor-pointer group">
+                            <div class="bg-gradient-to-br from-blue-100 to-blue-50 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:shadow-lg transition">
+                                <i class="fas fa-cash-register module-icon text-blue-600"></i>
+                            </div>
+                            <h4 class="text-lg font-bold text-gray-900 mb-2">Point de Vente</h4>
+                            <p class="text-gray-600 text-sm mb-4">Gestion complète du POS et des transactions</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">145 transactions</span>
+                                <button class="text-blue-600 hover:text-blue-700">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Production Module -->
+                        <div class="card-hover bg-white rounded-xl p-6 border border-gray-200 cursor-pointer group">
+                            <div class="bg-gradient-to-br from-orange-100 to-orange-50 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:shadow-lg transition">
+                                <i class="fas fa-industry module-icon text-orange-600"></i>
+                            </div>
+                            <h4 class="text-lg font-bold text-gray-900 mb-2">Production</h4>
+                            <p class="text-gray-600 text-sm mb-4">Suivi et gestion de la production</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-orange-600 bg-orange-50 px-3 py-1 rounded-full">28 en cours</span>
+                                <button class="text-orange-600 hover:text-orange-700">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Résidence Module -->
+                        <div class="card-hover bg-white rounded-xl p-6 border border-gray-200 cursor-pointer group">
+                            <div class="bg-gradient-to-br from-green-100 to-green-50 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:shadow-lg transition">
+                                <i class="fas fa-home module-icon text-green-600"></i>
+                            </div>
+                            <h4 class="text-lg font-bold text-gray-900 mb-2">Résidence</h4>
+                            <p class="text-gray-600 text-sm mb-4">Gestion des résidences et hébergements</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">89% occupé</span>
+                                <button class="text-green-600 hover:text-green-700">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Comptabilité Module -->
+                        <div class="card-hover bg-white rounded-xl p-6 border border-gray-200 cursor-pointer group">
+                            <div class="bg-gradient-to-br from-red-100 to-red-50 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:shadow-lg transition">
+                                <i class="fas fa-calculator module-icon text-red-600"></i>
+                            </div>
+                            <h4 class="text-lg font-bold text-gray-900 mb-2">Comptabilité</h4>
+                            <p class="text-gray-600 text-sm mb-4">Gestion comptable et financière</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-red-600 bg-red-50 px-3 py-1 rounded-full">À jour</span>
+                                <button class="text-red-600 hover:text-red-700">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Stock Module -->
+                        <div class="card-hover bg-white rounded-xl p-6 border border-gray-200 cursor-pointer group">
+                            <div class="bg-gradient-to-br from-indigo-100 to-indigo-50 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:shadow-lg transition">
+                                <i class="fas fa-warehouse module-icon text-indigo-600"></i>
+                            </div>
+                            <h4 class="text-lg font-bold text-gray-900 mb-2">Stock</h4>
+                            <p class="text-gray-600 text-sm mb-4">Inventaire et gestion des stocks</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">3,482 articles</span>
+                                <button class="text-indigo-600 hover:text-indigo-700">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Achats Module -->
+                        <div class="card-hover bg-white rounded-xl p-6 border border-gray-200 cursor-pointer group">
+                            <div class="bg-gradient-to-br from-cyan-100 to-cyan-50 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:shadow-lg transition">
+                                <i class="fas fa-shopping-cart module-icon text-cyan-600"></i>
+                            </div>
+                            <h4 class="text-lg font-bold text-gray-900 mb-2">Achats</h4>
+                            <p class="text-gray-600 text-sm mb-4">Gestion des fournisseurs et commandes</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-cyan-600 bg-cyan-50 px-3 py-1 rounded-full">42 commandes</span>
+                                <button class="text-cyan-600 hover:text-cyan-700">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- RH Module -->
+                        <div class="card-hover bg-white rounded-xl p-6 border border-gray-200 cursor-pointer group">
+                            <div class="bg-gradient-to-br from-pink-100 to-pink-50 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:shadow-lg transition">
+                                <i class="fas fa-users-cog module-icon text-pink-600"></i>
+                            </div>
+                            <h4 class="text-lg font-bold text-gray-900 mb-2">Ressources Humaines</h4>
+                            <p class="text-gray-600 text-sm mb-4">Gestion du personnel et paie</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-pink-600 bg-pink-50 px-3 py-1 rounded-full">87 employés</span>
+                                <button class="text-pink-600 hover:text-pink-700">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Paramètres Module -->
+                        <div class="card-hover bg-white rounded-xl p-6 border border-gray-200 cursor-pointer group">
+                            <div class="bg-gradient-to-br from-gray-100 to-gray-50 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:shadow-lg transition">
+                                <i class="fas fa-sliders-h module-icon text-gray-600"></i>
+                            </div>
+                            <h4 class="text-lg font-bold text-gray-900 mb-2">Paramètres</h4>
+                            <p class="text-gray-600 text-sm mb-4">Configuration de l'application</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">Personnalisé</span>
+                                <button class="text-gray-600 hover:text-gray-700">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity & Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Recent Activity -->
+                    <div class="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-bold text-gray-900">Activité récente</h3>
+                            <button class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+                                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-shopping-bag text-blue-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-semibold text-gray-900">Nouvelle commande reçue</p>
+                                    <p class="text-xs text-gray-500">Il y a 2 minutes</p>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">$245.99</span>
+                            </div>
+
+                            <div class="flex items-center gap-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+                                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-check-circle text-green-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-semibold text-gray-900">Production completée</p>
+                                    <p class="text-xs text-gray-500">Il y a 15 minutes</p>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">1200 unités</span>
+                            </div>
+
+                            <div class="flex items-center gap-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+                                <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-exclamation-circle text-orange-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-semibold text-gray-900">Stock faible: Produit XYZ</p>
+                                    <p class="text-xs text-gray-500">Il y a 35 minutes</p>
+                                </div>
+                                <span class="text-sm font-bold text-orange-600">Alerte</span>
+                            </div>
+
+                            <div class="flex items-center gap-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+                                <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-user-plus text-purple-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-semibold text-gray-900">Nouvel employé ajouté</p>
+                                    <p class="text-xs text-gray-500">Il y a 1 heure</p>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">RH</span>
+                            </div>
+
+                            <div class="flex items-center gap-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+                                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-inbox text-red-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-semibold text-gray-900">Facture reçue de ABC Supplier</p>
+                                    <p class="text-xs text-gray-500">Il y a 2 heures</p>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">$1,250</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-6">Statuts rapides</h3>
+
+                        <div class="space-y-4">
+                            <div class="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="text-sm font-semibold text-gray-900">Commandes à livrer</p>
+                                    <span class="text-2xl font-bold text-blue-600">12</span>
+                                </div>
+                                <div class="w-full bg-blue-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 75%"></div>
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="text-sm font-semibold text-gray-900">Tâches complétées</p>
+                                    <span class="text-2xl font-bold text-green-600">87%</span>
+                                </div>
+                                <div class="w-full bg-green-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full" style="width: 87%"></div>
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="text-sm font-semibold text-gray-900">Satisfaction client</p>
+                                    <span class="text-2xl font-bold text-purple-600">4.8/5</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <i class="fas fa-star text-yellow-400"></i>
+                                    <i class="fas fa-star text-yellow-400"></i>
+                                    <i class="fas fa-star text-yellow-400"></i>
+                                    <i class="fas fa-star text-yellow-400"></i>
+                                    <i class="fas fa-star text-yellow-400"></i>
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-gradient-to-br from-red-50 to-red-100 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="text-sm font-semibold text-gray-900">Articles en alertes</p>
+                                    <span class="text-2xl font-bold text-red-600">5</span>
+                                </div>
+                                <button class="text-sm text-red-600 hover:text-red-700 font-semibold mt-2">Voir détails →</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <footer class="border-t border-gray-200 bg-white mt-8">
+                <div class="px-4 md:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <p class="text-gray-600 text-sm">© 2026 ProManage. Tous les droits réservés.</p>
+                    <div class="flex items-center gap-6">
+                        <a href="#" class="text-gray-600 hover:text-gray-900 text-sm">Aide</a>
+                        <a href="#" class="text-gray-600 hover:text-gray-900 text-sm">Confidentialité</a>
+                        <a href="#" class="text-gray-600 hover:text-gray-900 text-sm">Conditions</a>
+                    </div>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Toggle sidebar on mobile
+            $('#menu-toggle').click(function() {
+                $('#sidebar').toggleClass('sidebar-hidden sidebar-visible');
+            });
+
+            // Close sidebar when clicking outside on mobile
+            $(document).click(function(e) {
+                if (!$(e.target).closest('#sidebar, #menu-toggle').length) {
+                    if ($(window).width() < 768) {
+                        $('#sidebar').addClass('sidebar-hidden').removeClass('sidebar-visible');
+                    }
+                }
+            });
+
+            // Card animations
+            $('.card-hover').on('mouseenter', function() {
+                $(this).css({
+                    'transform': 'translateY(-8px)',
+                    'box-shadow': '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                });
+            }).on('mouseleave', function() {
+                $(this).css({
+                    'transform': 'translateY(0)',
+                    'box-shadow': '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+                });
+            });
+
+            // Add click handlers to module cards
+            $('.card-hover').click(function() {
+                const moduleName = $(this).find('h4').text();
+                alert('Module: ' + moduleName + '\n\nClick pour naviguer vers: ' + moduleName);
+            });
+
+            // Responsive behavior
+            $(window).resize(function() {
+                if ($(window).width() >= 768) {
+                    $('#sidebar').removeClass('sidebar-hidden').addClass('sidebar-visible');
+                }
+            });
+
+            // Console message
+            console.log('%c🎉 Dashboard moderne chargé avec succès!', 'color: #667eea; font-size: 16px; font-weight: bold;');
+            console.log('%cModules disponibles: 8 modules de gestion intégrés', 'color: #764ba2; font-size: 14px;');
+        });
+    </script>
+</body>
+</html>
