@@ -40,8 +40,18 @@
 
                 <!-- Prix -->
                 <div class="border-l-4 border-green-600 pl-4">
-                    <p class="text-gray-600 text-sm">Prix Unitaire</p>
-                    <p class="text-lg font-semibold text-green-600">—</p>
+                    <p class="text-gray-600 text-sm">Prix de Vente (MRU)</p>
+                    <p class="text-lg font-semibold text-green-600">
+                        {{ $product->sale_price !== null ? number_format($product->sale_price, 2, ',', ' ') : '—' }}
+                    </p>
+                </div>
+
+                <!-- Consommable -->
+                <div class="border-l-4 border-amber-600 pl-4">
+                    <p class="text-gray-600 text-sm">Produit consommable</p>
+                    <p class="text-lg font-semibold {{ $product->is_consumable ? 'text-emerald-600' : 'text-slate-500' }}">
+                        {{ $product->is_consumable ? 'Oui (vente libre autorisée)' : 'Non' }}
+                    </p>
                 </div>
             </div>
 

@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
+use App\Traits\BelongsToSite;
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
+    use BelongsToCompany, BelongsToSite;
+
     protected $fillable = [
+        'company_id',
+        'site_id',
         'customer_number',
         'server_id',
         'cashier_id',

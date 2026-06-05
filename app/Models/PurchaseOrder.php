@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class PurchaseOrder extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
-        'supplier_id', 'reference', 'total_amount', 'paid_amount',
+        'company_id', 'supplier_id', 'reference', 'total_amount', 'paid_amount',
         'remaining_amount', 'payment_status', 'status',
     ];
 

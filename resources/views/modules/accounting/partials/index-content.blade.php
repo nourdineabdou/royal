@@ -32,11 +32,6 @@
 			<a href="{{ route('accounting.transactions') }}" class="rounded-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 font-semibold shadow flex items-center gap-2 transition">
 				<i class="fas fa-list"></i> Transactions
 			</a>
-			@can('pos.accounting.register.open')
-			<button class="rounded-full bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 font-semibold shadow flex items-center gap-2 transition" onclick="openModal('openRegisterModal')">
-				<i class="fas fa-plus-circle"></i> Ouvrir une caisse
-			</button>
-			@endcan
 			@can('pos.accounting.traces.export')
 			<a href="{{ route('accounting.traces') }}{{ $queryString ? '?' . $queryString : '' }}" class="rounded-full bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 font-semibold shadow flex items-center gap-2 transition">
 				<i class="fas fa-file-invoice-dollar"></i> Traces globales
@@ -219,64 +214,6 @@
 		@endif
 	</div>
 </div>
-<!-- ── Modal Ouvrir une caisse ── -->
-<div id="openRegisterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 transition-all duration-200" style="display:none;">
-	<div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto p-6 relative animate-fade-in-up">
-		<button class="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xl" onclick="closeModal('openRegisterModal')" aria-label="Fermer">
-			<i class="fas fa-times"></i>
-		</button>
-		<div class="flex items-center gap-2 mb-4">
-			<i class="fas fa-cash-register text-indigo-600 text-2xl"></i>
-			<span class="text-lg font-bold text-gray-700">Ouvrir une caisse</span>
-		</div>
-		<div class="space-y-4">
-			<div>
-				<label class="block text-xs font-bold text-gray-700 mb-1"><i class="fas fa-sun mr-1"></i>Poste</label>
-				<select id="openShift" class="form-control w-full rounded-lg border-gray-300">
-					<option value="morning">Matin</option>
-					<option value="evening">Soir</option>
-				</select>
-			</div>
-			<div>
-				<label class="block text-xs font-bold text-gray-700 mb-1"><i class="fas fa-layer-group mr-1"></i>Module</label>
-				<select id="openModule" class="form-control w-full rounded-lg border-gray-300">
-					<option value="restaurant">Restaurant</option>
-					<option value="catering">Catering</option>
-					<option value="events">Événements</option>
-					<option value="residence">Résidence</option>
-				</select>
-			</div>
-			<div>
-				<label class="block text-xs font-bold text-gray-700 mb-1"><i class="fas fa-user mr-1"></i>Caissier assigné</label>
-				<select id="openCashierUser" class="form-control w-full rounded-lg border-gray-300">
-					@foreach(($cashiers ?? collect()) as $cashier)
-						<option value="{{ $cashier->id }}">{{ $cashier->name }}</option>
-					@endforeach
-				</select>
-			</div>
-			<div>
-				<label class="block text-xs font-bold text-gray-700 mb-1"><i class="fas fa-money-bill-wave mr-1"></i>Fond d'ouverture (MRU)</label>
-				<input type="number" id="openBalance" class="form-control w-full rounded-lg border-gray-300" placeholder="0.00" min="0" step="0.01" value="0">
-			</div>
-			@if(($cashiers ?? collect())->isEmpty())
-				<div class="bg-red-100 text-red-700 rounded-lg px-3 py-2 text-xs font-semibold mb-2">
-					Aucun utilisateur avec le rôle caissier. Créez un caissier d'abord.
-				</div>
-			@endif
-			<form method="POST" action="{{ route('accounting.sessions.store') }}" id="openRegisterForm">
-				@csrf
-				<input type="hidden" name="shift" id="formShift">
-				<input type="hidden" name="module" id="formModule">
-				<input type="hidden" name="cashier_user_id" id="formCashierUser">
-				<input type="hidden" name="opening_balance" id="formBalance">
-				<button type="button" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition disabled:opacity-60" onclick="submitOpenRegister()" {{ ($cashiers ?? collect())->isEmpty() ? 'disabled' : '' }}>
-					<i class="fas fa-check-circle"></i> Ouvrir la caisse
-				</button>
-			</form>
-		</div>
-	</div>
-</div>
-
 <!-- Traces et transactions -->
 <div class="tx-wrap">
 	<div class="tx-head">

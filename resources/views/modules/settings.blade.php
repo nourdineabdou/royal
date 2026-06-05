@@ -10,6 +10,18 @@
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <!-- POS Terminals Link -->
+    <a href="{{ route('settings.pos-terminals.index') }}" class="group">
+        <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300 p-8 text-center h-full border-t-4 border-violet-500">
+            <i class="fas fa-store text-4xl text-violet-600 mb-4"></i>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Points de Vente</h3>
+            <p class="text-gray-600 text-sm mb-4">Créer et configurer les terminaux: ordinaire ou distant (lié au stock)</p>
+            <span class="inline-block px-4 py-2 bg-violet-100 text-violet-700 rounded-lg text-sm font-semibold group-hover:bg-violet-600 group-hover:text-white transition">
+                Gérer
+            </span>
+        </div>
+    </a>
+
     <!-- Payment Types Link -->
     <a href="{{ route('payment-types.index') }}" class="group">
         <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300 p-8 text-center h-full border-t-4 border-amber-500">

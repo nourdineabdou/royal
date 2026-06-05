@@ -7,7 +7,13 @@ use App\Models\Packaging;
 
 class Product extends Model
 {
-    protected $fillable = ['name', 'is_bulk', 'unit_id', 'packaging_id'];
+    protected $fillable = ['name', 'is_bulk', 'is_consumable', 'sale_price', 'unit_id', 'packaging_id'];
+
+    protected $casts = [
+        'is_bulk'       => 'boolean',
+        'is_consumable' => 'boolean',
+        'sale_price'    => 'decimal:2',
+    ];
 
     public function unit()
     {

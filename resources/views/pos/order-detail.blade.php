@@ -316,8 +316,12 @@
                 @foreach($order->items as $item)
                     <tr>
                         <td>
-                            <div class="item-name">{{ $item->meal->name }}</div>
-                            <div class="category-tag">{{ $item->meal->category->name }}</div>
+                            <div class="item-name">{{ $item->meal?->name ?? $item->product?->name ?? $item->label ?? 'Article' }}</div>
+                            @if($item->meal?->category)
+                                <div class="category-tag">{{ $item->meal->category->name }}</div>
+                            @elseif($item->product)
+                                <div class="category-tag">Produit consommable</div>
+                            @endif
                         </td>
                         <td style="text-align: center; font-weight: 600;">{{ $item->quantity }}</td>
                         <td class="item-amount">{{ number_format($item->price, 2, ',', '') }} MRU</td>
@@ -342,7 +346,7 @@
         @php
             $stockDeductions = [];
             foreach($order->items as $item) {
-                if($item->meal->recipe) {
+                if($item->meal && $item->meal->recipe) {
                     foreach($item->meal->recipe->items as $recipeItem) {
                         $key = $recipeItem->product->name;
                         if(!isset($stockDeductions[$key])) {

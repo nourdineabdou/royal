@@ -12,7 +12,20 @@
                 · {{ $activeRegister->shift === 'morning' ? 'Matin' : 'Soir' }}
                 · Ouverture {{ $activeRegister->opened_at?->format('H:i') }}
             </div>
-            <!-- Lien vers détail caisse supprimé car déplacé dans la comptabilité -->
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <a href="{{ route('pos.orders') }}" style="display:inline-flex;align-items:center;gap:6px;background:#e0f2fe;color:#075985;text-decoration:none;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;">
+                    <i class="fas fa-list"></i> Commandes
+                </a>
+                <a href="{{ route('cashier.session', $activeRegister->id) }}" style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;text-decoration:none;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;">
+                    <i class="fas fa-boxes"></i> Ma session
+                </a>
+                <form method="POST" action="{{ route('logout') }}" style="margin:0;">
+                    @csrf
+                    <button type="submit" style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+                        <i class="fas fa-sign-out-alt"></i> Déconnexion
+                    </button>
+                </form>
+            </div>
         </div>
     @else
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
@@ -145,11 +158,12 @@
 let cart = [];
 let meals = [];
 const categoryColors = ['#3b82f6', '#10b981', '#a855f7', '#f97316'];
+const BASE_URL = '{{ rtrim(url('/'), '/') }}';
 
 // Charger les plats
 async function loadMeals() {
     try {
-        const response = await fetch('/pos/meals');
+        const response = await fetch(`${BASE_URL}/pos/meals`);
         meals = await response.json();
         displayMeals('all');
     } catch (error) {
@@ -318,7 +332,7 @@ async function checkout() {
     checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Traitement...</span>';
 
     try {
-        const response = await fetch('/pos/create-order', {
+        const response = await fetch(`${BASE_URL}/pos/create-order`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

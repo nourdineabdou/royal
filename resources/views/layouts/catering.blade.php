@@ -69,14 +69,21 @@
                class="sidebar-link {{ request()->routeIs('catering.contracts*') ? 'active' : '' }}">
                 <i class="fa-solid fa-file-contract"></i> Contrats
             </a>
+            <a href="{{ route('catering.planning.index') }}"
+               class="sidebar-link {{ request()->routeIs('catering.planning.*') ? 'active' : '' }}">
+                <i class="fa-solid fa-calendar-week"></i> Programmation
+            </a>
+            <a href="{{ route('catering.billing.index') }}"
+               class="sidebar-link {{ request()->routeIs('catering.billing.*') ? 'active' : '' }}">
+                <i class="fa-solid fa-file-invoice-dollar"></i> Facturation
+            </a>
             <a href="{{ route('catering.validate') }}"
                class="sidebar-link {{ request()->routeIs('catering.validate') ? 'active' : '' }}">
-                <i class="fa-solid fa-qrcode"></i> Valider un code
-                <span class="sidebar-badge">Caissier</span>
+                <i class="fa-solid fa-truck-fast"></i> Transferts POS
             </a>
-            <a href="{{ route('catering.consumptions') }}"
-               class="sidebar-link {{ request()->routeIs('catering.consumptions*') ? 'active' : '' }}">
-                <i class="fa-solid fa-list-check"></i> Consommations
+            <a href="{{ route('pos-transfer.create') }}"
+               class="sidebar-link {{ request()->routeIs('pos-transfer.create') ? 'active' : '' }}">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Nouveau transfert
             </a>
         </nav>
 

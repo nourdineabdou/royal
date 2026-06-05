@@ -39,10 +39,26 @@
     <div class="bg-white rounded-2xl shadow-sm p-4">
         <p class="text-xs text-slate-500 mb-1">Jours actifs</p>
         <div class="flex flex-wrap gap-1 mt-1">
-            @php $dayNames = [1=>'L',2=>'M',3=>'M',4=>'J',5=>'V',6=>'S',7=>'D']; @endphp
+            @php
+                $dayNames = [1=>'L',2=>'M',3=>'M',4=>'J',5=>'V',6=>'S',7=>'D'];
+                $activeDaysRaw = $contract->active_days;
+                if (is_array($activeDaysRaw)) {
+                    $activeDays = $activeDaysRaw;
+                } elseif (is_string($activeDaysRaw)) {
+                    $decoded = json_decode($activeDaysRaw, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        $activeDays = $decoded;
+                    } else {
+                        $activeDays = array_filter(array_map('trim', explode(',', $activeDaysRaw)), fn ($v) => $v !== '');
+                    }
+                } else {
+                    $activeDays = [];
+                }
+                $activeDays = array_map('intval', $activeDays);
+            @endphp
             @foreach($dayNames as $n => $d)
             <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
-                {{ in_array($n, $contract->active_days ?? []) ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-400' }}">
+                {{ in_array($n, $activeDays, true) ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-400' }}">
                 {{ $d }}
             </span>
             @endforeach
@@ -115,14 +131,14 @@
                 </div>
                 @endif
                 <div class="flex gap-1.5">
-                    <a href="{{ route('catering.weekly-menus.show', $menu) }}"
+                    <a href="{{ route('catering.weekly-menu.show', $menu) }}"
                        class="w-8 h-8 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-600 inline-flex items-center justify-center transition"
                        title="Voir le menu">
                         <i class="fa-solid fa-eye text-xs"></i>
                     </a>
                     @if($usedCodes === 0)
                     @can('catering.weekly-menu.delete')
-                    <form method="POST" action="{{ route('catering.weekly-menus.destroy', $menu) }}" class="inline"
+                    <form method="POST" action="{{ route('catering.weekly-menu.destroy', $menu) }}" class="inline"
                           onsubmit="return confirm('Supprimer ce menu et tous ses codes ?')">
                         @csrf @method('DELETE')
                         <button class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 inline-flex items-center justify-center transition"
@@ -302,13 +318,6 @@
                                 class="px-3 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-medium transition">
                             <i class="fa-solid fa-plus mr-1"></i>Codes
                         </button>
-                        {{-- Print codes --}}
-                        @if($total > 0)
-                        <a href="{{ route('catering.meals.print-codes', $meal) }}" target="_blank"
-                           class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium transition">
-                            <i class="fa-solid fa-print"></i>
-                        </a>
-                        @endif
                         {{-- Delete --}}
                         @if($total === 0)
                         <form method="POST" action="{{ route('catering.meals.destroy', $meal) }}"

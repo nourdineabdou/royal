@@ -41,6 +41,28 @@
                 <div class="pt-4 mt-4 border-t border-amber-500">
                     <p class="px-4 text-amber-300 text-xs font-bold uppercase tracking-wider mb-3">Gestions</p>
 
+                    <!-- POS Terminals -->
+                    <div class="mb-2">
+                        <button onclick="toggleSubmenu('pos-terminals')"
+                            class="w-full flex items-center justify-between px-4 py-3 rounded-lg transition duration-300 {{ request()->routeIs('settings.pos-terminals.*') ? 'bg-white text-amber-700 shadow-lg font-bold' : 'text-amber-100 hover:bg-amber-600' }}">
+                            <span class="flex items-center gap-3">
+                                <i class="fas fa-store text-lg"></i>
+                                <span>Points de Vente</span>
+                            </span>
+                            <i class="fas fa-chevron-right text-sm transition-transform duration-300 {{ request()->routeIs('settings.pos-terminals.*') ? 'rotate-90' : '' }}" id="chevron-pos-terminals"></i>
+                        </button>
+                        <div id="pos-terminals-submenu" class="hidden pl-4 space-y-1 mt-1 {{ request()->routeIs('settings.pos-terminals.*') ? 'block' : '' }}">
+                            <a href="{{ route('settings.pos-terminals.index') }}" class="flex items-center gap-3 px-4 py-2 text-sm rounded-lg text-amber-100 hover:bg-amber-600 transition {{ request()->routeIs('settings.pos-terminals.index') ? 'bg-amber-500 text-white font-semibold' : '' }}">
+                                <i class="fas fa-list"></i>
+                                <span>Lister les terminaux</span>
+                            </a>
+                            <a href="{{ route('settings.pos-terminals.create') }}" class="flex items-center gap-3 px-4 py-2 text-sm rounded-lg text-amber-100 hover:bg-amber-600 transition {{ request()->routeIs('settings.pos-terminals.create') ? 'bg-amber-500 text-white font-semibold' : '' }}">
+                                <i class="fas fa-plus-circle"></i>
+                                <span>Nouveau terminal</span>
+                            </a>
+                        </div>
+                    </div>
+
                     <!-- Payment Types -->
                     <div class="mb-2">
                         <button onclick="toggleSubmenu('payment-types')"
@@ -202,7 +224,7 @@
 
         // Auto-open active submenu on page load
         document.addEventListener('DOMContentLoaded', function() {
-            const activeMenus = ['payment-types', 'users', 'roles', 'permissions'];
+            const activeMenus = ['pos-terminals', 'payment-types', 'users', 'roles', 'permissions'];
             activeMenus.forEach(menu => {
                 const submenu = document.getElementById(menu + '-submenu');
                 if (submenu && submenu.classList.contains('block')) {

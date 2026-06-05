@@ -81,6 +81,36 @@
                 @enderror
             </div>
 
+            <!-- Options de vente libre -->
+            <div class="mb-4 p-4 rounded-lg border border-amber-200 bg-amber-50">
+                <label class="inline-flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                    <input type="checkbox" id="is_consumable" name="is_consumable" value="1"
+                           {{ old('is_consumable', $product->is_consumable) ? 'checked' : '' }}
+                           class="rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+                    Produit consommable (vendable en POS catering)
+                </label>
+
+                <div>
+                    <label for="sale_price" class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-tags mr-2"></i>Prix de vente unitaire (MRU)
+                    </label>
+                    <input
+                        type="number"
+                        id="sale_price"
+                        name="sale_price"
+                        min="0"
+                        step="0.01"
+                        value="{{ old('sale_price', $product->sale_price) }}"
+                        placeholder="Ex: 150"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 @error('sale_price') border-red-500 @enderror"
+                    >
+                    <p class="text-xs text-gray-500 mt-1">Obligatoire uniquement si le produit est consommable.</p>
+                    @error('sale_price')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+
             <!-- Boutons -->
             <div class="flex gap-4">
                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200">
@@ -93,4 +123,19 @@
         </form>
     </div>
 </div>
+
+<script>
+    const consumableCheckbox = document.getElementById('is_consumable');
+    const salePriceInput = document.getElementById('sale_price');
+
+    function syncConsumableUi() {
+        salePriceInput.required = consumableCheckbox.checked;
+        if (!consumableCheckbox.checked) {
+            salePriceInput.value = '';
+        }
+    }
+
+    consumableCheckbox.addEventListener('change', syncConsumableUi);
+    syncConsumableUi();
+</script>
 @endsection

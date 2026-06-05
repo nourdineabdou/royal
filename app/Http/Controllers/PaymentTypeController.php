@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PaymentType;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 
 class PaymentTypeController extends Controller
 {
@@ -68,7 +69,24 @@ class PaymentTypeController extends Controller
     public function destroy(PaymentType $paymentType)
     {
         $this->perm('payment-types.delete');
-        $paymentType->delete();
-        return redirect()->route('payment-types.index')->with('success', 'Type de paiement supprimé avec succès!');
+
+        $linkedPayments = $paymentType->payments()->count();
+
+        if ($linkedPayments > 0) {
+            return redirect()->route('payment-types.index')->with(
+                'error',
+                "Suppression impossible: ce mode de paiement est déjà utilisé dans {$linkedPayments} paiement(s)."
+            );
+        }
+
+        try {
+            $paymentType->delete();
+            return redirect()->route('payment-types.index')->with('success', 'Type de paiement supprimé avec succès!');
+        } catch (QueryException $e) {
+            return redirect()->route('payment-types.index')->with(
+                'error',
+                'Suppression impossible: ce mode de paiement est référencé par des données existantes.'
+            );
+        }
     }
 }

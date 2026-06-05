@@ -9,6 +9,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            CompanySeeder::class,      // 0. Sociétés & sites (doit être en premier)
             PermissionSeeder::class,   // 1. Rôles & permissions Spatie
             UserSeeder::class,         // 2. Super-admin nourdine@gmail.com
             CashierSeeder::class,      // 2b. Caissiers pour chaque module et shift
@@ -27,6 +28,7 @@ class DatabaseSeeder extends Seeder
             HRDemoSeeder::class,             // 15. Cas RH : employé, contrat, congé, absence, paie
             HRTransactionDemoSeeder::class,  // 16. Transactions de paie RH
             ProductionWasteDemoSeeder::class, // 17. Démonstration gestion produits périmés/gâtés (production)
+            CateringPOSDemoSeeder::class,     // 18. Démo workflow POS Catering (2 caissiers + transfert en attente)
         ]);
     }
 }

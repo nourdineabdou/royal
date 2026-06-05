@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class Supplier extends Model
 {
-    protected $fillable = ['name', 'phone', 'email', 'address'];
+    use BelongsToCompany;
+
+    protected $fillable = ['company_id', 'name', 'phone', 'email', 'address'];
 
     public function purchaseOrders()
     {

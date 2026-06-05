@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class CateringContract extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
-        'client_id', 'start_date', 'end_date', 'guest_count',
+        'company_id', 'client_id', 'start_date', 'end_date', 'guest_count',
         'active_days', 'has_breakfast', 'has_lunch', 'has_dinner', 'status',
     ];
 
@@ -35,6 +38,11 @@ class CateringContract extends Model
         return $this->hasMany(CateringWeeklyMenu::class);
     }
 
+    public function invoices()
+    {
+        return $this->hasMany(CateringInvoice::class);
+    }
+
     public function getPriceFor(string $type): float
     {
         return (float)($this->prices->firstWhere('type', $type)?->price ?? 0);
@@ -46,6 +54,22 @@ class CateringContract extends Model
         if ($this->has_breakfast) $types[] = 'breakfast';
         if ($this->has_lunch)     $types[] = 'lunch';
         if ($this->has_dinner)    $types[] = 'dinner';
+
+        // Fallback legacy: déduire les types depuis les prix quand les booléens ne sont pas renseignés.
+        if (empty($types)) {
+            $priceTypes = $this->relationLoaded('prices')
+                ? $this->prices->pluck('type')->all()
+                : $this->prices()->pluck('type')->all();
+
+            $allowed = ['breakfast', 'lunch', 'dinner'];
+            $types = array_values(array_unique(array_values(array_filter($priceTypes, fn ($t) => in_array($t, $allowed, true)))));
+        }
+
+        // Dernier fallback: afficher les 3 types pour ne pas bloquer la programmation.
+        if (empty($types)) {
+            $types = ['breakfast', 'lunch', 'dinner'];
+        }
+
         return $types;
     }
 

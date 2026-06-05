@@ -417,9 +417,9 @@
                     Aucun utilisateur avec le rôle caissier. Créez un caissier d'abord.
                 </div>
             @endif
-            <button class="btn-primary" style="width:100%;justify-content:center;" onclick="submitOpenRegister()" {{ ($cashiers ?? collect())->isEmpty() ? 'disabled' : '' }}>
-                <i class="fas fa-check-circle"></i> Ouvrir la caisse
-            </button>
+            <div style="width:100%;background:#f3f4f6;border:1px dashed #d1d5db;color:#6b7280;border-radius:10px;padding:10px 12px;font-size:12px;font-weight:600;text-align:center;">
+                Consultation uniquement: ouverture de caisse desactivee ici.
+            </div>
         </div>
     </div>
 </div>

@@ -297,9 +297,25 @@
                     <i class="fas fa-exclamation-circle"></i> Aucune caisse ouverte
                 </div>
             @endif
+            @can('pos.orders.view')
+            <a href="{{ route('pos.orders') }}" class="btn-pay" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);text-decoration:none;">
+                <i class="fas fa-list"></i> Commandes
+            </a>
+            @endcan
+            @if($cashRegister)
+            <a href="{{ route('cashier.session', $cashRegister->id) }}" class="btn-pay" style="background:linear-gradient(135deg,#d97706,#b45309);text-decoration:none;">
+                <i class="fas fa-boxes"></i> Ma session
+            </a>
+            @endif
             <a href="{{ route('modules.pos') }}" class="btn-pay" style="background:linear-gradient(135deg,#667eea,#764ba2);text-decoration:none;">
                 <i class="fas fa-utensils"></i> Prise de commande
             </a>
+            <form method="POST" action="{{ route('logout') }}" style="margin:0;">
+                @csrf
+                <button type="submit" class="btn-pay" style="background:linear-gradient(135deg,#ef4444,#b91c1c);">
+                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                </button>
+            </form>
         </div>
     </div>
 
@@ -389,6 +405,7 @@
 
 @section('scripts')
 <script>
+const BASE_URL = '{{ rtrim(url('/'), '/') }}';
 let allOrders     = [];
 let knownOrderIds = new Set();
 let isFirstLoad   = true;
@@ -640,7 +657,7 @@ async function confirmPayment() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Traitement…';
 
     try {
-        const res = await fetch(`/pos/orders/${currentOrder.id}/payment`, {
+        const res = await fetch(`${BASE_URL}/pos/orders/${currentOrder.id}/payment`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

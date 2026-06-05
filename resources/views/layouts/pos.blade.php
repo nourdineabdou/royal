@@ -610,17 +610,24 @@
                     </a>
                     @endunless
                     @if(request()->routeIs('pos.accounting*', 'pos.orders', 'pos.order-detail'))
-                    @can('pos.accounting.profitability')
+                    {{-- @can('pos.accounting.profitability')
                     <a href="{{ route('pos.accounting-profitability') }}"
                        style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#059669,#047857);color:white;text-decoration:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(5,150,105,.25);">
                         <i class="fas fa-chart-line"></i> Rentabilité
                     </a>
-                    @endcan
+                    @endcan --}}
                     <a href="{{ route('pos.orders') }}"
                        style="display:inline-flex;align-items:center;gap:6px;background:#f3f4f6;color:#374151;text-decoration:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;">
                         <i class="fas fa-list-alt"></i> Commandes
                     </a>
                     @endif
+                    <form method="POST" action="{{ route('logout') }}" style="margin:0;">
+                        @csrf
+                        <button type="submit"
+                                style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:white;border:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">
+                            <i class="fas fa-sign-out-alt"></i> Déconnexion
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

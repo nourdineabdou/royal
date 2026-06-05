@@ -41,7 +41,15 @@ class ProductController extends Controller
             'unit_id'      => 'required|exists:units,id',
             'packaging_id' => 'nullable|exists:packagings,id',
             'is_bulk'      => 'boolean',
+            'is_consumable'=> 'boolean',
+            'sale_price'   => 'nullable|numeric|min:0|required_if:is_consumable,1',
         ]);
+
+        $validated['is_bulk'] = $request->boolean('is_bulk');
+        $validated['is_consumable'] = $request->boolean('is_consumable');
+        if (!$validated['is_consumable']) {
+            $validated['sale_price'] = null;
+        }
 
         Product::create($validated);
 
@@ -64,7 +72,15 @@ class ProductController extends Controller
             'unit_id'      => 'required|exists:units,id',
             'packaging_id' => 'nullable|exists:packagings,id',
             'is_bulk'      => 'boolean',
+            'is_consumable'=> 'boolean',
+            'sale_price'   => 'nullable|numeric|min:0|required_if:is_consumable,1',
         ]);
+
+        $validated['is_bulk'] = $request->boolean('is_bulk');
+        $validated['is_consumable'] = $request->boolean('is_consumable');
+        if (!$validated['is_consumable']) {
+            $validated['sale_price'] = null;
+        }
 
         $product->update($validated);
 

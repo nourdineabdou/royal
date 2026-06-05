@@ -9,8 +9,6 @@ use App\Models\CateringWeeklyMenu;
 use App\Models\CateringMenuDay;
 use App\Models\CateringMenuMeal;
 use App\Models\CateringMenuMealItem;
-use App\Models\CateringMealCode;
-use App\Models\CateringConsumption;
 use App\Models\Meal;
 use App\Models\User;
 use Carbon\Carbon;
@@ -121,9 +119,7 @@ class CateringSeeder extends Seeder
         $this->command->info('✅ Catering créé : '
             . CateringContract::count()    . ' contrats, '
             . CateringWeeklyMenu::count()  . ' menus hebdo, '
-            . CateringMenuMeal::count()    . ' séances repas, '
-            . CateringMealCode::count()    . ' codes générés, '
-            . CateringConsumption::count() . ' consommations.'
+            . CateringMenuMeal::count()    . ' séances repas.'
         );
     }
 
@@ -182,61 +178,9 @@ class CateringSeeder extends Seeder
                         );
                     }
 
-                    // Générer les codes (1 code par convive)
-                    if (CateringMealCode::where('catering_menu_meal_id', $menuMeal->id)->count() === 0) {
-                        $codes = [];
-                        for ($i = 0; $i < $contract->guest_count; $i++) {
-                            $codes[] = [
-                                'catering_menu_meal_id' => $menuMeal->id,
-                                'code'                  => strtoupper(Str::random(3)) . '-' . str_pad($i + 1, 3, '0', STR_PAD_LEFT),
-                                'is_used'               => false,
-                                'created_at'            => now(),
-                                'updated_at'            => now(),
-                            ];
-                        }
-                        // Insertion par batch pour performance
-                        foreach (array_chunk($codes, 50) as $batch) {
-                            CateringMealCode::insert($batch);
-                        }
-                    }
+                    // (génération de codes supprimée — utiliser les transferts POS)
 
-                    // Pour les semaines passées : valider ~80% des codes
-                    if ($s > 0 && $date->isPast() && $caissier) {
-                        $mealCodes = CateringMealCode::where('catering_menu_meal_id', $menuMeal->id)
-                            ->where('is_used', false)->get();
-                        $nbAValider = (int)($mealCodes->count() * 0.80);
-                        foreach ($mealCodes->take($nbAValider) as $code) {
-                            $code->update([
-                                'is_used'      => true,
-                                'used_at'      => $date->copy()->setTime(rand(7, 19), rand(0, 59)),
-                                'validated_by' => $caissier->id,
-                            ]);
-                            CateringConsumption::firstOrCreate(
-                                ['catering_meal_code_id' => $code->id],
-                                [
-                                    'consumed_at' => $code->used_at,
-                                    'user_id'     => $caissier->id,
-                                ]
-                            );
-
-                            // Décrémentation du stock pour chaque plat consommé
-                            $stock = \App\Models\Stock::forModule('catering');
-                            foreach ($menuMeal->items as $menuMealItem) {
-                                $meal = $menuMealItem->meal;
-                                if ($meal && $meal->recipe) {
-                                    foreach ($meal->recipe->items as $item) {
-                                        $product = $item->product;
-                                        if ($product) {
-                                            $stockItem = $product->stockItems()->where('stock_id', $stock ? $stock->id : null)->first();
-                                            if ($stockItem) {
-                                                $stockItem->decrement('quantity', $item->quantity);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // Pour les semaines passées, pas d'historique consommation sans codes
                 }
             }
         }

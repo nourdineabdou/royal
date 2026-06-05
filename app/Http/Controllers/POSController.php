@@ -7,6 +7,8 @@ use App\Models\Category;
 use App\Models\Meal;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\PosTerminalStockItem;
+use App\Models\Product;
 use App\Models\PurchaseOrderItem;
 use App\Models\Payment;
 use App\Models\PaymentType;
@@ -22,6 +24,15 @@ use Illuminate\Support\Facades\DB;
 class POSController extends Controller
 {
     private const POS_MODULE = 'restaurant';
+    private const POS_PAYMENT_KEYWORDS = [
+        'espece',
+        'espèce',
+        'bankili',
+        'bankily',
+        'sadad',
+        'masrivi',
+        'amanaty',
+    ];
 
     /**
      * Affiche le POS avec toutes les catégories et plats
@@ -219,7 +230,12 @@ class POSController extends Controller
     public function orderDetail($id)
     {
         $this->perm('pos.orders.view');
-        $order = Order::with(['items.meal.category', 'items.meal.recipe.items.product', 'items.accompaniments'])->findOrFail($id);
+        $order = Order::with([
+            'items.meal.category',
+            'items.meal.recipe.items.product',
+            'items.product.unit',
+            'items.accompaniments'
+        ])->findOrFail($id);
 
         return view('pos.order-detail', compact('order'));
     }
@@ -257,7 +273,27 @@ class POSController extends Controller
 
             // Restaurer le stock pour chaque article
             foreach ($order->items as $item) {
-                $this->restoreStockFromRecipe($item->meal_id, $item->quantity);
+                // Cas restaurant: plat lié à une recette
+                if ($item->meal_id) {
+                    $this->restoreStockFromRecipe($item->meal_id, $item->quantity);
+                    continue;
+                }
+
+                // Cas catering vente libre: restituer la quantité vendue au stock terminal
+                if ($item->product_id) {
+                    $terminalId = $order->cashRegister?->pos_terminal_id;
+                    if ($terminalId) {
+                        $terminalStockItem = PosTerminalStockItem::where('pos_terminal_id', $terminalId)
+                            ->where('item_type', 'extra')
+                            ->where('product_id', $item->product_id)
+                            ->first();
+
+                        if ($terminalStockItem) {
+                            $newSold = max(0, (float) $terminalStockItem->quantity_sold - (float) $item->quantity);
+                            $terminalStockItem->update(['quantity_sold' => $newSold]);
+                        }
+                    }
+                }
             }
 
             $order->update(['status' => 'cancelled']);
@@ -284,7 +320,7 @@ class POSController extends Controller
             return redirect()->route('login');
         }
 
-        $paymentTypes = PaymentType::all();
+        $paymentTypes = $this->getPosPaymentTypes();
         $cashRegister = CashRegister::where('user_id', $currentUser->id)
             ->where('module', self::POS_MODULE)
             ->where('status', 'open')
@@ -292,7 +328,7 @@ class POSController extends Controller
             ->first();
 
         if (!$cashRegister) {
-            return redirect()->route('pos.accounting')->with('error', 'Aucune caisse restaurant active pour votre compte. La comptabilité doit ouvrir votre session.');
+            return redirect()->to(url('/modules/pos'))->with('error', 'Aucune caisse restaurant active pour votre compte. La comptabilité doit ouvrir votre session.');
         }
 
         return view('pos.cashier', compact('paymentTypes', 'cashRegister'));
@@ -314,7 +350,7 @@ class POSController extends Controller
             return response()->json([]);
         }
 
-        $orders = Order::with(['items.meal'])
+        $orders = Order::with(['items.meal', 'items.product'])
             ->where('cash_register_id', $cashRegister->id)
             ->whereIn('status', ['pending', 'sent', 'paid'])
             ->orderByRaw("FIELD(status,'sent','pending','paid')")
@@ -330,7 +366,9 @@ class POSController extends Controller
                     'is_prepared'     => $order->is_prepared,
                     'created_at'      => $order->created_at->format('H:i'),
                     'items_count'     => $order->items->sum('quantity'),
-                    'items_summary'   => $order->items->map(fn($i) => $i->meal->name . ' ×' . $i->quantity)->join(', '),
+                    'items_summary'   => $order->items
+                        ->map(fn($i) => (($i->meal?->name ?? $i->product?->name ?? $i->label ?? 'Article') . ' ×' . $i->quantity))
+                        ->join(', '),
                     'paid_at'         => $order->paid_at?->format('H:i'),
                 ];
             });
@@ -348,6 +386,13 @@ class POSController extends Controller
             'payment_type_id' => 'required|exists:payment_types,id',
             'amount'          => 'required|numeric|min:0',
         ]);
+
+        if (!$this->isAllowedPosPaymentType((int) $request->payment_type_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mode de paiement non autorise en point de vente. Utilisez espece ou wallet (Bankili, Sadad, Masrivi, Amanaty).'
+            ], 422);
+        }
 
         $order = Order::findOrFail($id);
 
@@ -459,6 +504,186 @@ class POSController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════
+    //  CATERING POS — Vente libre (boissons, desserts, extras)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Interface POS pour le catering — vente d'articles hors contrat
+     */
+    public function cateringIndex()
+    {
+        $this->perm('pos.view');
+
+        $activeRegister = CashRegister::with(['user', 'posTerminal'])
+            ->where('module', 'catering')
+            ->where('status', 'open')
+            ->latest('opened_at')
+            ->first();
+
+        // Produits consommables disponibles dans le terminal de cette session
+        $consumableStock = [];
+        if ($activeRegister && $activeRegister->pos_terminal_id) {
+            $consumableStock = PosTerminalStockItem::with('product.unit')
+                ->where('pos_terminal_id', $activeRegister->pos_terminal_id)
+                ->where('item_type', 'extra')
+                ->whereNotNull('product_id')
+                ->whereHas('product', fn($q) => $q->where('is_consumable', true))
+                ->get()
+                ->filter(fn($si) => $si->available_qty > 0)
+                ->values();
+        }
+
+            $paymentTypes = $this->getPosPaymentTypes();
+
+            return view('pos.catering', compact('activeRegister', 'consumableStock', 'paymentTypes'));
+    }
+
+    /**
+     * API: Crée une commande catering hors contrat (boissons, extras…)
+     * Chaque item référence un PosTerminalStockItem (produit consommable).
+     * La quantité vendue est débitée du stock terminal en temps réel.
+     */
+    public function cateringCreateOrder(Request $request)
+    {
+        $this->perm('pos.orders.create');
+
+        $activeRegister = CashRegister::with('posTerminal')
+            ->where('module', 'catering')
+            ->where('status', 'open')
+            ->latest('opened_at')
+            ->first();
+
+        if (!$activeRegister) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune caisse catering ouverte.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'items'                         => 'required|array|min:1',
+            'items.*.stock_item_id'         => 'required|exists:pos_terminal_stock_items,id',
+            'items.*.quantity'              => 'required|integer|min:1',
+            'customer_number'               => 'nullable|string|max:50',
+            'payment_type_id'               => 'required|exists:payment_types,id',
+        ]);
+
+        if (!$this->isAllowedPosPaymentType((int) $validated['payment_type_id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mode de paiement non autorise en point de vente. Utilisez espece ou wallet (Bankili, Sadad, Masrivi, Amanaty).',
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $serverTotal = 0;
+            $lineItems   = [];
+
+            foreach ($validated['items'] as $item) {
+                $stockItem = PosTerminalStockItem::with('product')
+                    ->where('id', $item['stock_item_id'])
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($stockItem->pos_terminal_id !== $activeRegister->pos_terminal_id) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Article non autorisé pour ce terminal.',
+                    ], 422);
+                }
+
+                if ($stockItem->item_type !== 'extra' || !$stockItem->product_id || !$stockItem->product?->is_consumable) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Article non vendable en vente libre.',
+                    ], 422);
+                }
+
+                // Vérifier stock suffisant
+                if ($stockItem->available_qty < $item['quantity']) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Stock insuffisant pour « {$stockItem->label} » (disponible : {$stockItem->available_qty})",
+                    ], 422);
+                }
+
+                $price = $stockItem->product ? (float) $stockItem->product->sale_price : 0;
+                $serverTotal += $price * $item['quantity'];
+
+                $lineItems[] = [
+                    'stockItem' => $stockItem,
+                    'qty'       => $item['quantity'],
+                    'price'     => $price,
+                ];
+            }
+
+            $order = Order::create([
+                'customer_number'  => $validated['customer_number'] ?? null,
+                'server_id'        => auth()->id(),
+                'cashier_id'       => auth()->id(),
+                'cash_register_id' => $activeRegister->id,
+                'total_amount'     => $serverTotal,
+                'status'           => 'paid',
+                'is_prepared'      => true, // produits prêts (pas de cuisine)
+                'paid_at'          => now(),
+            ]);
+
+            foreach ($lineItems as $line) {
+                $si = $line['stockItem'];
+
+                OrderItem::create([
+                    'order_id'   => $order->id,
+                    'meal_id'    => null,
+                    'product_id' => $si->product_id,
+                    'label'      => $si->label,
+                    'quantity'   => $line['qty'],
+                    'price'      => $line['price'],
+                    'cost_price' => 0,
+                ]);
+
+                // Déduire du stock terminal
+                $si->increment('quantity_sold', $line['qty']);
+            }
+
+            Payment::create([
+                'order_id'         => $order->id,
+                'payment_type_id'  => $validated['payment_type_id'],
+                'amount'           => $order->total_amount,
+                'cash_register_id' => $activeRegister->id,
+            ]);
+
+            Transaction::create([
+                'type'      => 'sale',
+                'amount'    => $order->total_amount,
+                'reference' => 'CAT-' . $order->id,
+                'date'      => now()->toDateString(),
+                'module'    => 'catering',
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success'  => true,
+                'message'  => 'Commande créée avec succès',
+                'order_id' => $order->id,
+                'total'    => $serverTotal,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur : ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
     //  COMPTABILITÉ CAISSE
     // ══════════════════════════════════════════════════════════════
 
@@ -535,6 +760,29 @@ class POSController extends Controller
         ")->first();
 
         return view('pos.accounting', compact('registers', 'stats', 'cashiers', 'recentTransactions', 'recentPaidOrders', 'recentStockMovements', 'filters'));
+    }
+
+    private function getPosPaymentTypes()
+    {
+        $keywords = self::POS_PAYMENT_KEYWORDS;
+
+        return PaymentType::where(function ($query) use ($keywords) {
+            foreach ($keywords as $keyword) {
+                $query->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($keyword) . '%']);
+            }
+        })->orderBy('name')->get();
+    }
+
+    private function isAllowedPosPaymentType(int $paymentTypeId): bool
+    {
+        $keywords = self::POS_PAYMENT_KEYWORDS;
+
+        return PaymentType::where('id', $paymentTypeId)
+            ->where(function ($query) use ($keywords) {
+                foreach ($keywords as $keyword) {
+                    $query->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($keyword) . '%']);
+                }
+            })->exists();
     }
 
     public function accountingTraces(Request $request)

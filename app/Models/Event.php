@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class Event extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
-        'client_id', 'event_type', 'event_date', 'guest_count',
+        'company_id', 'client_id', 'event_type', 'event_date', 'guest_count',
         'stock_id', 'total_amount', 'status',
         'validated_at', 'completed_at', 'transaction_id',
     ];

@@ -5,9 +5,8 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\User;
 use App\Models\CashRegister;
-use App\Models\CashSession;
 use App\Models\Transaction;
-use App\Models\HRPayroll;
+use App\Models\Payroll;
 use Carbon\Carbon;
 
 class HRTransactionDemoSeeder extends Seeder
@@ -18,30 +17,35 @@ class HRTransactionDemoSeeder extends Seeder
         $cashier = User::firstOrCreate([
             'email' => 'caissier.rh@royalcomplex.com',
         ], [
-            'name' => 'Caissier RH',
+            'name'     => 'Caissier RH',
             'password' => bcrypt('password'),
         ]);
-        $register = CashRegister::firstOrCreate(['name' => 'Caisse RH']);
-        $session = CashSession::create([
-            'cash_register_id' => $register->id,
-            'user_id' => $cashier->id,
-            'opened_at' => Carbon::now()->subHours(1),
-            'closed_at' => null,
-            'opening_amount' => 200000,
+
+        $register = CashRegister::create([
+            'user_id'         => $cashier->id,
+            'module'          => 'restaurant',
+            'shift'           => 'morning',
+            'opening_balance' => 200000,
+            'opened_at'       => Carbon::now()->subHours(1),
+            'status'          => 'open',
         ]);
+
         // Paiement de la paie
-        $payroll = HRPayroll::first();
+        $payroll = Payroll::first();
         if ($payroll) {
             Transaction::create([
-                'type' => 'payroll',
-                'amount' => $payroll->net_salary,
+                'type'      => 'salary',
+                'module'    => 'restaurant',
+                'amount'    => $payroll->net_salary,
                 'reference' => 'PAY-' . $payroll->id,
-                'date' => now(),
-                'user_id' => $cashier->id,
-                'cash_session_id' => $session->id,
-                'module' => 'hr',
+                'date'      => now()->toDateString(),
             ]);
         }
-        $session->update(['closed_at' => Carbon::now()]);
+
+        $register->update([
+            'closed_at'       => Carbon::now(),
+            'closing_balance' => 200000,
+            'status'          => 'closed',
+        ]);
     }
 }

@@ -18,9 +18,14 @@ class CateringMenuMeal extends Model
         return $this->hasMany(CateringMenuMealItem::class);
     }
 
+    /**
+     * Compatibilité legacy: certains écrans utilisent encore meals.codes.
+     * L'ancien système de codes a été retiré, on renvoie donc une relation vide.
+     */
     public function codes()
     {
-        return $this->hasMany(CateringMealCode::class);
+        return $this->hasMany(CateringConsumption::class, 'id', 'id')
+            ->whereRaw('1 = 0');
     }
 
     public function getTypeLabelAttribute(): string

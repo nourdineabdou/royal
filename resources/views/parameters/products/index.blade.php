@@ -43,6 +43,7 @@
                     <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Nom du Produit</th>
                     <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Unité</th>
                     <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Emballage</th>
+                    <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Consommable</th>
                     <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Prix (MRU)</th>
                     <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Stock</th>
                     <th class="px-6 py-3 text-center text-sm font-bold text-gray-700">Actions</th>
@@ -60,7 +61,16 @@
                             <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">{{ $product->unit->abbreviation }}</span>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-600">{{ $product->packaging?->name ?? '—' }}</td>
-                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">—</td>
+                        <td class="px-6 py-4 text-sm">
+                            @if($product->is_consumable)
+                                <span class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded">Oui</span>
+                            @else
+                                <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded">Non</span>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">
+                            {{ $product->sale_price !== null ? number_format($product->sale_price, 2, ',', ' ') : '—' }}
+                        </td>
                         <td class="px-6 py-4 text-sm">
                             <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">Stock</span>
                         </td>
@@ -85,7 +95,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                        <td colspan="7" class="px-6 py-8 text-center text-gray-500">
                             <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
                             <p class="text-lg">Aucun produit trouvé.</p>
                         </td>

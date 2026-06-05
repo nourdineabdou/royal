@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
+use App\Traits\BelongsToSite;
 use Illuminate\Database\Eloquent\Model;
 
 class Room extends Model
 {
-    protected $fillable = ['room_type_id', 'number', 'floor', 'status'];
+    use BelongsToCompany, BelongsToSite;
+
+    protected $fillable = ['company_id', 'site_id', 'room_type_id', 'number', 'floor', 'status'];
 
     public function roomType()
     {

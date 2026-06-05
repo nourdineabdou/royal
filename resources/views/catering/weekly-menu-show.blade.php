@@ -82,11 +82,6 @@
                         </div>
                     </div>
                     @endif
-                    <a href="{{ route('catering.meals.print-codes', $meal) }}"
-                       class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs px-3 py-1.5 rounded-xl transition font-medium"
-                       target="_blank">
-                        <i class="fa-solid fa-print"></i> Imprimer {{ $mealTotal }} codes
-                    </a>
                 </div>
             </div>
 

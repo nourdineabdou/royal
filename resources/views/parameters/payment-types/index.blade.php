@@ -19,6 +19,12 @@
         </div>
     @endif
 
+    @if ($message = Session::get('error'))
+        <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            <i class="fas fa-exclamation-triangle mr-2"></i>{{ $message }}
+        </div>
+    @endif
+
     <!-- Recherche -->
     <div class="mb-6 bg-white rounded-lg shadow p-4">
         <form method="GET" action="{{ route('payment-types.index') }}" class="flex gap-2">

@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
+use App\Traits\BelongsToSite;
 use Illuminate\Database\Eloquent\Model;
 
 class Employee extends Model
 {
+    use BelongsToCompany, BelongsToSite;
+
     protected $fillable = [
+        'company_id', 'site_id',
         'user_id', 'job_title_id', 'first_name', 'last_name',
         'phone', 'address', 'hire_date', 'salary_base', 'status',
     ];

@@ -7,66 +7,53 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Client;
 use App\Models\CateringContract;
 use App\Models\CateringContractPrice;
+use App\Models\CateringInvoice;
+use App\Models\CateringInvoicePayment;
 use App\Models\CateringWeeklyMenu;
 use App\Models\CateringMenuDay;
 use App\Models\CateringMenuMeal;
 use App\Models\CateringMenuMealItem;
-use App\Models\CateringMealCode;
-use App\Models\CateringConsumption;
+use App\Models\PaymentType;
+use App\Models\PosTerminalTicketLog;
 use App\Models\Transaction;
 use App\Models\Meal;
 use App\Models\Stock;
 use App\Models\StockItem;
 use App\Models\StockMovement;
 use Carbon\Carbon;
-use Illuminate\Support\Str;
 
 class CateringController extends Controller
 {
-    // â”€â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬ Dashboard أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬
 
     public function dashboard()
     {
         $this->perm('catering.dashboard');
         $totalContracts  = CateringContract::count();
         $activeContracts = CateringContract::where('status', 'active')->count();
-        $totalCodes      = CateringMealCode::count();
-        $usedCodes       = CateringMealCode::where('is_used', true)->count();
-        $todayValidations = CateringConsumption::whereDate('consumed_at', today())->count();
 
         $monthRevenue = Transaction::where('type', 'sale')
-            ->where('reference', 'like', 'CAT-%')
+            ->where('module', 'catering')
             ->whereMonth('date', now()->month)
             ->whereYear('date', now()->year)
             ->sum('amount');
-
-        $chartLabels = [];
-        $chartData   = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = Carbon::now()->subDays($i);
-            $chartLabels[] = $date->format('D d/m');
-            $chartData[]   = CateringConsumption::whereDate('consumed_at', $date)->count();
-        }
-
-        $recentConsumptions = CateringConsumption::with([
-            'mealCode.menuMeal.menuDay.weeklyMenu.contract.client',
-            'mealCode.menuMeal',
-            'user',
-        ])->latest('consumed_at')->take(10)->get();
 
         $activeContractsList = CateringContract::with('client')
             ->where('status', 'active')
             ->withCount('weeklyMenus')
             ->latest()->take(6)->get();
 
+        // Transferts POS rأ©cents
+        $recentTransfers = \App\Models\PosTransfer::with(['client', 'cashRegister.user'])
+            ->latest()->take(10)->get();
+
         return view('catering.dashboard', compact(
-            'totalContracts', 'activeContracts', 'totalCodes', 'usedCodes',
-            'todayValidations', 'monthRevenue', 'chartLabels', 'chartData',
-            'recentConsumptions', 'activeContractsList'
+            'totalContracts', 'activeContracts',
+            'monthRevenue', 'activeContractsList', 'recentTransfers'
         ));
     }
 
-    // â”€â”€â”€ Clients â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬ Clients أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬
 
     public function clients()
     {
@@ -86,7 +73,7 @@ class CateringController extends Controller
             'notes'   => 'nullable|string',
         ]);
         Client::create($request->only('name', 'phone', 'email', 'company', 'notes'));
-        return back()->with('success', 'Client créé.');
+        return back()->with('success', 'Client crأ©أ©.');
     }
 
     public function updateClient(Request $request, Client $client)
@@ -100,7 +87,7 @@ class CateringController extends Controller
             'notes'   => 'nullable|string',
         ]);
         $client->update($request->only('name', 'phone', 'email', 'company', 'notes'));
-        return back()->with('success', 'Client mis à jour.');
+        return back()->with('success', 'Client mis أ  jour.');
     }
 
     public function destroyClient(Client $client)
@@ -110,10 +97,10 @@ class CateringController extends Controller
             return back()->with('error', 'Impossible : des contrats exist pour ce client.');
         }
         $client->delete();
-        return back()->with('success', 'Client supprimÃ©.');
+        return back()->with('success', 'Client supprimأƒآ©.');
     }
 
-    // â”€â”€â”€ Contracts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬ Contracts أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬
 
     public function contracts()
     {
@@ -137,7 +124,7 @@ class CateringController extends Controller
         ]);
 
         if (!$request->has('has_breakfast') && !$request->has('has_lunch') && !$request->has('has_dinner')) {
-            return back()->withErrors(['meal' => 'SÃ©lectionnez au moins un type de repas.'])->withInput();
+            return back()->withErrors(['meal' => 'Sأƒآ©lectionnez au moins un type de repas.'])->withInput();
         }
 
         DB::transaction(function () use ($request) {
@@ -161,7 +148,7 @@ class CateringController extends Controller
             }
         });
 
-        return redirect()->route('catering.contracts')->with('success', 'Contrat crÃ©Ã© avec succÃ¨s.');
+        return redirect()->route('catering.contracts')->with('success', 'Contrat crأƒآ©أƒآ© avec succأƒآ¨s.');
     }
 
     public function showContract(CateringContract $contract)
@@ -208,24 +195,200 @@ class CateringController extends Controller
             }
         });
 
-        return back()->with('success', 'Contrat mis Ã  jour.');
+        return back()->with('success', 'Contrat mis أƒآ  jour.');
     }
 
     public function destroyContract(CateringContract $contract)
     {
         $this->perm('catering.contracts.delete');
         $contract->delete();
-        return redirect()->route('catering.contracts')->with('success', 'Contrat supprimÃ©.');
+        return redirect()->route('catering.contracts')->with('success', 'Contrat supprimأƒآ©.');
     }
 
-    // â”€â”€â”€ Weekly Menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬ Weekly Menu أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬أ¢â€‌â‚¬
 
     public function weeklyMenuCreate(CateringContract $contract)
     {
         $this->perm('catering.weekly-menu.create');
         $contract->load('client', 'prices');
         $allMeals = Meal::orderBy('name')->get();
-        return view('catering.weekly-menu-create', compact('contract', 'allMeals'));
+        $weekStartInput = request('week_start');
+        $prefillWeekStart = $weekStartInput
+            ? Carbon::parse($weekStartInput)->startOfWeek(Carbon::MONDAY)->toDateString()
+            : now()->startOfWeek(Carbon::MONDAY)->toDateString();
+
+        $existingMenu = CateringWeeklyMenu::with(['days.meals.items'])
+            ->where('catering_contract_id', $contract->id)
+            ->whereDate('week_start_date', $prefillWeekStart)
+            ->first();
+
+        $prefillDays = [];
+        if ($existingMenu) {
+            foreach ($existingMenu->days as $day) {
+                $date = $day->date->toDateString();
+                if (!isset($prefillDays[$date])) {
+                    $prefillDays[$date] = [];
+                }
+
+                foreach ($day->meals as $meal) {
+                    $prefillDays[$date][$meal->type] = [
+                        'meal_ids' => $meal->items->pluck('meal_id')->map(fn($id) => (int) $id)->values()->all(),
+                    ];
+                }
+            }
+        }
+
+        $weekStart = Carbon::parse($prefillWeekStart)->startOfWeek(Carbon::MONDAY);
+        $dayNames = [1 => 'Lundi', 2 => 'Mardi', 3 => 'Mercredi', 4 => 'Jeudi', 5 => 'Vendredi', 6 => 'Samedi', 7 => 'Dimanche'];
+
+        $rawActiveDays = array_values(array_filter(array_map('intval', (array) $contract->active_days), fn ($d) => $d >= 1 && $d <= 7));
+        $activeDays = !empty($rawActiveDays) ? array_values(array_unique($rawActiveDays)) : [1, 2, 3, 4, 5];
+
+        $weekDays = collect(range(0, 6))
+            ->map(function ($offset) use ($weekStart, $contract, $dayNames, $activeDays) {
+                $date = $weekStart->copy()->addDays($offset);
+                $isoDay = $date->dayOfWeekIso;
+
+                $inContractPeriod = $date->toDateString() >= $contract->start_date->toDateString()
+                    && $date->toDateString() <= $contract->end_date->toDateString();
+                $isActiveDay = in_array($isoDay, $activeDays, true);
+
+                if (!$inContractPeriod || !$isActiveDay) {
+                    return null;
+                }
+
+                return [
+                    'date' => $date->toDateString(),
+                    'iso_day' => $isoDay,
+                    'label' => $dayNames[$isoDay] ?? $date->translatedFormat('l'),
+                    'human_label' => $date->translatedFormat('d/m/Y'),
+                ];
+            })
+            ->filter()
+            ->values();
+
+        $labels = ['breakfast' => 'Petit-déjeuner', 'lunch' => 'Déjeuner', 'dinner' => 'Dîner'];
+        $mealTypeDefs = collect($contract->getActiveMealTypes())
+            ->filter(fn ($t) => isset($labels[$t]))
+            ->values()
+            ->map(fn ($t) => ['key' => $t, 'label' => $labels[$t]])
+            ->all();
+
+        return view('catering.weekly-menu-create', compact(
+            'contract',
+            'allMeals',
+            'prefillWeekStart',
+            'prefillDays',
+            'weekDays',
+            'mealTypeDefs'
+        ));
+    }
+
+    public function weeklyPlanningIndex(Request $request)
+    {
+        $this->perm('catering.weekly-menu.view');
+
+        $today = now();
+        $defaultWeekStart = $today->isWeekend()
+            ? $today->copy()->next(Carbon::MONDAY)
+            : $today->copy()->startOfWeek(Carbon::MONDAY);
+
+        $weekStart = Carbon::parse($request->input('week_start', $defaultWeekStart->toDateString()))
+            ->startOfWeek(Carbon::MONDAY);
+        $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
+
+        $days = collect(range(0, 6))->map(function ($i) use ($weekStart) {
+            $date = $weekStart->copy()->addDays($i);
+            return [
+                'date' => $date->toDateString(),
+                'iso_day' => $date->dayOfWeekIso,
+                'label' => $date->translatedFormat('D d/m'),
+            ];
+        });
+
+        $contracts = CateringContract::with(['client', 'prices'])
+            ->where('status', 'active')
+            ->whereDate('start_date', '<=', $weekEnd->toDateString())
+            ->whereDate('end_date', '>=', $weekStart->toDateString())
+            ->whereHas('client', function ($q) {
+                $q->whereNotNull('company')->where('company', '!=', '');
+            })
+            ->orderByDesc('id')
+            ->get();
+
+        $weeklyMenus = CateringWeeklyMenu::with(['days.meals.items.meal'])
+            ->whereIn('catering_contract_id', $contracts->pluck('id'))
+            ->whereDate('week_start_date', $weekStart->toDateString())
+            ->get()
+            ->keyBy('catering_contract_id');
+
+        $contractsOverview = $contracts->map(function ($contract) use ($days, $weeklyMenus) {
+            $activeMealTypes = $contract->getActiveMealTypes();
+            $expectedPerDay = count($activeMealTypes);
+            $menu = $weeklyMenus->get($contract->id);
+            $expectedTotal = 0;
+            $programmedTotal = 0;
+            $activeDays = array_map('intval', (array) $contract->active_days);
+
+            $byDate = [];
+            foreach ($days as $d) {
+                $date = $d['date'];
+                $inContractPeriod = $date >= $contract->start_date->toDateString()
+                    && $date <= $contract->end_date->toDateString();
+                $activeDay = in_array($d['iso_day'], $activeDays, true);
+                $expected = ($inContractPeriod && $activeDay) ? $expectedPerDay : 0;
+
+                $programmed = [];
+                if ($menu) {
+                    $menuDay = $menu->days->first(function ($day) use ($date) {
+                        return $day->date->toDateString() === $date;
+                    });
+
+                    if ($menuDay) {
+                        foreach ($menuDay->meals as $meal) {
+                            if (!in_array($meal->type, $activeMealTypes, true)) {
+                                continue;
+                            }
+
+                            $programmed[] = [
+                                'type' => $meal->type,
+                                'label' => $meal->type_label,
+                                'items_count' => $meal->items->count(),
+                            ];
+                        }
+                    }
+                }
+
+                $byDate[$date] = [
+                    'expected_count' => $expected,
+                    'programmed' => $programmed,
+                ];
+
+                $expectedTotal += $expected;
+                $programmedTotal += min($expected, count($programmed));
+            }
+
+            $completionPct = $expectedTotal > 0
+                ? (int) round(($programmedTotal / $expectedTotal) * 100)
+                : 100;
+
+            return [
+                'contract' => $contract,
+                'expected_per_day' => $expectedPerDay,
+                'by_date' => $byDate,
+                'has_week_menu' => (bool) $menu,
+                'expected_total' => $expectedTotal,
+                'programmed_total' => $programmedTotal,
+                'completion_pct' => $completionPct,
+            ];
+        });
+
+        return view('catering.planning.index', compact(
+            'weekStart',
+            'weekEnd',
+            'days',
+            'contractsOverview'
+        ));
     }
 
     public function weeklyMenuStore(Request $request, CateringContract $contract)
@@ -238,16 +401,21 @@ class CateringController extends Controller
 
         $weekStart = Carbon::parse($data['week_start'])->startOfWeek(Carbon::MONDAY)->startOfDay();
 
-        if ($contract->weeklyMenus()->where('week_start_date', $weekStart)->exists()) {
-            return response()->json(['error' => 'Un menu existe dÃ©jÃ  pour cette semaine.'], 422);
-        }
-
         try {
             DB::transaction(function () use ($data, $contract, $weekStart) {
-                $menu = CateringWeeklyMenu::create([
+                $menu = CateringWeeklyMenu::firstOrCreate([
                     'catering_contract_id' => $contract->id,
                     'week_start_date'      => $weekStart,
                 ]);
+
+                // Remplace toute la programmation de la semaine pour permettre la réédition.
+                foreach ($menu->days as $existingDay) {
+                    foreach ($existingDay->meals as $existingMeal) {
+                        $existingMeal->items()->delete();
+                        $existingMeal->delete();
+                    }
+                    $existingDay->delete();
+                }
 
                 foreach (($data['days'] ?? []) as $dateStr => $mealTypes) {
                     if (empty($mealTypes)) continue;
@@ -274,17 +442,7 @@ class CateringController extends Controller
                             ]);
                         }
 
-                        // Generate unique codes
-                        for ($i = 0; $i < $contract->guest_count; $i++) {
-                            do {
-                                $code = 'CAT-' . strtoupper(Str::random(3)) . '-' . strtoupper(Str::random(4));
-                            } while (CateringMealCode::where('code', $code)->exists());
-
-                            CateringMealCode::create([
-                                'catering_menu_meal_id' => $menuMeal->id,
-                                'code'                  => $code,
-                            ]);
-                        }
+                        // (codes repas supprimأ©s â€” utiliser les transferts POS)
                     }
                 }
             });
@@ -295,6 +453,52 @@ class CateringController extends Controller
         return response()->json([
             'success'  => true,
             'redirect' => route('catering.contracts.show', $contract),
+        ]);
+    }
+
+    public function weeklyMenuTemplate(Request $request, CateringContract $contract)
+    {
+        $this->perm('catering.weekly-menu.view');
+
+        $data = $request->validate([
+            'week_start' => 'required|date',
+        ]);
+
+        $currentWeekStart = Carbon::parse($data['week_start'])->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $previousWeekStart = $currentWeekStart->copy()->subWeek();
+
+        $previousMenu = CateringWeeklyMenu::with(['days.meals.items'])
+            ->where('catering_contract_id', $contract->id)
+            ->whereDate('week_start_date', $previousWeekStart->toDateString())
+            ->first();
+
+        if (!$previousMenu) {
+            return response()->json([
+                'exists' => false,
+                'message' => 'Aucune programmation sur la semaine precedente.',
+            ]);
+        }
+
+        $days = [];
+
+        foreach ($previousMenu->days as $day) {
+            $targetDate = $currentWeekStart->copy()->addDays($day->date->dayOfWeekIso - 1)->toDateString();
+
+            if (!isset($days[$targetDate])) {
+                $days[$targetDate] = [];
+            }
+
+            foreach ($day->meals as $meal) {
+                $days[$targetDate][$meal->type] = [
+                    'meal_ids' => $meal->items->pluck('meal_id')->map(fn($id) => (int) $id)->values()->all(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'exists' => true,
+            'from_week_start' => $previousWeekStart->toDateString(),
+            'days' => $days,
         ]);
     }
 
@@ -313,200 +517,254 @@ class CateringController extends Controller
     public function weeklyMenuDestroy(CateringWeeklyMenu $menu)
     {
         $this->perm('catering.weekly-menu.delete');
-        $usedCount = CateringMealCode::whereHas('menuMeal.menuDay', fn($q) =>
-            $q->where('catering_weekly_menu_id', $menu->id))
-            ->where('is_used', true)->count();
-
-        if ($usedCount > 0) {
-            return back()->with('error', "{$usedCount} code(s) dÃ©jÃ  utilisÃ©(s) â€” suppression impossible.");
-        }
         $contractId = $menu->catering_contract_id;
         $menu->delete();
-        return redirect()->route('catering.contracts.show', $contractId)->with('success', 'Menu supprimÃ©.');
+        return redirect()->route('catering.contracts.show', $contractId)->with('success', 'Menu supprimأ©.');
     }
 
-    public function printCodes(CateringMenuMeal $meal)
-    {
-        $this->perm('catering.meals.print-codes');
-        $meal->load(['menuDay.weeklyMenu.contract.client', 'codes', 'items.meal']);
-        return view('catering.print-codes', compact('meal'));
-    }
-
-    // â”€â”€â”€ Code Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â”€â”€â”€ Code Validation
 
     public function validatePage()
     {
         $this->perm('catering.validate');
-        $recentValidations = CateringConsumption::with([
-            'mealCode.menuMeal.menuDay.weeklyMenu.contract.client',
-            'mealCode.menuMeal',
-            'user',
-        ])->latest('consumed_at')->take(15)->get();
 
-        return view('catering.validate', compact('recentValidations'));
+        // Liste des transferts POS validأ©s rأ©cents
+        $recentTransfers = \App\Models\PosTransfer::with(['client', 'cashRegister.user', 'items'])
+            ->where('status', 'validated')
+            ->latest()->take(15)->get();
+
+        $openRegister = \App\Models\CashRegister::where('module', 'catering')
+            ->where('status', 'open')
+            ->first();
+
+        return view('catering.validate', compact('recentTransfers', 'openRegister'));
     }
 
-    public function checkCode(Request $request)
+    public function billingIndex(Request $request)
     {
-        $this->perm('catering.validate');
-        $request->validate(['code' => 'required|string']);
-        $code = strtoupper(trim($request->code));
+        $this->perm('catering.contracts.view');
 
-        $mealCode = CateringMealCode::with([
-            'menuMeal.menuDay.weeklyMenu.contract.client',
-            'menuMeal.menuDay.weeklyMenu.contract.prices',
-            'menuMeal.items.meal',
-        ])->where('code', $code)->first();
+        $year = (int) ($request->input('year') ?: now()->year);
+        $month = (int) ($request->input('month') ?: now()->month);
 
-        if (!$mealCode) {
-            return response()->json(['status' => 'not_found', 'message' => 'Code introuvable.']);
-        }
+        $invoices = CateringInvoice::with(['client', 'contract'])
+            ->when($request->filled('status'), function ($q) use ($request) {
+                $q->where('status', $request->string('status')->toString());
+            })
+            ->latest('period_year')
+            ->latest('period_month')
+            ->paginate(20)
+            ->withQueryString();
 
-        if ($mealCode->is_used) {
-            return response()->json([
-                'status'  => 'used',
-                'message' => 'Code dÃ©jÃ  utilisÃ© le ' . $mealCode->used_at?->format('d/m/Y Ã  H:i') . '.',
-                'client'  => $mealCode->menuMeal?->menuDay?->weeklyMenu?->contract?->client?->name ?? 'â€”',
-            ]);
-        }
+        $contracts = CateringContract::with('client')
+            ->where('status', 'active')
+            ->orderByDesc('id')
+            ->get();
 
-        $meal     = $mealCode->menuMeal;
-        $contract = $meal->menuDay->weeklyMenu->contract;
-        $price    = $contract->getPriceFor($meal->type);
+        $monthlyTotals = [
+            'billed' => CateringInvoice::where('period_year', $year)->where('period_month', $month)->sum('total_amount'),
+            'paid' => CateringInvoice::where('period_year', $year)->where('period_month', $month)->sum('paid_amount'),
+        ];
 
-        return response()->json([
-            'status'    => 'valid',
-            'code_id'   => $mealCode->id,
-            'code'      => $mealCode->code,
-            'client'    => $contract->client->name ?? 'â€”',
-            'company'   => $contract->client->company ?? '',
-            'date'      => $meal->menuDay->date->format('d/m/Y'),
-            'meal_type' => $meal->type_label,
-            'type_icon' => $meal->type_icon,
-            'dishes'    => $meal->items->map(fn($i) => $i->meal->name)->join(', ') ?: 'â€”',
-            'price'     => number_format($price, 0, ',', ' ') . ' MRU',
-            'price_raw' => $price,
+        return view('catering.billing.index', compact('invoices', 'contracts', 'year', 'month', 'monthlyTotals'));
+    }
+
+    public function generateMonthlyInvoice(Request $request)
+    {
+        $this->perm('catering.contracts.edit');
+
+        $data = $request->validate([
+            'contract_id' => 'required|exists:catering_contracts,id',
+            'year' => 'required|integer|min:2020|max:2100',
+            'month' => 'required|integer|min:1|max:12',
         ]);
-    }
 
-    public function confirmCode(Request $request)
-    {
-        $this->perm('catering.validate');
-        $request->validate(['code_id' => 'required|exists:catering_meal_codes,id']);
+        $contract = CateringContract::with(['client', 'prices'])->findOrFail($data['contract_id']);
 
-        $mealCode = CateringMealCode::with([
-            'menuMeal.menuDay.weeklyMenu.contract.client',
-            'menuMeal.menuDay.weeklyMenu.contract.prices',
-            'menuMeal.items.meal.recipe.items',
-        ])->findOrFail($request->code_id);
+        $invoiceExists = CateringInvoice::where('catering_contract_id', $contract->id)
+            ->where('period_year', $data['year'])
+            ->where('period_month', $data['month'])
+            ->exists();
 
-        if ($mealCode->is_used) {
-            return response()->json(['error' => 'Code dÃ©jÃ  validÃ©.'], 422);
+        if ($invoiceExists) {
+            return back()->with('error', 'Une facture existe deja pour ce contrat et ce mois.');
         }
 
-        $contract = $mealCode->menuMeal->menuDay->weeklyMenu->contract;
-        $price    = $contract->getPriceFor($mealCode->menuMeal->type);
+        $periodStart = Carbon::create($data['year'], $data['month'], 1)->startOfMonth();
+        $periodEnd = $periodStart->copy()->endOfMonth();
 
-        try {
-            DB::transaction(function () use ($mealCode, $contract, $price) {
-                $transaction = Transaction::create([
-                    'type'      => 'sale',
-                    'amount'    => $price,
-                    'reference' => 'CAT-' . $mealCode->code,
-                    'date'      => today(),
-                    'module'    => 'catering',
-                ]);
+        $effectiveStart = $periodStart->copy()->max($contract->start_date->copy()->startOfDay());
+        $effectiveEnd = $periodEnd->copy()->min($contract->end_date->copy()->endOfDay());
 
-                CateringConsumption::create([
-                    'catering_meal_code_id' => $mealCode->id,
-                    'consumed_at'           => now(),
-                    'user_id'               => auth()->id(),
-                    'transaction_id'        => $transaction->id,
-                ]);
+        if ($effectiveStart->gt($effectiveEnd)) {
+            return back()->with('error', 'Ce contrat est hors periode pour le mois selectionne.');
+        }
 
-                $mealCode->update([
-                    'is_used'      => true,
-                    'used_at'      => now(),
-                    'validated_by' => auth()->id(),
-                ]);
+        $baseUnitPrice = (float) ($contract->prices()->avg('price') ?? 0);
 
-                // Décrémenter le stock lié au catering (1 portion par repas)
-                $cateringStock = Stock::forModule('catering');
-                if ($cateringStock) {
-                    foreach ($mealCode->menuMeal->items as $menuItem) {
-                        $recipe = $menuItem->meal?->recipe;
-                        if (!$recipe) continue;
-                        foreach ($recipe->items as $ri) {
-                            $stockItem = StockItem::where('stock_id', $cateringStock->id)
-                                ->where('product_id', $ri->product_id)
-                                ->first();
-                            if (!$stockItem) continue;
-                            $stockItem->decrement('quantity', $ri->quantity);
-                            StockMovement::create([
-                                'product_id'    => $ri->product_id,
-                                'stock_id'      => $cateringStock->id,
-                                'type'          => 'out',
-                                'quantity'      => $ri->quantity,
-                                'origin_module' => 'catering',
-                                'origin_type'   => 'catering_consumption',
-                                'origin_id'     => $mealCode->id,
-                                'user_id'       => auth()->id(),
-                                'notes'         => 'Consommation catering — Code ' . $mealCode->code,
-                            ]);
-                        }
-                    }
+        $logs = PosTerminalTicketLog::query()
+            ->with('stockItem')
+            ->whereBetween('served_at', [$effectiveStart, $effectiveEnd])
+            ->whereHas('stockItem', function ($q) {
+                $q->where('item_type', 'contract');
+            })
+            ->whereHas('stockItem.terminal', function ($q) use ($contract) {
+                $q->where('client_id', $contract->client_id);
+            })
+            ->get();
+
+        if ($logs->isEmpty()) {
+            return back()->with('error', 'Aucune consommation trouvee pour generer la facture de ce mois.');
+        }
+
+        $grouped = $logs->groupBy('pos_terminal_stock_item_id');
+        $invoiceNumber = sprintf('CAT-INV-%04d%02d-%05d', $data['year'], $data['month'], $contract->id);
+
+        DB::transaction(function () use ($contract, $data, $effectiveStart, $effectiveEnd, $grouped, $baseUnitPrice, $invoiceNumber) {
+            $invoice = CateringInvoice::create([
+                'catering_contract_id' => $contract->id,
+                'client_id' => $contract->client_id,
+                'invoice_number' => $invoiceNumber,
+                'period_year' => $data['year'],
+                'period_month' => $data['month'],
+                'period_start' => $effectiveStart->toDateString(),
+                'period_end' => $effectiveEnd->toDateString(),
+                'status' => 'issued',
+                'total_amount' => 0,
+                'paid_amount' => 0,
+            ]);
+
+            $total = 0;
+
+            foreach ($grouped as $stockItemId => $rows) {
+                $qty = (float) $rows->sum('qty');
+                if ($qty <= 0) {
+                    continue;
                 }
-            });
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Erreur : ' . $e->getMessage()], 500);
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Repas validÃ© pour ' . ($contract->client->name ?? 'â€”') . '.',
-        ]);
+                $stockItem = $rows->first()->stockItem;
+                $unitPrice = $baseUnitPrice;
+                $lineTotal = round($qty * $unitPrice, 2);
+                $total += $lineTotal;
+
+                $invoice->items()->create([
+                    'pos_terminal_stock_item_id' => $stockItemId,
+                    'label' => $stockItem?->item_label ?: 'Repas catering',
+                    'quantity' => $qty,
+                    'unit_price' => $unitPrice,
+                    'line_total' => $lineTotal,
+                ]);
+            }
+
+            $invoice->update(['total_amount' => round($total, 2)]);
+        });
+
+        return back()->with('success', 'Facture mensuelle generee avec succes.');
     }
 
-    public function recentValidationsJson()
+    public function showInvoice(CateringInvoice $invoice)
     {
-        $this->perm('catering.validate');
-        $items = CateringConsumption::with([
-            'mealCode.menuMeal.menuDay.weeklyMenu.contract.client',
-            'mealCode.menuMeal',
-        ])->latest('consumed_at')->take(20)->get()
-            ->map(fn($c) => [
-                'code'      => $c->mealCode->code ?? 'â€”',
-                'client'    => $c->mealCode?->menuMeal?->menuDay?->weeklyMenu?->contract?->client?->name ?? 'â€”',
-                'meal_type' => $c->mealCode?->menuMeal?->type_label ?? 'â€”',
-                'time'      => $c->consumed_at?->format('H:i'),
+        $this->perm('catering.contracts.view');
+
+        $invoice->load([
+            'client',
+            'contract',
+            'items',
+            'payments.paymentType',
+            'payments.creator',
+            'payments.validator',
+        ]);
+
+        $paymentTypes = PaymentType::query()
+            ->orderBy('name')
+            ->get();
+
+        $canValidatePayment = auth()->user()?->hasRole(['accountant', 'admin', 'super-admin']);
+
+        return view('catering.billing.show', compact('invoice', 'paymentTypes', 'canValidatePayment'));
+    }
+
+    public function addInvoicePayment(Request $request, CateringInvoice $invoice)
+    {
+        $this->perm('catering.contracts.edit');
+
+        $data = $request->validate([
+            'payment_type_id' => 'required|exists:payment_types,id',
+            'amount' => 'required|numeric|min:0.01',
+            'payment_date' => 'required|date',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $remaining = max(0, (float) $invoice->total_amount - (float) $invoice->paid_amount);
+        if ((float) $data['amount'] > $remaining) {
+            return back()->with('error', 'Le montant depasse le reste a payer.');
+        }
+
+        $invoice->payments()->create([
+            'payment_type_id' => $data['payment_type_id'],
+            'amount' => (float) $data['amount'],
+            'payment_date' => $data['payment_date'],
+            'status' => 'pending',
+            'notes' => $data['notes'] ?? null,
+            'created_by' => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Paiement enregistre en attente de validation comptable.');
+    }
+
+    public function validateInvoicePayment(CateringInvoice $invoice, CateringInvoicePayment $payment)
+    {
+        $this->perm('catering.contracts.view');
+
+        if (!auth()->user()?->hasRole(['accountant', 'admin', 'super-admin'])) {
+            abort(403, 'Validation reservee a la comptabilite.');
+        }
+
+        if ((int) $payment->catering_invoice_id !== (int) $invoice->id) {
+            abort(404);
+        }
+
+        if ($payment->status !== 'pending') {
+            return back()->with('error', 'Ce paiement est deja traite.');
+        }
+
+        DB::transaction(function () use ($invoice, $payment) {
+            $payment->update([
+                'status' => 'validated',
+                'validated_by' => auth()->id(),
+                'validated_at' => now(),
             ]);
 
-        return response()->json(['items' => $items]);
-    }
+            $validatedTotal = (float) $invoice->payments()
+                ->where('status', 'validated')
+                ->sum('amount');
 
-    // â”€â”€â”€ Consumptions History â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            $status = 'issued';
+            if ($validatedTotal > 0 && $validatedTotal < (float) $invoice->total_amount) {
+                $status = 'partial';
+            }
+            if ($validatedTotal >= (float) $invoice->total_amount) {
+                $status = 'paid';
+            }
 
-    public function consumptions(Request $request)
-    {
-        $this->perm('catering.consumptions.view');
-        $query = CateringConsumption::with([
-            'mealCode.menuMeal.menuDay.weeklyMenu.contract.client',
-            'mealCode.menuMeal',
-            'transaction',
-            'user',
-        ]);
+            $invoice->update([
+                'paid_amount' => round($validatedTotal, 2),
+                'status' => $status,
+            ]);
 
-        if ($request->client_id) {
-            $query->whereHas('mealCode.menuMeal.menuDay.weeklyMenu.contract',
-                fn($q) => $q->where('client_id', $request->client_id));
-        }
-        if ($request->date) {
-            $query->whereDate('consumed_at', $request->date);
-        }
+            $txRef = sprintf('CATINVPAY-%d-%d', $invoice->id, $payment->id);
+            $exists = Transaction::where('reference', $txRef)->exists();
+            if (!$exists) {
+                Transaction::create([
+                    'type' => 'sale',
+                    'module' => 'catering',
+                    'amount' => $payment->amount,
+                    'reference' => $txRef,
+                    'date' => $payment->payment_date,
+                ]);
+            }
+        });
 
-        $consumptions = $query->latest('consumed_at')->paginate(30)->withQueryString();
-        $clients      = Client::orderBy('name')->get();
-
-        return view('catering.consumptions', compact('consumptions', 'clients'));
+        return back()->with('success', 'Paiement valide par la comptabilite.');
     }
 }

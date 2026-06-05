@@ -2,6 +2,11 @@
 
 <?php
 
+use App\Http\Controllers\CashRegisterController;
+use App\Http\Controllers\PosTransferController;
+use App\Http\Controllers\PosTerminalController;
+use App\Http\Controllers\PosTerminalStockController;
+
 // Comptabilité — Transactions globales
 use App\Http\Controllers\AccountingController;
 Route::get('/accounting/transactions', [AccountingController::class, 'transactions'])->name('accounting.transactions');
@@ -153,7 +158,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/orders/{id}/payment',       [POSController::class, 'processPayment'])->name('pos.process-payment');
         Route::get('/orders/{id}/receipt',        [POSController::class, 'printReceipt'])->name('pos.order-receipt');
         Route::get('/orders/{id}/kitchen-ticket', [POSController::class, 'printKitchenTicket'])->name('pos.kitchen-ticket');
-        // Comptabilité caisse
+        // Catering POS — vente libre (boissons, desserts, extras)
+        Route::get('/catering',               [POSController::class, 'cateringIndex'])->name('pos.catering');
+        Route::post('/catering/create-order', [POSController::class, 'cateringCreateOrder'])->name('pos.catering.create-order');
     });
 
     // Production Management Routes
@@ -198,22 +205,25 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/contracts/{contract}',                        [CateringController::class, 'destroyContract'])->name('contracts.destroy');
 
         // Weekly Menu
+        Route::get('/planning',                                       [CateringController::class, 'weeklyPlanningIndex'])->name('planning.index');
         Route::get('/contracts/{contract}/create-menu',               [CateringController::class, 'weeklyMenuCreate'])->name('weekly-menu.create');
+        Route::get('/contracts/{contract}/weekly-menu-template',      [CateringController::class, 'weeklyMenuTemplate'])->name('weekly-menu.template');
         Route::post('/contracts/{contract}/weekly-menu',              [CateringController::class, 'weeklyMenuStore'])->name('weekly-menu.store');
         Route::get('/weekly-menus/{menu}',                            [CateringController::class, 'weeklyMenuShow'])->name('weekly-menu.show');
         Route::delete('/weekly-menus/{menu}',                         [CateringController::class, 'weeklyMenuDestroy'])->name('weekly-menu.destroy');
 
-        // Print codes per meal
-        Route::get('/meals/{meal}/print-codes',                       [CateringController::class, 'printCodes'])->name('meals.print-codes');
-
         // Validation
         Route::get('/validate',                                       [CateringController::class, 'validatePage'])->name('validate');
-        Route::post('/check-code',                                    [CateringController::class, 'checkCode'])->name('check-code');
-        Route::post('/confirm-code',                                  [CateringController::class, 'confirmCode'])->name('confirm-code');
-        Route::get('/recent-validations',                             [CateringController::class, 'recentValidationsJson'])->name('recent-validations');
+
+        // Billing (enterprise contracts)
+        Route::get('/billing',                                        [CateringController::class, 'billingIndex'])->name('billing.index');
+        Route::post('/billing/generate',                              [CateringController::class, 'generateMonthlyInvoice'])->name('billing.generate');
+        Route::get('/billing/invoices/{invoice}',                     [CateringController::class, 'showInvoice'])->name('billing.show');
+        Route::post('/billing/invoices/{invoice}/payments',           [CateringController::class, 'addInvoicePayment'])->name('billing.payments.store');
+        Route::post('/billing/invoices/{invoice}/payments/{payment}/validate', [CateringController::class, 'validateInvoicePayment'])->name('billing.payments.validate');
 
         // History
-        Route::get('/consumptions',                                   [CateringController::class, 'consumptions'])->name('consumptions');
+        // (consumptions supprimé — remplacé par les transferts POS)
     });
 
     // Event Routes
@@ -313,4 +323,63 @@ Route::middleware(['auth'])->group(function () {
 
     // Gestion des permissions
     Route::resource('permissions', PermissionController::class);
+
+    // ── Caissier : ouverture / gestion de sa propre session ───────────────
+
+    Route::prefix('cashier')->name('cashier.')->group(function () {
+        // Caissier
+        Route::get('/open',                  [CashRegisterController::class, 'open'])->name('open');
+        Route::post('/open',                 [CashRegisterController::class, 'startSession'])->name('start');
+        Route::get('/session/{id}',          [CashRegisterController::class, 'session'])->name('session');
+        Route::post('/session/{id}/close',   [CashRegisterController::class, 'closeSession'])->name('close');
+        Route::get('/session/{id}/report',   [CashRegisterController::class, 'report'])->name('report');
+        Route::get('/session/{id}/ticket-codes/export', [CashRegisterController::class, 'exportTicketCodesCsv'])->name('ticket-codes.export');
+
+        // Comptable
+        Route::get('/all',                   [CashRegisterController::class, 'accountantIndex'])->name('accountant');
+        Route::post('/session/{id}/validate',[CashRegisterController::class, 'validateSession'])->name('validate');
+
+        // Paramètres : définition des caisses
+        Route::get('/settings',              [CashRegisterController::class, 'settingsIndex'])->name('settings');
+        Route::post('/settings',             [CashRegisterController::class, 'settingsStore'])->name('settings.store');
+    });
+    // ── Admin : terminaux POS (points de vente) ───────────────────────────
+    Route::prefix('settings/pos-terminals')->name('settings.pos-terminals.')->group(function () {
+        Route::get('/',                [PosTerminalController::class, 'index'])->name('index');
+        Route::get('/create',          [PosTerminalController::class, 'create'])->name('create');
+        Route::post('/',               [PosTerminalController::class, 'store'])->name('store');
+        Route::get('/{posTerminal}/edit',    [PosTerminalController::class, 'edit'])->name('edit');
+        Route::put('/{posTerminal}',         [PosTerminalController::class, 'update'])->name('update');
+        Route::delete('/{posTerminal}',      [PosTerminalController::class, 'destroy'])->name('destroy');
+        Route::post('/{posTerminal}/dissociate', [PosTerminalController::class, 'dissociate'])->name('dissociate');
+    });
+    // ── Transferts production → point de vente catering ───────────────────
+
+    Route::prefix('pos-transfer')->name('pos-transfer.')->group(function () {
+        // Production : créer un transfert
+        Route::get('/create',              [PosTransferController::class, 'create'])->name('create');
+        Route::post('/',                   [PosTransferController::class, 'store'])->name('store');
+        Route::get('/{id}/print',          [PosTransferController::class, 'print'])->name('print');
+
+        // API : données client
+        Route::get('/api/client-contracts',[PosTransferController::class, 'getClientContracts'])->name('api.contracts');
+        Route::get('/api/contract-meals',  [PosTransferController::class, 'getContractMeals'])->name('api.meals');
+
+        // Caissier : transferts en attente + validation
+        Route::get('/register/{registerId}/pending', [PosTransferController::class, 'pending'])->name('pending');
+        Route::post('/{id}/validate',      [PosTransferController::class, 'validate'])->name('validate');
+
+        // Caissier : retour de marchandises
+        Route::get('/register/{registerId}/return',  [PosTransferController::class, 'createReturn'])->name('return.create');
+        Route::post('/register/{registerId}/return', [PosTransferController::class, 'storeReturn'])->name('return.store');
+        Route::get('/return/{id}/print',             [PosTransferController::class, 'printReturn'])->name('print-return');
+
+        // Service plats (API JSON)
+        Route::post('/items/{itemId}/serve',[PosTransferController::class, 'serveItem'])->name('items.serve');
+        Route::post('/items/{itemId}/sell', [PosTransferController::class, 'sellItem'])->name('items.sell');
+    });
+
+    // Stock terminal POS : distribution et vente via API JSON
+    Route::post('/pos-terminal-stock/{id}/distribute', [PosTerminalStockController::class, 'distribute'])->name('pos-terminal-stock.distribute');
+    Route::post('/pos-terminal-stock/{id}/sell',        [PosTerminalStockController::class, 'sell'])->name('pos-terminal-stock.sell');
 });

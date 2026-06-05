@@ -45,7 +45,15 @@ class PermissionSeeder extends Seeder
 
             // ── Production — Tableau de bord ──────────────────────────────────
             'production.dashboard',
+            // ── Production — Transferts POS (Production → Caisse Catering) ──────
+            'production.transfers.create',
+            'production.transfers.view',
+            'production.transfers.validate',
 
+            // ── Caisse — Comptabilité & Sessions ────────────────────────────
+            'accounting.view',
+            'accounting.validate',
+            'settings.cashregisters',
             // ── Production — Pertes/Périmés ───────────────────────────────
             'production.waste.view',
             'production.waste.create',
@@ -260,7 +268,9 @@ class PermissionSeeder extends Seeder
             'hr.payroll.view', 'hr.payroll.generate', 'hr.payroll.mark-paid',
             'hr.advances.view', 'hr.advances.approve',
             'catering.dashboard', 'catering.clients.view', 'catering.contracts.view',
-            'catering.consumptions.view',
+            'catering.weekly-menu.view', 'catering.validate',
+            'production.transfers.create', 'production.transfers.view', 'production.transfers.validate',
+            'accounting.view', 'accounting.validate', 'settings.cashregisters',
             'events.dashboard', 'events.view', 'events.clients.view',
             'events.validate', 'events.complete',
             'stock.view', 'stock.movements.view', 'stock.movements.all',
@@ -279,6 +289,12 @@ class PermissionSeeder extends Seeder
             'pos.orders.cancel', 'pos.orders.payment',
             'pos.accounting.view', 'pos.accounting.register.open',
             'pos.accounting.register.close', 'pos.accounting.profitability',
+            // Catering POS
+            'catering.dashboard',
+            'production.transfers.view',
+            'production.transfers.validate',
+            'catering.validate',
+            // Résidence
             'residence.dashboard', 'residence.calendar',
             'residence.bookings.view', 'residence.bookings.create', 'residence.bookings.edit',
             'residence.bookings.checkin', 'residence.bookings.checkout', 'residence.bookings.payment',

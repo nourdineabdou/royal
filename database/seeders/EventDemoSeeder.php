@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use App\Models\Unit;
 use App\Models\Client;
 use App\Models\Event;
 use App\Models\Service;
@@ -31,6 +32,9 @@ class EventDemoSeeder extends Seeder
             'company' => 'Société Démo',
         ]);
 
+        // Unité par défaut pour les produits
+        $unit = Unit::firstOrCreate(['name' => 'Kilogramme'], ['symbol' => 'kg']);
+
         // Exemple de stock
         $stock = Stock::firstOrCreate(['name' => 'Cuisine principale']);
 
@@ -54,11 +58,11 @@ class EventDemoSeeder extends Seeder
         ]);
         RecipeItem::firstOrCreate([
             'recipe_id' => $recipe->id,
-            'product_id' => Product::firstOrCreate(['name' => 'Poulet'])->id,
+            'product_id' => Product::firstOrCreate(['name' => 'Poulet'], ['unit_id' => $unit->id])->id,
         ], ['quantity' => 1]);
         RecipeItem::firstOrCreate([
             'recipe_id' => $recipe->id,
-            'product_id' => Product::firstOrCreate(['name' => 'Oignons'])->id,
+            'product_id' => Product::firstOrCreate(['name' => 'Oignons'], ['unit_id' => $unit->id])->id,
         ], ['quantity' => 0.2]);
 
         // Exemple d'événement complet

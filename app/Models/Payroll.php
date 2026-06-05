@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class Payroll extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
-        'employee_id', 'month', 'year',
+        'company_id', 'employee_id', 'month', 'year',
         'base_salary', 'bonus', 'deduction', 'advance_deduction',
         'net_salary', 'status', 'paid_at',
     ];

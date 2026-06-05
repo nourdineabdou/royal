@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class Leave extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
-        'employee_id', 'type', 'start_date', 'end_date', 'days', 'status', 'reason',
+        'company_id', 'employee_id', 'type', 'start_date', 'end_date', 'days', 'status', 'reason',
     ];
 
     protected $casts = [

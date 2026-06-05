@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToCompany;
+use App\Traits\BelongsToSite;
 use Illuminate\Database\Eloquent\Model;
 
 class Stock extends Model
 {
-    protected $fillable = ['name', 'location', 'module'];
+    use BelongsToCompany, BelongsToSite;
+
+    protected $fillable = ['company_id', 'site_id', 'name', 'location', 'module'];
 
     /** The modules that must each be linked to exactly one stock. */
     public const MODULES = [
