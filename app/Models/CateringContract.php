@@ -73,18 +73,32 @@ class CateringContract extends Model
         return $types;
     }
 
+    /** Le contrat est "actif" en base mais sa date de fin est déjà dépassée — le statut n'a pas été mis à jour. */
+    public function getIsExpiredAttribute(): bool
+    {
+        return $this->status === 'active' && $this->end_date && $this->end_date->isPast();
+    }
+
     public function getStatusLabelAttribute(): string
     {
+        if ($this->is_expired) {
+            return 'Expiré (depuis le ' . $this->end_date->format('d/m/Y') . ')';
+        }
+
         return match ($this->status) {
             'active' => 'Actif',
             'paused' => 'En pause',
-            'ended'  => 'Terméiné',
+            'ended'  => 'Terminé',
             default  => $this->status,
         };
     }
 
     public function getStatusColorAttribute(): string
     {
+        if ($this->is_expired) {
+            return 'bg-red-100 text-red-700';
+        }
+
         return match ($this->status) {
             'active' => 'bg-emerald-100 text-emerald-700',
             'paused' => 'bg-amber-100 text-amber-700',

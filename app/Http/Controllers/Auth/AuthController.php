@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use App\Models\Attendance;
 
 class AuthController extends Controller
 {
@@ -30,6 +31,22 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
+
+            $user = Auth::user();
+            if ($user->employee) {
+                $hasTodayAttendance = Attendance::where('employee_id', $user->employee->id)
+                    ->where('date', today())
+                    ->whereNotNull('check_in')
+                    ->exists();
+                if (! $hasTodayAttendance) {
+                    return redirect()->intended(route('hr.clock'))->with('success', 'Bienvenue! Veuillez pointer votre arrivée.');
+                }
+            }
+
+            if ($user->hasRole('caissier')) {
+                return redirect()->intended(route('cashier.open'))->with('success', 'Bienvenue!');
+            }
+
             return redirect()->intended('dashboard-modern')->with('success', 'Bienvenue!');
         }
 

@@ -76,6 +76,7 @@ class ReferenceDataSeeder extends Seeder
         $paymentTypes = [
             'Espèces', 'Carte bancaire', 'Virement bancaire',
             'Chèque', 'Mobile Money',
+            'Masrivi', 'Sadad', 'Bankily', 'Click',
         ];
         foreach ($paymentTypes as $pt) {
             PaymentType::firstOrCreate(['name' => $pt]);

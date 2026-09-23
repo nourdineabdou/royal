@@ -1,4 +1,4 @@
-@extends('layouts.production')
+@extends('layouts.purchases')
 
 @section('title', 'Produits')
 
@@ -7,7 +7,7 @@
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-gray-800">Gestion des Produits</h1>
         @can('products.create')
-        <a href="{{ route('products.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+        <a href="{{ route('purchases.products.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
             <i class="fas fa-plus mr-2"></i>Ajouter Produit
         </a>
         @endcan
@@ -21,7 +21,7 @@
 
     <!-- Recherche -->
     <div class="mb-6 bg-white rounded-lg shadow p-4">
-        <form method="GET" action="{{ route('products.index') }}" class="flex gap-2">
+        <form method="GET" action="{{ route('purchases.products.index') }}" class="flex gap-2">
             <input
                 type="text"
                 name="search"
@@ -53,14 +53,14 @@
                 @forelse($products as $product)
                     <tr class="border-b hover:bg-gray-50 transition">
                         <td class="px-6 py-4 text-sm text-gray-800">
-                            <a href="{{ route('products.show', $product) }}" class="text-indigo-600 hover:text-indigo-800 font-semibold">
+                            <a href="{{ route('purchases.products.show', $product) }}" class="text-indigo-600 hover:text-indigo-800 font-semibold">
                                 {{ $product->name }}
                             </a>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-600">
-                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">{{ $product->unit->abbreviation }}</span>
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">{{ $product->unit->symbol }}</span>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-600">{{ $product->packaging?->name ?? '—' }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ $product->productPackagings->pluck('packaging.name')->implode(', ') ?: '—' }}</td>
                         <td class="px-6 py-4 text-sm">
                             @if($product->is_consumable)
                                 <span class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded">Oui</span>
@@ -77,12 +77,12 @@
                         <td class="px-6 py-4 text-center">
                             <div class="flex justify-center gap-2">
                                 @can('products.edit')
-                                <a href="{{ route('products.edit', $product) }}" class="text-blue-600 hover:text-blue-800 text-lg" title="Modifier">
+                                <a href="{{ route('purchases.products.edit', $product) }}" class="text-blue-600 hover:text-blue-800 text-lg" title="Modifier">
                                     <i class="fas fa-edit"></i>
                                 </a>
                                 @endcan
                                 @can('products.delete')
-                                <form action="{{ route('products.destroy', $product) }}" method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr?');">
+                                <form action="{{ route('purchases.products.destroy', $product) }}" method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr?');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="text-red-600 hover:text-red-800 text-lg" title="Supprimer">

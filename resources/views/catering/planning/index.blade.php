@@ -20,6 +20,11 @@
             Afficher
         </button>
     </form>
+
+    <a href="{{ route('catering.weekly-menu.print-all', ['week_start' => $weekStart->toDateString()]) }}" target="_blank"
+       class="h-10 inline-flex items-center gap-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold">
+        <i class="fa-solid fa-print"></i> Imprimer tous les menus
+    </a>
 </div>
 
 <div class="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">

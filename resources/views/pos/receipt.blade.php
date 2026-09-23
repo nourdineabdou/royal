@@ -227,7 +227,7 @@
 {{-- ══ LIGNES ARTICLES ══════════════════════════════════════════ --}}
 @foreach($order->items as $item)
 <div class="item-row">
-    <span class="item-name">{{ $item->meal->name ?? '—' }}</span>
+    <span class="item-name">{{ $item->meal->name ?? $item->product->name ?? '—' }}</span>
     <span class="item-qty">{{ $item->quantity }}</span>
     <span class="item-price">{{ number_format($item->price, 0, ',', ' ') }}</span>
     <span class="item-total">{{ number_format($item->price * $item->quantity, 0, ',', ' ') }}</span>

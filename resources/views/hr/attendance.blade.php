@@ -8,8 +8,20 @@
         <p class="text-gray-500 text-sm mt-1">{{ \Carbon\Carbon::parse($date)->translatedFormat('l d F Y') }}</p>
     </div>
     <div class="flex items-center gap-3">
-        <form method="GET" class="flex gap-2">
-            <input name="date" type="date" value="{{ $date }}" class="border rounded-lg px-3 py-2 text-sm">
+        <form method="GET" class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
+            <div class="flex gap-2 items-center">
+                <label class="text-sm text-gray-600">Date</label>
+                <input name="date" type="date" value="{{ $date }}" class="border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div class="flex gap-2 items-center">
+                <label class="text-sm text-gray-600">Emplacement</label>
+                <select name="site_id" class="border rounded-lg px-3 py-2 text-sm">
+                    <option value="">Tous</option>
+                    @foreach($sites as $site)
+                    <option value="{{ $site->id }}" {{ isset($siteId) && $siteId == $site->id ? 'selected' : '' }}>{{ $site->name }}</option>
+                    @endforeach
+                </select>
+            </div>
             <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg text-sm">
                 <i class="fas fa-search"></i>
             </button>
@@ -22,6 +34,51 @@
         @endcan
     </div>
 </div>
+
+@if($selfEmployee)
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
+    <div class="bg-white rounded-xl shadow p-5 border border-slate-200">
+        <p class="text-sm text-slate-500">Mon pointage aujourd'hui</p>
+        <h2 class="text-xl font-semibold text-slate-800 mt-2">{{ $selfEmployee->full_name }}</h2>
+        <p class="text-sm text-slate-500 mt-1">Emplacement : {{ $selfEmployee->site->name ?? 'Non défini' }}</p>
+        <div class="mt-4 space-y-2 text-sm text-slate-600">
+            <p><strong>Entrée :</strong> {{ $selfAttendance->check_in ?? '—' }}</p>
+            <p><strong>Sortie :</strong> {{ $selfAttendance->check_out ?? '—' }}</p>
+            <p><strong>Statut :</strong> {{ $selfAttendance?->status ? ucfirst($selfAttendance->status) : 'Non pointé' }}</p>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl shadow p-5 border border-slate-200">
+        <p class="text-sm text-slate-500">Pointage rapide</p>
+        <p class="text-sm text-slate-500 mt-2">Heure de référence : 08:00</p>
+        <div class="mt-4 flex flex-col gap-3">
+            <form method="POST" action="{{ route('hr.attendance.clock') }}">
+                @csrf
+                <input type="hidden" name="action" value="check_in">
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-lg font-medium"
+                        {{ $selfAttendance && $selfAttendance->check_in ? 'disabled' : '' }}>
+                    <i class="fas fa-play mr-2"></i> Début de travail
+                </button>
+            </form>
+            <form method="POST" action="{{ route('hr.attendance.clock') }}">
+                @csrf
+                <input type="hidden" name="action" value="check_out">
+                <button type="submit" class="w-full bg-slate-700 hover:bg-slate-800 text-white px-4 py-3 rounded-lg font-medium"
+                        {{ $selfAttendance && $selfAttendance->check_out ? 'disabled' : '' }}>
+                    <i class="fas fa-stop mr-2"></i> Fin de travail
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl shadow p-5 border border-slate-200">
+        <p class="text-sm text-slate-500">Rappel</p>
+        <ul class="list-disc list-inside text-sm text-slate-600 mt-3 space-y-2">
+            <li>Cliquez sur <strong>Début de travail</strong> en arrivant.</li>
+            <li>Cliquez sur <strong>Fin de travail</strong> en partant.</li>
+            <li>Le statut passe automatiquement à Retard si vous pointez après 08:00.</li>
+        </ul>
+    </div>
+</div>
+@endif
 
 {{-- Stats --}}
 @php
@@ -50,6 +107,7 @@
             <thead class="bg-gray-50 text-gray-600 text-xs uppercase border-b">
                 <tr>
                     <th class="px-4 py-3 text-left">Employé</th>
+                    <th class="px-4 py-3 text-center">Emplacement</th>
                     <th class="px-4 py-3 text-center">Poste</th>
                     <th class="px-4 py-3 text-center">Récession</th>
                     <th class="px-4 py-3 text-center">Entrée</th>
@@ -68,6 +126,7 @@
                     <td class="px-4 py-3">
                         <p class="font-medium text-gray-800">{{ $att->employee->full_name ?? '—' }}</p>
                     </td>
+                    <td class="px-4 py-3 text-center text-gray-500">{{ $att->employee->site->name ?? '—' }}</td>
                     <td class="px-4 py-3 text-center text-gray-500">{{ $att->employee->jobTitle->name ?? '—' }}</td>
                     <td class="px-4 py-3 text-center">
                         <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{{ $shiftLabel }}</span>

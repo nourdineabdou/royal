@@ -32,7 +32,7 @@ class UnitController extends Controller
         $this->perm('units.create');
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:units',
-            'abbreviation' => 'required|string|max:10|unique:units',
+            'symbol' => 'required|string|max:10|unique:units',
         ]);
 
         Unit::create($validated);
@@ -51,7 +51,7 @@ class UnitController extends Controller
         $this->perm('units.edit');
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:units,name,' . $unit->id,
-            'abbreviation' => 'required|string|max:10|unique:units,abbreviation,' . $unit->id,
+            'symbol' => 'required|string|max:10|unique:units,symbol,' . $unit->id,
         ]);
 
         $unit->update($validated);

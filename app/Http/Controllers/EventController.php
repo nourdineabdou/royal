@@ -18,8 +18,11 @@ use App\Models\StockMovement;
 use App\Models\Transaction;
 use App\Models\Product;
 use App\Models\Meal;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderItem;
 use App\Models\Recipe;
 use App\Models\Stock;
+use App\Services\StockRequirementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Mail;
 
@@ -205,12 +208,21 @@ class EventController extends Controller
         $request->validate([
         ]);
 
+        $stockId = $request->stock_id;
+        if (!$stockId) {
+            $stock = Stock::create([
+                'name'   => 'Événement — ' . $request->event_type . ' ' . $request->event_date,
+                'module' => null,
+            ]);
+            $stockId = $stock->id;
+        }
+
         $event = Event::create([
             'client_id'    => $request->client_id,
             'event_type'   => $request->event_type,
             'event_date'   => $request->event_date,
             'guest_count'  => $request->guest_count,
-            'stock_id'     => $request->stock_id,
+            'stock_id'     => $stockId,
             'status'       => 'draft',
             'total_amount' => 0,
         ]);
@@ -255,6 +267,9 @@ class EventController extends Controller
             usort($stockRequirements, fn($a, $b) => $a['ok'] <=> $b['ok']);
         }
 
+        $missingRecipeMeals = $this->mealsWithoutRecipe($event);
+        $purchaseNeedsOrder = PurchaseOrder::where('event_id', $event->id)->first();
+
         // Computed totals
         $servicesTotal = $event->serviceItems->sum(fn($si) => (float)$si->price * (int)$si->quantity);
         $mealsTotal    = 0.0;
@@ -266,7 +281,8 @@ class EventController extends Controller
 
         return view('event.show', compact(
             'event', 'clients', 'availableServices', 'availableMeals', 'availableRecipes', 'stocks',
-            'stockRequirements', 'stockOk', 'servicesTotal', 'mealsTotal', 'optionsTotal', 'computedTotal'
+            'stockRequirements', 'stockOk', 'servicesTotal', 'mealsTotal', 'optionsTotal', 'computedTotal',
+            'missingRecipeMeals', 'purchaseNeedsOrder'
         ));
     }
 
@@ -351,6 +367,7 @@ class EventController extends Controller
         foreach ((array)$request->meal_ids as $mealId) {
             EventMealItem::create(['event_meal_id' => $eventMeal->id, 'meal_id' => $mealId]);
         }
+        $this->syncPurchaseNeeds($event);
         $label = match($request->type) { 'breakfast' => 'Petit-déjeuner', 'lunch' => 'Déjeuner', 'dinner' => 'Dîner' };
         return back()->with('success', "{$label} ajouté ({$request->guest_count} convives).");
     }
@@ -358,8 +375,10 @@ class EventController extends Controller
     public function destroyMeal(EventMeal $meal)
     {
         $this->perm('events.meals.manage');
+        $event = $meal->event;
         $meal->items()->delete();
         $meal->delete();
+        $this->syncPurchaseNeeds($event);
         return back()->with('success', 'Service repas retiré.');
     }
 
@@ -385,14 +404,17 @@ class EventController extends Controller
         foreach ((array)$request->recipe_ids as $recipeId) {
             EventOptionItem::create(['event_option_id' => $option->id, 'recipe_id' => $recipeId]);
         }
+        $this->syncPurchaseNeeds($event);
         return back()->with('success', "Option \"{$request->name}\" ajoutée.");
     }
 
     public function destroyOption(EventOption $option)
     {
         $this->perm('events.options.manage');
+        $event = $option->event;
         $option->items()->delete();
         $option->delete();
+        $this->syncPurchaseNeeds($event);
         return back()->with('success', 'Option retirée.');
     }
 
@@ -632,6 +654,72 @@ class EventController extends Controller
         }
 
         return $required;
+    }
+
+    /**
+     * Liste les repas de l'événement dont le plat n'a pas de recette
+     * (impossible de calculer les besoins pour ceux-ci).
+     */
+    private function mealsWithoutRecipe(Event $event): array
+    {
+        $event->loadMissing('eventMeals.items.meal.recipe');
+
+        $names = [];
+        foreach ($event->eventMeals as $eventMeal) {
+            foreach ($eventMeal->items as $mealItem) {
+                if ($mealItem->meal && !$mealItem->meal->recipe) {
+                    $names[$mealItem->meal_id] = $mealItem->meal->name;
+                }
+            }
+        }
+
+        return array_values($names);
+    }
+
+    /**
+     * Synchronise une commande d'achat (statut "pending", sans fournisseur)
+     * avec les produits manquants pour cet événement, à chaque changement
+     * de plats/options. Supprime la commande si plus aucun manque.
+     */
+    private function syncPurchaseNeeds(Event $event): void
+    {
+        if (!$event->stock_id) {
+            return;
+        }
+
+        $required = $this->computeStockRequirements($event);
+        $comparison = app(StockRequirementService::class)->compareAgainstStock($required, $event->stock_id);
+        $missing = array_filter($comparison, fn ($row) => $row['missing'] > 0);
+
+        $order = PurchaseOrder::where('event_id', $event->id)->first();
+
+        if (empty($missing)) {
+            if ($order) {
+                $order->items()->delete();
+                $order->delete();
+            }
+            return;
+        }
+
+        if (!$order) {
+            $order = PurchaseOrder::create([
+                'supplier_id' => null,
+                'event_id'    => $event->id,
+                'reference'   => 'EVT-' . $event->id,
+                'status'      => 'pending',
+            ]);
+        }
+
+        $order->items()->delete();
+        foreach ($missing as $row) {
+            PurchaseOrderItem::create([
+                'purchase_order_id' => $order->id,
+                'product_id'        => $row['product_id'],
+                'quantity'          => $row['missing'],
+                'price'             => null,
+                'total'             => null,
+            ]);
+        }
     }
 
     /**

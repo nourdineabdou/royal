@@ -60,6 +60,9 @@
                     <a href="{{ route('meals.edit', $meal) }}" class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
                         <i class="fas fa-edit"></i>
                     </a>
+                    <a href="{{ route('meals.recipe.edit', $meal) }}" class="px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition" title="Recette">
+                        <i class="fas fa-list-ul"></i>
+                    </a>
                     @endcan
                     <a href="{{ route('meals.show', $meal) }}" class="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
                         <i class="fas fa-eye"></i>

@@ -279,7 +279,7 @@ class StockController extends Controller
                     fputcsv($out, [
                         $stock->name,
                         $item->product->name ?? '-',
-                        $item->product->unit->abbreviation ?? '-',
+                        $item->product->unit->symbol ?? '-',
                         number_format($item->quantity, 2, '.', ''),
                     ], ';');
                 }
@@ -303,7 +303,7 @@ class StockController extends Controller
             foreach ($stock->items as $item) {
                 fputcsv($out, [
                     $item->product->name ?? '-',
-                    $item->product->unit->abbreviation ?? '-',
+                    $item->product->unit->symbol ?? '-',
                     number_format($item->quantity, 2, '.', ''),
                 ], ';');
             }
@@ -336,7 +336,7 @@ class StockController extends Controller
                     $m->created_at->format('d/m/Y H:i'),
                     $m->stock->name ?? '-',
                     $m->product->name ?? '-',
-                    $m->product->unit->abbreviation ?? '-',
+                    $m->product->unit->symbol ?? '-',
                     $m->type === 'in' ? 'Entrée' : 'Sortie',
                     number_format($m->quantity, 2, '.', ''),
                     $m->origin_module ?? '-',

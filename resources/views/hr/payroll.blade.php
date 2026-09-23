@@ -11,19 +11,6 @@
     </div>
 
     <div class="flex items-center gap-3">
-        {{-- Month/Year filter --}}
-        <form method="GET" class="flex gap-2">
-            <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:outline-none">
-                @for($m=1;$m<=12;$m++)
-                <option value="{{ $m }}" {{ $m==$month?'selected':'' }}>{{ \Carbon\Carbon::createFromDate(null,$m,1)->translatedFormat('F') }}</option>
-                @endfor
-            </select>
-            <input name="year" type="number" value="{{ $year }}" class="border rounded-lg px-3 py-2 text-sm w-24">
-            <button type="submit" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm">
-                <i class="fas fa-search"></i>
-            </button>
-        </form>
-
         {{-- Generate payroll --}}
         @can('hr.payroll.generate')
         <form method="POST" action="{{ route('hr.payroll.generate') }}"
@@ -39,16 +26,56 @@
     </div>
 </div>
 
-{{-- Summary bar --}}
-@php
-    $totalNet   = $payrolls->getCollection()->sum('net_salary');
-    $paidCount  = $payrolls->getCollection()->where('status','paid')->count();
-    $pendCount  = $payrolls->getCollection()->where('status','pending')->count();
-@endphp
+{{-- FILTRES --}}
+<form method="GET" class="bg-white rounded-xl shadow p-4 mb-6 grid grid-cols-2 md:grid-cols-6 gap-4 items-end">
+    <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Mois</label>
+        <select name="month" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none">
+            @for($m=1;$m<=12;$m++)
+            <option value="{{ $m }}" {{ $m==$month?'selected':'' }}>{{ \Carbon\Carbon::createFromDate(null,$m,1)->translatedFormat('F') }}</option>
+            @endfor
+        </select>
+    </div>
+    <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Année</label>
+        <input name="year" type="number" value="{{ $year }}" class="w-full border rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Nom</label>
+        <input type="text" name="name" value="{{ $name }}" placeholder="Prénom ou nom..."
+               class="w-full border rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Poste</label>
+        <select name="job_title_id" class="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="">Tous les postes</option>
+            @foreach($jobTitles as $jt)
+                <option value="{{ $jt->id }}" {{ (string) $jobTitleId === (string) $jt->id ? 'selected' : '' }}>{{ $jt->name }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
+        <input type="text" name="phone" value="{{ $phone }}" placeholder="Rechercher un numéro..."
+               class="w-full border rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div class="flex gap-2">
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <i class="fas fa-filter mr-1"></i> Filtrer
+        </button>
+        @if($jobTitleId || $phone || $name)
+        <a href="{{ route('hr.payroll') }}?month={{ $month }}&year={{ $year }}" class="border rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+            Réinitialiser
+        </a>
+        @endif
+    </div>
+</form>
+
+{{-- Summary bar (calculé sur l'ensemble filtré, pas seulement la page affichée) --}}
 <div class="grid grid-cols-3 gap-4 mb-5">
     <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
         <p class="text-xs text-indigo-500 font-medium">Masse salariale nette</p>
-        <p class="text-2xl font-bold text-indigo-700 mt-1">{{ number_format($payrolls->sum('net_salary'),0,',',' ') }} MRU</p>
+        <p class="text-2xl font-bold text-indigo-700 mt-1">{{ number_format($totalNet,0,',',' ') }} MRU</p>
     </div>
     <div class="bg-green-50 rounded-xl p-4 border border-green-100">
         <p class="text-xs text-green-600 font-medium">Fiches payées</p>
@@ -97,18 +124,31 @@
                         @endif
                     </td>
                     <td class="px-4 py-3 text-center">
-                        @if($p->status === 'pending')
-                        @can('hr.payroll.mark-paid')
-                        <form method="POST" action="{{ route('hr.payroll.paid', $p) }}" class="inline">
-                            @csrf
-                            <button type="submit" class="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg">
+                        <div class="flex items-center justify-center gap-2 flex-wrap">
+                            @if($p->status === 'pending')
+                            @can('hr.payroll.mark-paid')
+                            <button type="button" onclick="openPayModal({{ $p->id }}, '{{ $p->employee->full_name ?? '' }}', '{{ number_format($p->net_salary,0,',',' ') }}')"
+                                    class="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg">
                                 Marquer payé
                             </button>
-                        </form>
-                        @endcan
-                        @else
-                        <span class="text-gray-300 text-xs">—</span>
-                        @endif
+                            @endcan
+                            @elseif($p->paymentType)
+                            <p class="text-xs text-gray-400 mt-0.5">{{ $p->paymentType->name }}</p>
+                            @else
+                            @can('hr.payroll.mark-paid')
+                            <button type="button" onclick="openPayModal({{ $p->id }}, '{{ $p->employee->full_name ?? '' }}', '{{ number_format($p->net_salary,0,',',' ') }}')"
+                                    class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-1 rounded-lg" title="Mode de paiement non renseigné — absent de la comptabilité">
+                                <i class="fas fa-triangle-exclamation mr-1"></i>Renseigner le paiement
+                            </button>
+                            @else
+                            <span class="text-gray-300 text-xs">—</span>
+                            @endcan
+                            @endif
+                            <a href="{{ route('hr.payroll.payslip', $p) }}" target="_blank" title="Fiche de paie"
+                               class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-2 py-1 rounded-lg">
+                                <i class="fas fa-file-pdf"></i>
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 @empty
@@ -117,6 +157,48 @@
             </tbody>
         </table>
     </div>
-    <div class="px-4 py-3 border-t">{{ $payrolls->appends(['month'=>$month,'year'=>$year])->links() }}</div>
+    <div class="px-4 py-3 border-t">{{ $payrolls->links() }}</div>
 </div>
+
+{{-- MODAL PAIEMENT --}}
+<div id="modalPay" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm">
+        <div class="flex items-center justify-between px-6 py-4 border-b">
+            <h3 class="font-bold text-gray-800">Marquer la paie comme payée</h3>
+            <button type="button" onclick="document.getElementById('modalPay').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="payForm" method="POST" class="p-6 space-y-4">
+            @csrf
+            <p class="text-sm text-gray-600">
+                Employé : <span id="payEmployeeName" class="font-medium text-gray-800"></span><br>
+                Net à payer : <span id="payAmount" class="font-bold text-indigo-700"></span> MRU
+            </p>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Mode de paiement *</label>
+                <select name="payment_type_id" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-400">
+                    <option value="">-- Choisir --</option>
+                    @foreach($paymentTypes as $pt)
+                    <option value="{{ $pt->id }}">{{ $pt->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" onclick="document.getElementById('modalPay').classList.add('hidden')"
+                        class="px-4 py-2 text-sm border rounded-lg text-gray-600 hover:bg-gray-50">Annuler</button>
+                <button type="submit" class="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium">Confirmer le paiement</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+function openPayModal(payrollId, employeeName, amount) {
+    document.getElementById('payForm').action = '/hr/payroll/' + payrollId + '/paid';
+    document.getElementById('payEmployeeName').textContent = employeeName;
+    document.getElementById('payAmount').textContent = amount;
+    document.getElementById('modalPay').classList.remove('hidden');
+}
+</script>
+@endpush
 @endsection

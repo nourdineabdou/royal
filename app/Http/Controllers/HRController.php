@@ -10,6 +10,7 @@ use App\Models\Leave;
 use App\Models\Attendance;
 use App\Models\Advance;
 use App\Models\SalaryAdjustment;
+use App\Models\Site;
 use Carbon\Carbon;
 use App\Models\Transaction;
 
@@ -99,12 +100,128 @@ class HRController extends Controller
         ));
     }
 
-    public function employees()
+    /**
+     * Gestion des contrats (CDI/CDD/Stage/Prestation) : période d'essai, date de fin,
+     * avec alertes de renouvellement pour les contrats qui arrivent bientôt à échéance.
+     */
+    public function contracts(Request $request)
     {
         $this->perm('hr.employees.view');
-        $employees = Employee::with('jobTitle')->latest()->paginate(15);
+
+        $status = $request->query('status');
+
+        $contracts = \App\Models\EmployeeContract::with('employee.jobTitle')
+            ->when($status === 'ending_soon', function ($q) {
+                $q->where('status', 'active')->whereNotNull('end_date')
+                  ->whereDate('end_date', '<=', now()->addDays(30))->whereDate('end_date', '>=', now());
+            })
+            ->when($status === 'expired', function ($q) {
+                $q->where('status', 'active')->whereNotNull('end_date')->whereDate('end_date', '<', now());
+            })
+            ->when($status && !in_array($status, ['ending_soon', 'expired']), fn ($q) => $q->where('status', $status))
+            ->latest('start_date')
+            ->paginate(15)
+            ->withQueryString();
+
+        $endingSoonCount = \App\Models\EmployeeContract::where('status', 'active')->whereNotNull('end_date')
+            ->whereDate('end_date', '<=', now()->addDays(30))->whereDate('end_date', '>=', now())->count();
+        $expiredCount = \App\Models\EmployeeContract::where('status', 'active')->whereNotNull('end_date')
+            ->whereDate('end_date', '<', now())->count();
+
+        $employees = Employee::orderBy('first_name')->get();
+
+        return view('hr.contracts', compact('contracts', 'employees', 'status', 'endingSoonCount', 'expiredCount'));
+    }
+
+    public function storeContract(Request $request)
+    {
+        $this->perm('hr.employees.edit');
+        $validated = $request->validate([
+            'employee_id'       => 'required|exists:employees,id',
+            'type'              => 'required|in:' . implode(',', array_keys(\App\Models\EmployeeContract::TYPES)),
+            'start_date'        => 'required|date',
+            'end_date'          => 'nullable|date|after:start_date',
+            'trial_period_end'  => 'nullable|date|after_or_equal:start_date',
+            'salary'            => 'nullable|numeric|min:0',
+            'notes'             => 'nullable|string',
+        ]);
+
+        // Un nouveau contrat actif remplace l'ancien (renouvellement) — on clôture les précédents actifs.
+        \App\Models\EmployeeContract::where('employee_id', $validated['employee_id'])
+            ->where('status', 'active')->update(['status' => 'ended']);
+
+        \App\Models\EmployeeContract::create($validated + ['status' => 'active']);
+
+        return back()->with('success', 'Contrat enregistré.');
+    }
+
+    public function terminateContract(\App\Models\EmployeeContract $contract)
+    {
+        $this->perm('hr.employees.edit');
+        $contract->update(['status' => 'terminated']);
+
+        return back()->with('success', 'Contrat marqué comme rompu.');
+    }
+
+    public function employees(Request $request)
+    {
+        $this->perm('hr.employees.view');
+
+        $jobTitleId = $request->query('job_title_id');
+        $phone      = $request->query('phone');
+        $name       = $request->query('name');
+
+        $employees = Employee::with(['jobTitle', 'site', 'documents'])
+            ->when($jobTitleId, fn ($q, $v) => $q->where('job_title_id', $v))
+            ->when($phone, fn ($q, $v) => $q->where('phone', 'like', '%' . $v . '%'))
+            ->when($name, function ($q, $v) {
+                $q->where(function ($q2) use ($v) {
+                    $q2->where('first_name', 'like', '%' . $v . '%')
+                       ->orWhere('last_name', 'like', '%' . $v . '%');
+                });
+            })
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
         $jobTitles = JobTitle::orderBy('name')->get();
-        return view('hr.employees', compact('employees', 'jobTitles'));
+        $sites = Site::orderBy('name')->get();
+
+        return view('hr.employees', compact('employees', 'jobTitles', 'sites', 'jobTitleId', 'phone', 'name'));
+    }
+
+    /**
+     * Suivi documentaire : pièce d'identité, diplômes, contrat scanné par employé (optionnel).
+     */
+    public function storeEmployeeDocument(Request $request, Employee $employee)
+    {
+        $this->perm('hr.employees.edit');
+        $validated = $request->validate([
+            'type' => 'required|in:' . implode(',', array_keys(\App\Models\EmployeeDocument::TYPES)),
+            'name' => 'required|string|max:255',
+            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
+        ]);
+
+        $path = $request->file('file')->store('employee-documents', 'public');
+
+        \App\Models\EmployeeDocument::create([
+            'employee_id' => $employee->id,
+            'type'        => $validated['type'],
+            'name'        => $validated['name'],
+            'file_path'   => $path,
+            'uploaded_by' => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Document ajouté.');
+    }
+
+    public function destroyEmployeeDocument(\App\Models\EmployeeDocument $document)
+    {
+        $this->perm('hr.employees.edit');
+        \Illuminate\Support\Facades\Storage::disk('public')->delete($document->file_path);
+        $document->delete();
+
+        return back()->with('success', 'Document supprimé.');
     }
 
     public function storeEmployee(Request $request)
@@ -112,6 +229,7 @@ class HRController extends Controller
         $this->perm('hr.employees.create');
         $validated = $request->validate([
             'job_title_id' => 'required|exists:job_titles,id',
+            'site_id'      => 'nullable|exists:sites,id',
             'first_name'   => 'required|string|max:100',
             'last_name'    => 'required|string|max:100',
             'phone'        => 'nullable|string|max:30',
@@ -129,6 +247,7 @@ class HRController extends Controller
         $this->perm('hr.employees.edit');
         $validated = $request->validate([
             'job_title_id' => 'required|exists:job_titles,id',
+            'site_id'      => 'nullable|exists:sites,id',
             'first_name'   => 'required|string|max:100',
             'last_name'    => 'required|string|max:100',
             'phone'        => 'nullable|string|max:30',
@@ -186,14 +305,53 @@ class HRController extends Controller
         return redirect()->back()->with('success', 'Congé rejeté.');
     }
 
-    public function payroll()
+    public function payroll(Request $request)
     {
         $this->perm('hr.payroll.view');
-        $month     = request('month', now()->month);
-        $year      = request('year', now()->year);
-        $payrolls  = Payroll::with('employee.jobTitle')
-            ->where('month', $month)->where('year', $year)->paginate(15);
-        return view('hr.payroll', compact('payrolls', 'month', 'year'));
+        $month      = $request->query('month', now()->month);
+        $year       = $request->query('year', now()->year);
+        $jobTitleId = $request->query('job_title_id');
+        $phone      = $request->query('phone');
+        $name       = $request->query('name');
+
+        $filtered = fn () => Payroll::where('month', $month)->where('year', $year)
+            ->when($jobTitleId, fn ($q, $v) => $q->whereHas('employee', fn ($q2) => $q2->where('job_title_id', $v)))
+            ->when($phone, fn ($q, $v) => $q->whereHas('employee', fn ($q2) => $q2->where('phone', 'like', '%' . $v . '%')))
+            ->when($name, function ($q, $v) {
+                $q->whereHas('employee', function ($q2) use ($v) {
+                    $q2->where(function ($q3) use ($v) {
+                        $q3->where('first_name', 'like', '%' . $v . '%')
+                           ->orWhere('last_name', 'like', '%' . $v . '%');
+                    });
+                });
+            });
+
+        $payrolls = $filtered()->with('employee.jobTitle')->paginate(15)->withQueryString();
+
+        // Totaux calculés sur l'ensemble filtré (pas seulement la page affichée).
+        $totalNet  = $filtered()->sum('net_salary');
+        $paidCount = $filtered()->where('status', 'paid')->count();
+        $pendCount = $filtered()->where('status', 'pending')->count();
+
+        $jobTitles = JobTitle::orderBy('name')->get();
+        $paymentTypes = \App\Models\PaymentType::orderBy('name')->get();
+
+        return view('hr.payroll', compact(
+            'payrolls', 'month', 'year', 'jobTitleId', 'phone', 'name', 'jobTitles', 'paymentTypes',
+            'totalNet', 'paidCount', 'pendCount'
+        ));
+    }
+
+    /**
+     * Fiche de paie imprimable / téléchargeable (PDF via impression navigateur) pour un bulletin donné.
+     */
+    public function payslip(Payroll $payroll)
+    {
+        $this->perm('hr.payroll.view');
+        $payroll->load('employee.jobTitle', 'paymentType');
+        $company = config('app.company');
+
+        return view('hr.payslip', compact('payroll', 'company'));
     }
 
     public function generatePayroll(Request $request)
@@ -215,12 +373,31 @@ class HRController extends Controller
             $deductions = SalaryAdjustment::where('employee_id', $emp->id)
                 ->where('type', 'deduction')
                 ->whereMonth('date', $month)->whereYear('date', $year)->sum('amount');
-            $advances   = Advance::where('employee_id', $emp->id)
-                ->where('status', 'approved')
-                ->whereMonth('date', $month)->whereYear('date', $year)->sum('amount');
 
-            $base    = $emp->salary_base ?? $emp->jobTitle->base_salary ?? 0;
-            $net     = $base + $bonuses - $deductions - $advances;
+            $base = $emp->salary_base ?? $emp->jobTitle->base_salary ?? 0;
+
+            // Avances en cours de remboursement : on déduit ce mois-ci le
+            // pourcentage convenu du salaire, plafonné au solde restant,
+            // jusqu'à ce que l'avance soit soldée.
+            $activeAdvances = Advance::where('employee_id', $emp->id)
+                ->where('status', 'approved')
+                ->where('remaining_balance', '>', 0)
+                ->get();
+
+            $advanceDeduction = 0;
+            foreach ($activeAdvances as $adv) {
+                $monthly = $adv->monthlyDeductionFor((float) $base);
+                if ($monthly <= 0) continue;
+
+                $advanceDeduction += $monthly;
+                $newRemaining = round((float) $adv->remaining_balance - $monthly, 2);
+                $adv->update([
+                    'remaining_balance' => max(0, $newRemaining),
+                    'status'            => $newRemaining <= 0 ? 'completed' : 'approved',
+                ]);
+            }
+
+            $net = $base + $bonuses - $deductions - $advanceDeduction;
 
             Payroll::create([
                 'employee_id'      => $emp->id,
@@ -229,16 +406,10 @@ class HRController extends Controller
                 'base_salary'      => $base,
                 'bonus'            => $bonuses,
                 'deduction'        => $deductions,
-                'advance_deduction'=> $advances,
+                'advance_deduction'=> $advanceDeduction,
                 'net_salary'       => max(0, $net),
                 'status'           => 'pending',
             ]);
-
-            // Mark advances as deducted
-            Advance::where('employee_id', $emp->id)
-                ->where('status', 'approved')
-                ->whereMonth('date', $month)->whereYear('date', $year)
-                ->update(['status' => 'deducted']);
 
             $created++;
         }
@@ -246,20 +417,77 @@ class HRController extends Controller
             ->with('success', "$created fiches de paie générées.");
     }
 
-    public function markPayrollPaid(Payroll $payroll)
+    public function markPayrollPaid(Request $request, Payroll $payroll)
     {
         $this->perm('hr.payroll.mark-paid');
-        $payroll->update(['status' => 'paid', 'paid_at' => now()]);
+        $validated = $request->validate([
+            'payment_type_id' => 'required|exists:payment_types,id',
+        ]);
+
+        $payroll->update([
+            'status'           => 'paid',
+            'paid_at'          => $payroll->paid_at ?? now(),
+            'payment_type_id'  => $validated['payment_type_id'],
+        ]);
+
+        app(\App\Services\AccountingEntryService::class)->postPayrollPayment($payroll);
+
         return redirect()->back()->with('success', 'Paie marquée comme payée.');
     }
 
     public function attendance()
     {
         $this->perm('hr.attendance.view');
-        $date        = request('date', today()->toDateString());
-        $attendances = Attendance::with('employee.jobTitle')->where('date', $date)->paginate(20);
-        $employees   = Employee::where('status', 'active')->orderBy('first_name')->get();
-        return view('hr.attendance', compact('attendances', 'date', 'employees'));
+
+        $date   = request('date', today()->toDateString());
+        $siteId = request('site_id');
+
+        $sites = Site::orderBy('name')->get();
+        $attendances = Attendance::with(['employee.jobTitle', 'employee.site'])
+            ->where('date', $date)
+            ->when($siteId, function ($query, $siteId) {
+                $query->whereHas('employee', function ($query) use ($siteId) {
+                    $query->where('site_id', $siteId);
+                });
+            })
+            ->paginate(20);
+
+        $employees = Employee::where('status', 'active')
+            ->when($siteId, function ($query, $siteId) {
+                $query->where('site_id', $siteId);
+            })
+            ->orderBy('first_name')
+            ->get();
+
+        $selfEmployee = auth()->user()->employee ?? null;
+        $selfAttendance = null;
+        if ($selfEmployee) {
+            $selfAttendance = Attendance::where('employee_id', $selfEmployee->id)
+                ->where('date', today())
+                ->first();
+        }
+
+        return view('hr.attendance', compact('attendances', 'date', 'employees', 'sites', 'siteId', 'selfEmployee', 'selfAttendance'));
+    }
+
+    public function clock()
+    {
+        $selfEmployee = auth()->user()->employee;
+        $canView = auth()->user()->can('hr.attendance.view');
+        abort_if(!$canView && !$selfEmployee, 403, 'Votre compte n’est pas lié à un employé.');
+
+        $todayAttendance = null;
+        if ($selfEmployee) {
+            $todayAttendance = Attendance::where('employee_id', $selfEmployee->id)
+                ->where('date', today())
+                ->first();
+        }
+
+        $records = $canView
+            ? Attendance::with(['employee.jobTitle', 'employee.site'])->orderBy('date', 'desc')->paginate(20)
+            : Attendance::where('employee_id', $selfEmployee->id)->orderBy('date', 'desc')->paginate(15);
+
+        return view('hr.clock', compact('selfEmployee', 'todayAttendance', 'records', 'canView'));
     }
 
     public function storeAttendance(Request $request)
@@ -280,6 +508,79 @@ class HRController extends Controller
         return redirect()->back()->with('success', 'Présence enregistrée.');
     }
 
+    public function storeAttendanceClock(Request $request)
+    {
+        $employee = auth()->user()->employee;
+        abort_if(!$employee, 403, 'Votre compte n’est pas lié à un employé.');
+
+        $validated = $request->validate([
+            'action' => 'required|in:check_in,check_out',
+        ]);
+
+        $attendance = Attendance::firstOrNew([
+            'employee_id' => $employee->id,
+            'date'        => today(),
+        ]);
+
+        $time = now()->format('H:i');
+        if ($validated['action'] === 'check_in') {
+            $attendance->check_in = $time;
+            $attendance->shift = $attendance->shift ?: 'morning';
+            $attendance->status = $time > '08:00' ? 'late' : 'present';
+        } else {
+            $attendance->check_out = $time;
+            $attendance->shift = $attendance->shift ?: 'morning';
+            if (!$attendance->check_in) {
+                $attendance->check_in = $time;
+                $attendance->status = 'present';
+            } elseif ($attendance->status === 'absent') {
+                $attendance->status = 'present';
+            }
+        }
+
+        $attendance->save();
+
+        return redirect()->route('hr.clock')->with('success', 'Pointage enregistré : ' . ($validated['action'] === 'check_in' ? 'Entrée' : 'Sortie') . ' à ' . $time . '.');
+    }
+
+    public function sites()
+    {
+        $this->perm('hr.employees.view');
+        $sites = Site::orderBy('name')->paginate(15);
+        return view('hr.sites', compact('sites'));
+    }
+
+    public function storeSite(Request $request)
+    {
+        $this->perm('hr.employees.edit');
+        $validated = $request->validate([
+            'name' => 'required|string|max:150',
+            'address' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:30',
+        ]);
+        Site::create($validated);
+        return redirect()->route('hr.sites')->with('success', 'Emplacement ajouté.');
+    }
+
+    public function updateSite(Request $request, Site $site)
+    {
+        $this->perm('hr.employees.edit');
+        $validated = $request->validate([
+            'name' => 'required|string|max:150',
+            'address' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:30',
+        ]);
+        $site->update($validated);
+        return redirect()->route('hr.sites')->with('success', 'Emplacement modifié.');
+    }
+
+    public function destroySite(Site $site)
+    {
+        $this->perm('hr.employees.delete');
+        $site->delete();
+        return redirect()->route('hr.sites')->with('success', 'Emplacement supprimé.');
+    }
+
     public function advances()
     {
         $this->perm('hr.advances.view');
@@ -292,22 +593,27 @@ class HRController extends Controller
     {
         $this->perm('hr.advances.request');
         $validated = $request->validate([
-            'employee_id' => 'required|exists:employees,id',
-            'amount'      => 'required|numeric|min:1',
-            'date'        => 'required|date',
+            'employee_id'           => 'required|exists:employees,id',
+            'amount'                => 'required|numeric|min:1',
+            'repayment_percentage'  => 'required|numeric|min:1|max:100',
+            'date'                  => 'required|date',
         ]);
         $validated['status'] = 'pending';
+        $validated['remaining_balance'] = $validated['amount'];
         $advance = Advance::create($validated);
 
         // Créer une transaction comptable pour l'avance
         Transaction::create([
-            'type'      => 'advance',
+            'type'      => 'expense',
             'amount'    => $advance->amount,
             'reference' => 'ADV-' . $advance->id,
             'date'      => $advance->date,
             'module'    => 'hr',
             'description' => 'Avance employé(e) #' . $advance->employee_id,
         ]);
+
+        app(\App\Services\AccountingEntryService::class)->postAdvanceGiven($advance);
+
         return redirect()->route('hr.advances')->with('success', 'Avance enregistrée.');
     }
 

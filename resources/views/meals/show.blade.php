@@ -24,16 +24,12 @@
                         <a href="{{ route('meals.edit', $meal) }}" class="w-full block text-center bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-300 font-medium">
                             <i class="fas fa-edit mr-2"></i>Éditer
                         </a>
+                        <a href="{{ route('meals.recipe.edit', $meal) }}" class="w-full block text-center bg-emerald-600 text-white py-3 rounded-lg hover:bg-emerald-700 transition duration-300 font-medium">
+                            <i class="fas fa-list-ul mr-2"></i>Recette
+                        </a>
                         @endcan
                         @can('meals.delete')
                         <form action="{{ route('meals.destroy', $meal) }}" method="POST" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce repas ?');">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition duration-300 font-medium">
-                                <i class="fas fa-trash mr-2"></i>Supprimer
-                            </button>
-                        </form>
-                        @endcan
-                    </div>
                             @csrf @method('DELETE')
                             <button type="submit" class="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition duration-300 font-medium">
                                 <i class="fas fa-trash mr-2"></i>Supprimer
@@ -95,6 +91,34 @@
                     </div>
                 @endif
 
+                <!-- Recipe Card -->
+                <div class="bg-white rounded-xl shadow-lg p-8 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <i class="fas fa-list-ul text-emerald-500 mr-3"></i>Recette
+                        </h2>
+                        @can('meals.edit')
+                        <a href="{{ route('meals.recipe.edit', $meal) }}" class="text-sm font-semibold text-emerald-600 hover:text-emerald-800">
+                            <i class="fas fa-edit mr-1"></i>Modifier
+                        </a>
+                        @endcan
+                    </div>
+                    @if($meal->recipe && $meal->recipe->items->isNotEmpty())
+                        <div class="space-y-2">
+                            @foreach($meal->recipe->items as $item)
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                    <span class="font-semibold text-gray-800">{{ $item->product->name ?? 'Produit supprimé' }}</span>
+                                    <span class="text-gray-600">{{ rtrim(rtrim(number_format($item->quantity, 3), '0'), '.') }} {{ $item->product->unit->name ?? '' }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-blue-800 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                            <i class="fas fa-info-circle mr-2"></i>Aucune recette définie pour ce plat — les besoins en produits ne peuvent pas être calculés automatiquement.
+                        </p>
+                    @endif
+                </div>
+
                 <!-- Info Section -->
                 <div class="bg-white rounded-xl shadow-lg p-8">
                     <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -120,7 +144,5 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 </div>
 @endsection

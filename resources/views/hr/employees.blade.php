@@ -15,6 +15,39 @@
     @endcan
 </div>
 
+{{-- FILTRES --}}
+<form method="GET" class="bg-white rounded-xl shadow p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+    <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Nom</label>
+        <input type="text" name="name" value="{{ $name }}" placeholder="Prénom ou nom..."
+               class="w-full border rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Poste</label>
+        <select name="job_title_id" class="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="">Tous les postes</option>
+            @foreach($jobTitles as $jt)
+                <option value="{{ $jt->id }}" {{ (string) $jobTitleId === (string) $jt->id ? 'selected' : '' }}>{{ $jt->name }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
+        <input type="text" name="phone" value="{{ $phone }}" placeholder="Rechercher un numéro..."
+               class="w-full border rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div class="flex gap-2">
+        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <i class="fas fa-filter mr-1"></i> Filtrer
+        </button>
+        @if($jobTitleId || $phone || $name)
+        <a href="{{ route('hr.employees') }}" class="border rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+            Réinitialiser
+        </a>
+        @endif
+    </div>
+</form>
+
 {{-- TABLE --}}
 <div class="bg-white rounded-xl shadow overflow-hidden">
     <div class="overflow-x-auto">
@@ -22,6 +55,7 @@
             <thead class="bg-gray-50 text-gray-600 text-xs uppercase border-b">
                 <tr>
                     <th class="px-4 py-3 text-left">Employé</th>
+                    <th class="px-4 py-3 text-left">Site</th>
                     <th class="px-4 py-3 text-left">Poste</th>
                     <th class="px-4 py-3 text-left">Téléphone</th>
                     <th class="px-4 py-3 text-left">Date d'embauche</th>
@@ -44,6 +78,7 @@
                             </div>
                         </div>
                     </td>
+                    <td class="px-4 py-3 text-gray-700">{{ $emp->site->name ?? '—' }}</td>
                     <td class="px-4 py-3 text-gray-700">{{ $emp->jobTitle->name ?? '—' }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $emp->phone ?? '—' }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $emp->hire_date->format('d/m/Y') }}</td>
@@ -61,6 +96,10 @@
                         <button onclick='openEditModal(@json($emp))'
                                 class="text-blue-500 hover:text-blue-700 p-1" title="Modifier">
                             <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick='openDocsModal({{ $emp->id }}, "{{ addslashes($emp->full_name) }}", @json($emp->documents))'
+                                class="text-purple-500 hover:text-purple-700 p-1" title="Documents">
+                            <i class="fas fa-folder-open"></i>
                         </button>
                         @endcan
                         @can('hr.employees.delete')
@@ -100,14 +139,25 @@
                 <label class="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
                 <input name="last_name" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
             </div>
-            <div class="col-span-2">
-                <label class="block text-xs font-medium text-gray-600 mb-1">Poste *</label>
-                <select name="job_title_id" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
-                    <option value="">-- Choisir --</option>
-                    @foreach($jobTitles as $jt)
-                    <option value="{{ $jt->id }}">{{ $jt->name }}</option>
-                    @endforeach
-                </select>
+            <div class="col-span-2 grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Poste *</label>
+                    <select name="job_title_id" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                        <option value="">-- Choisir --</option>
+                        @foreach($jobTitles as $jt)
+                        <option value="{{ $jt->id }}">{{ $jt->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Emplacement</label>
+                    <select name="site_id" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                        <option value="">-- Aucun --</option>
+                        @foreach($sites as $site)
+                        <option value="{{ $site->id }}">{{ $site->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
             </div>
             <div><label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
                 <input name="phone" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
@@ -149,13 +199,24 @@
                 <label class="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
                 <input id="ef_last_name" name="last_name" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
             </div>
-            <div class="col-span-2">
-                <label class="block text-xs font-medium text-gray-600 mb-1">Poste *</label>
-                <select id="ef_job_title_id" name="job_title_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
-                    @foreach($jobTitles as $jt)
-                    <option value="{{ $jt->id }}">{{ $jt->name }}</option>
-                    @endforeach
-                </select>
+            <div class="col-span-2 grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Poste *</label>
+                    <select id="ef_job_title_id" name="job_title_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                        @foreach($jobTitles as $jt)
+                        <option value="{{ $jt->id }}">{{ $jt->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Emplacement</label>
+                    <select id="ef_site_id" name="site_id" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <option value="">-- Aucun --</option>
+                        @foreach($sites as $site)
+                        <option value="{{ $site->id }}">{{ $site->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
             </div>
             <div><label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
                 <input id="ef_phone" name="phone" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
@@ -179,15 +240,81 @@
         </form>
     </div>
 </div>
+
+{{-- DOCUMENTS MODAL --}}
+<div id="modalDocs" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-lg max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b">
+            <h3 class="font-bold text-gray-800">Documents — <span id="docs_emp_name"></span></h3>
+            <button onclick="document.getElementById('modalDocs').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-6">
+            <div id="docsList" class="space-y-2 mb-5"></div>
+
+            <form id="docsUploadForm" method="POST" enctype="multipart/form-data" class="space-y-3 border-t pt-4">
+                @csrf
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Type de document *</label>
+                    <select name="type" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                        @foreach(\App\Models\EmployeeDocument::TYPES as $val => $label)
+                        <option value="{{ $val }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Nom du document *</label>
+                    <input type="text" name="name" required placeholder="Ex: CNI recto-verso" class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Fichier * <span class="text-gray-400 font-normal">(PDF, JPG, PNG — 5 Mo max)</span></label>
+                    <input type="file" name="file" required accept=".pdf,.jpg,.jpeg,.png" class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+                <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2 text-sm font-medium">
+                    <i class="fas fa-upload mr-1"></i> Ajouter le document
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
+const DOC_TYPE_LABELS = @json(\App\Models\EmployeeDocument::TYPES);
+
+function openDocsModal(employeeId, employeeName, documents) {
+    document.getElementById('docs_emp_name').textContent = employeeName;
+    document.getElementById('docsUploadForm').action = `/hr/employees/${employeeId}/documents`;
+
+    const list = document.getElementById('docsList');
+    if (!documents.length) {
+        list.innerHTML = '<p class="text-sm text-gray-400 text-center py-3">Aucun document pour l\'instant.</p>';
+    } else {
+        list.innerHTML = documents.map(doc => `
+            <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                <div>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">${DOC_TYPE_LABELS[doc.type] || doc.type}</span>
+                    <span class="text-sm text-gray-700 ml-2">${doc.name}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="/storage/${doc.file_path}" target="_blank" class="text-blue-500 hover:text-blue-700" title="Voir"><i class="fas fa-eye"></i></a>
+                    <form method="POST" action="/hr/employees/documents/${doc.id}" onsubmit="return confirm('Supprimer ce document ?')">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="text-red-400 hover:text-red-600" title="Supprimer"><i class="fas fa-trash"></i></button>
+                    </form>
+                </div>
+            </div>
+        `).join('');
+    }
+    document.getElementById('modalDocs').classList.remove('hidden');
+}
+
 function openEditModal(emp) {
     document.getElementById('editForm').action = '/hr/employees/' + emp.id;
     document.getElementById('ef_first_name').value  = emp.first_name;
     document.getElementById('ef_last_name').value   = emp.last_name;
     document.getElementById('ef_job_title_id').value = emp.job_title_id;
+    document.getElementById('ef_site_id').value      = emp.site_id ?? '';
     document.getElementById('ef_phone').value       = emp.phone ?? '';
     document.getElementById('ef_hire_date').value   = emp.hire_date;
     document.getElementById('ef_salary_base').value = emp.salary_base ?? '';

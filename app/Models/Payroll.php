@@ -11,7 +11,7 @@ class Payroll extends Model
 
     protected $fillable = [
         'company_id', 'employee_id', 'month', 'year',
-        'base_salary', 'bonus', 'deduction', 'advance_deduction',
+        'base_salary', 'bonus', 'deduction', 'advance_deduction', 'payment_type_id',
         'net_salary', 'status', 'paid_at',
     ];
 
@@ -27,5 +27,10 @@ class Payroll extends Model
     public function employee()
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function paymentType()
+    {
+        return $this->belongsTo(PaymentType::class);
     }
 }

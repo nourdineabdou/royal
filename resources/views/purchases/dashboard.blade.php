@@ -265,6 +265,35 @@
 </div>
 @endif
 
+{{-- ── BESOINS PRODUCTION CATERING (jour) ────────────────────────────────── --}}
+@if($cateringShortfall->isNotEmpty())
+<div class="bg-white rounded-2xl shadow-sm p-5 mb-6">
+    <h3 class="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-bell text-violet-500"></i> Besoins de production (Catering) non couverts aujourd'hui
+    </h3>
+    <div class="space-y-2">
+        @foreach($cateringShortfall as $productId => $row)
+            @php $product = $cateringShortfallProducts[$productId] ?? null; @endphp
+            <div class="flex items-center justify-between bg-violet-50 rounded-xl px-4 py-2 text-sm">
+                <span class="font-medium text-slate-700">{{ $product->name ?? '#' . $productId }}</span>
+                <div class="flex items-center gap-3">
+                    <span class="text-slate-400 text-xs">besoin {{ round($row['needed'], 2) }} · dispo {{ round($row['available'], 2) }}</span>
+                    <span class="font-bold text-violet-600">manque {{ round($row['missing'], 2) }} {{ $product?->unit?->symbol ?? '' }}</span>
+                </div>
+            </div>
+        @endforeach
+    </div>
+    <div class="flex gap-3 mt-4">
+        <a href="{{ route('production.catering-today') }}" class="text-sm text-violet-600 hover:underline font-medium">
+            <i class="fa-solid fa-calendar-day mr-1"></i>Voir le plan de production du jour
+        </a>
+        <a href="{{ route('purchases.orders.create') }}" class="text-sm text-violet-600 hover:underline font-medium">
+            <i class="fa-solid fa-plus mr-1"></i>Créer une commande
+        </a>
+    </div>
+</div>
+@endif
+
 {{-- ── QUICK ACTIONS ─────────────────────────────────────────────────────── --}}
 <div class="bg-white rounded-2xl shadow-sm p-5">
     <h3 class="font-semibold text-slate-700 mb-4 flex items-center gap-2">

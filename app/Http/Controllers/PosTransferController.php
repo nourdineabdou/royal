@@ -13,7 +13,11 @@ use App\Models\CateringMenuMeal;
 use App\Models\CateringMenuMealItem;
 use App\Models\Client;
 use App\Models\Meal;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Packaging;
+use App\Models\Payment;
+use App\Models\PaymentType;
 use App\Models\PosTransfer;
 use App\Models\PosTransferItem;
 use App\Models\Product;
@@ -21,6 +25,8 @@ use App\Models\ProductPackaging;
 use App\Models\Stock;
 use App\Models\StockItem;
 use App\Models\StockMovement;
+use App\Models\Transaction;
+use App\Services\AccountingEntryService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -66,10 +72,12 @@ class PosTransferController extends Controller
             ->orderBy('name')
             ->get();
 
+        $productsWithoutPrice = $products->filter(fn ($p) => $p->sale_price === null || (float) $p->sale_price <= 0)->values();
+
         $meals = Meal::with('recipe.items.product')->orderBy('name')->get();
 
         return view('pos-transfer.create', compact(
-            'clients', 'terminals', 'allStocks', 'products', 'meals'
+            'clients', 'terminals', 'allStocks', 'products', 'meals', 'productsWithoutPrice'
         ));
     }
 
@@ -543,16 +551,72 @@ class PosTransferController extends Controller
             return response()->json(['error' => 'Cet article fait partie du contrat, pas de vente.'], 422);
         }
 
-        $request->validate(['qty' => 'required|numeric|min:0.5']);
+        $request->validate([
+            'qty' => 'required|numeric|min:0.5',
+            'payment_type_id' => 'required|exists:payment_types,id',
+        ]);
+
+        if (!PaymentType::isPosAllowed((int) $request->payment_type_id)) {
+            return response()->json([
+                'error' => 'Mode de paiement non autorise en point de vente. Utilisez espece ou wallet (Bankily, Sadad, Masrivi, Click).',
+            ], 422);
+        }
 
         $newSold = $item->sold_qty + $request->qty;
         if ($newSold > $item->quantity) {
             return response()->json(['error' => 'Quantité vendue dépasse le stock disponible.'], 422);
         }
 
-        $item->increment('sold_qty', $request->qty);
+        $register = $item->transfer->cashRegister;
+        $qty = (float) $request->qty;
+        $amount = (float) $item->unit_price * $qty;
 
-        $amount = $item->unit_price * $request->qty;
+        DB::beginTransaction();
+        try {
+            $order = Order::create([
+                'server_id'        => auth()->id(),
+                'cashier_id'       => auth()->id(),
+                'cash_register_id' => $register->id,
+                'total_amount'     => $amount,
+                'status'           => 'paid',
+                'is_prepared'      => true,
+                'paid_at'          => now(),
+            ]);
+
+            OrderItem::create([
+                'order_id'   => $order->id,
+                'meal_id'    => null,
+                'product_id' => $item->product_id,
+                'label'      => $item->label,
+                'quantity'   => $qty,
+                'price'      => $item->unit_price,
+                'cost_price' => 0,
+            ]);
+
+            $item->increment('sold_qty', $qty);
+
+            $payment = Payment::create([
+                'order_id'         => $order->id,
+                'payment_type_id'  => $request->payment_type_id,
+                'amount'           => $order->total_amount,
+                'cash_register_id' => $register->id,
+            ]);
+
+            Transaction::create([
+                'type'      => 'sale',
+                'amount'    => $order->total_amount,
+                'reference' => 'CAT-' . $order->id,
+                'date'      => now()->toDateString(),
+                'module'    => 'catering',
+            ]);
+
+            app(AccountingEntryService::class)->postSale($payment, 'catering');
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
 
         return response()->json([
             'success'   => true,

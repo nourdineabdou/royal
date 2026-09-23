@@ -64,6 +64,7 @@
             </tbody>
         </table>
     </div>
+    <div class="p-4">{{ $suppliers->links() }}</div>
 </div>
 
 {{-- ADD MODAL --}}

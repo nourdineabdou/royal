@@ -52,6 +52,29 @@
                 @enderror
             </div>
 
+            <!-- Compte comptable -->
+            <div class="mb-4">
+                <label for="chart_of_account_id" class="block text-sm font-bold text-gray-700 mb-2">
+                    <i class="fas fa-book mr-2"></i>Compte comptable (Optionnel)
+                </label>
+                <select
+                    id="chart_of_account_id"
+                    name="chart_of_account_id"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 @error('chart_of_account_id') border-red-500 @enderror"
+                >
+                    <option value="">— Compte de caisse par défaut (56 CAISSE) —</option>
+                    @foreach($chartOfAccounts as $account)
+                        <option value="{{ $account->id }}" {{ old('chart_of_account_id', $paymentType->chart_of_account_id) == $account->id ? 'selected' : '' }}>
+                            {{ $account->code }} — {{ $account->label }}
+                        </option>
+                    @endforeach
+                </select>
+                <p class="text-gray-500 text-xs mt-1">Détermine le compte de trésorerie débité/crédité lors de la comptabilisation automatique des ventes et paiements.</p>
+                @error('chart_of_account_id')
+                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+
             <!-- Statut -->
             <div class="mb-6 flex items-center">
                 <label for="is_active" class="flex items-center cursor-pointer">

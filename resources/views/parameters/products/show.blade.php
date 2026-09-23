@@ -1,11 +1,11 @@
-@extends('layouts.production')
+@extends('layouts.purchases')
 
 @section('title', $product->name)
 
 @section('content')
 <div class="px-6 py-8">
     <div class="flex items-center mb-6">
-        <a href="{{ route('products.index') }}" class="text-indigo-600 hover:text-indigo-800 mr-4">
+        <a href="{{ route('purchases.products.index') }}" class="text-indigo-600 hover:text-indigo-800 mr-4">
             <i class="fas fa-arrow-left"></i>
         </a>
         <h1 class="text-3xl font-bold text-gray-800">{{ $product->name }}</h1>
@@ -25,17 +25,31 @@
 
                 <!-- Unité -->
                 <div class="border-l-4 border-blue-600 pl-4">
-                    <p class="text-gray-600 text-sm">Unité de Mesure</p>
+                    <p class="text-gray-600 text-sm">Unité de Mesure (stock / recettes)</p>
                     <p class="text-lg font-semibold text-gray-900">
                         {{ $product->unit->name }}
-                        <span class="text-sm text-gray-500">({{ $product->unit->abbreviation }})</span>
+                        <span class="text-sm text-gray-500">({{ $product->unit->symbol }})</span>
                     </p>
                 </div>
 
-                <!-- Emballage -->
-                <div class="border-l-4 border-purple-600 pl-4">
-                    <p class="text-gray-600 text-sm">Type d'Emballage</p>
-                    <p class="text-lg font-semibold text-gray-900">{{ $product->packaging?->name ?? '—' }}</p>
+                <!-- Emballages -->
+                <div class="border-l-4 border-purple-600 pl-4 col-span-2">
+                    <p class="text-gray-600 text-sm mb-1">Emballages (achat / vente)</p>
+                    @forelse($product->productPackagings as $pp)
+                        <div class="flex items-center gap-3 mb-2">
+                            @if($pp->packaging->image)
+                                <img src="{{ $pp->packaging->image_url }}" alt="{{ $pp->packaging->name }}"
+                                     onclick="openImageLightbox('{{ $pp->packaging->image_url }}', '{{ $pp->packaging->name }}')"
+                                     class="h-12 w-12 object-cover rounded-lg border border-gray-200 cursor-zoom-in hover:scale-105 transition">
+                            @endif
+                            <p class="text-lg font-semibold text-gray-900">
+                                {{ $pp->packaging->name }}
+                                <span class="text-sm text-gray-500">(1 {{ $pp->packaging->name }} = {{ rtrim(rtrim(number_format($pp->quantity, 2), '0'), '.') }} {{ $product->unit->symbol ?? $product->unit->name }})</span>
+                            </p>
+                        </div>
+                    @empty
+                        <p class="text-lg font-semibold text-gray-500">—</p>
+                    @endforelse
                 </div>
 
                 <!-- Prix -->
@@ -64,12 +78,12 @@
             <!-- Actions -->
             <div class="flex gap-3">
                 @can('products.edit')
-                <a href="{{ route('products.edit', $product) }}" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 text-center">
+                <a href="{{ route('purchases.products.edit', $product) }}" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 text-center">
                     <i class="fas fa-edit mr-2"></i>Modifier
                 </a>
                 @endcan
                 @can('products.delete')
-                <form action="{{ route('products.destroy', $product) }}" method="POST" style="flex: 1;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce produit?');">
+                <form action="{{ route('purchases.products.destroy', $product) }}" method="POST" style="flex: 1;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce produit?');">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200">

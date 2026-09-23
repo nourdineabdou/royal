@@ -14,23 +14,14 @@
             · {{ $menu->contract->guest_count }} convives
         </p>
     </div>
-    @php
-        $totalCodes = $menu->days->flatMap->meals->flatMap->codes->count();
-        $usedCodes  = $menu->days->flatMap->meals->flatMap->codes->where('is_used', true)->count();
-    @endphp
     <div class="flex items-center gap-3">
-        <div class="text-sm text-slate-600">
-            <span class="font-bold text-teal-700">{{ $usedCodes }}</span> / {{ $totalCodes }} codes utilisés
-        </div>
-        @if($usedCodes === 0)
-        <form method="POST" action="{{ route('catering.weekly-menus.destroy', $menu) }}" class="inline"
-              onsubmit="return confirm('Supprimer ce menu et tous ses codes ?')">
+        <form method="POST" action="{{ route('catering.weekly-menu.destroy', $menu) }}" class="inline"
+              onsubmit="return confirm('Supprimer ce menu ?')">
             @csrf @method('DELETE')
             <button class="inline-flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-sm px-3 py-2 rounded-xl transition">
                 <i class="fa-solid fa-trash text-xs"></i> Supprimer
             </button>
         </form>
-        @endif
     </div>
 </div>
 
@@ -51,9 +42,7 @@
     <div class="divide-y divide-slate-100">
         @forelse($day->meals->sortBy('type') as $meal)
         @php
-            $mealUsed  = $meal->codes->where('is_used', true)->count();
-            $mealTotal = $meal->codes->count();
-            $price     = $menu->contract->getPriceFor($meal->type);
+            $price = $menu->contract->getPriceFor($meal->type);
         @endphp
         <div class="px-5 py-4">
             <div class="flex items-start justify-between flex-wrap gap-3">
@@ -62,26 +51,12 @@
                     <div>
                         <p class="font-semibold text-slate-800">{{ $meal->type_label }}</p>
                         <p class="text-xs text-slate-500">
-                            {{ $meal->quantity }} codes ·
-                            <span class="text-teal-600 font-medium">{{ $mealUsed }} utilisés</span>
+                            {{ $meal->quantity }} portion(s)
                             @if($price > 0)
-                            · {{ number_format($price, 0, ',', ' ') }} MRU/code
+                            · {{ number_format($price, 0, ',', ' ') }} MRU/portion
                             @endif
                         </p>
                     </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    @if($mealTotal > 0)
-                    <div class="text-right">
-                        @php $pct = $mealTotal > 0 ? round($mealUsed/$mealTotal*100) : 0; @endphp
-                        <div class="flex items-center gap-2">
-                            <div class="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-teal-500 rounded-full" style="width:{{ $pct }}%"></div>
-                            </div>
-                            <span class="text-xs text-slate-500">{{ $pct }}%</span>
-                        </div>
-                    </div>
-                    @endif
                 </div>
             </div>
 
@@ -96,26 +71,6 @@
             </div>
             @else
             <p class="text-xs text-slate-400 mt-2 italic">Aucun plat associé</p>
-            @endif
-
-            {{-- Codes preview (first 5) --}}
-            @if($meal->codes->count() > 0)
-            <div class="mt-3">
-                <p class="text-xs text-slate-400 mb-1.5">Aperçu codes :</p>
-                <div class="flex flex-wrap gap-1.5">
-                    @foreach($meal->codes->take(8) as $code)
-                    <span class="font-mono text-xs px-2.5 py-1 rounded-lg border
-                        {{ $code->is_used
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 line-through opacity-60'
-                            : 'bg-white border-slate-200 text-slate-700' }}">
-                        {{ $code->code }}
-                    </span>
-                    @endforeach
-                    @if($meal->codes->count() > 8)
-                    <span class="text-xs text-slate-400 self-center">+ {{ $meal->codes->count() - 8 }} autres</span>
-                    @endif
-                </div>
-            </div>
             @endif
         </div>
         @empty

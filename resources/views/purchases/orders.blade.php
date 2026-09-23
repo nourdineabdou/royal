@@ -30,6 +30,7 @@
             <option value="">Tous</option>
             <option value="pending"   {{ request('status') == 'pending'   ? 'selected' : '' }}>En attente</option>
             <option value="ordered"   {{ request('status') == 'ordered'   ? 'selected' : '' }}>Envoyée</option>
+            <option value="partial"   {{ request('status') == 'partial'   ? 'selected' : '' }}>Reçue partiellement</option>
             <option value="received"  {{ request('status') == 'received'  ? 'selected' : '' }}>Reçue</option>
             <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Annulée</option>
         </select>
@@ -64,6 +65,7 @@
             <thead class="bg-slate-50 border-b border-slate-100">
                 <tr class="text-xs text-slate-400 uppercase">
                     <th class="px-5 py-3 text-left">Référence</th>
+                    <th class="px-5 py-3 text-left">Demande d'achat</th>
                     <th class="px-5 py-3 text-left">Fournisseur</th>
                     <th class="px-5 py-3 text-right">Total</th>
                     <th class="px-5 py-3 text-right">Payé</th>
@@ -83,6 +85,15 @@
                 @endphp
                 <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
                     <td class="px-5 py-3 font-mono text-xs font-medium text-orange-600">{{ $order->reference }}</td>
+                    <td class="px-5 py-3 text-xs">
+                        @if($order->purchase_request_id)
+                        <a href="{{ route('purchases.requests.show', $order->purchase_request_id) }}" class="text-slate-600 hover:text-orange-600 font-mono">
+                            {{ $order->purchaseRequest->reference ?? '#' . $order->purchase_request_id }}
+                        </a>
+                        @else
+                        <span class="text-slate-300">—</span>
+                        @endif
+                    </td>
                     <td class="px-5 py-3 font-medium text-slate-700">{{ $order->supplier->name ?? '—' }}</td>
                     <td class="px-5 py-3 text-right font-semibold">{{ number_format($order->total_amount, 0, ',', ' ') }}</td>
                     <td class="px-5 py-3 text-right text-emerald-600">{{ number_format($order->paid_amount, 0, ',', ' ') }}</td>
@@ -93,6 +104,7 @@
                         @switch($order->status)
                             @case('pending')  <span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700 font-medium">En attente</span> @break
                             @case('ordered')  <span class="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700 font-medium">Envoyée</span> @break
+                            @case('partial')  <span class="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-700 font-medium">Reçue partiellement</span> @break
                             @case('received') <span class="px-2 py-1 rounded-full text-xs bg-emerald-100 text-emerald-700 font-medium">Reçue</span> @break
                             @case('cancelled')<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700 font-medium">Annulée</span> @break
                             @default          <span class="px-2 py-1 rounded-full text-xs bg-slate-100 text-slate-600">{{ $order->status }}</span>
@@ -122,7 +134,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="10" class="px-5 py-10 text-center text-slate-400">Aucune commande trouvée</td></tr>
+                <tr><td colspan="11" class="px-5 py-10 text-center text-slate-400">Aucune commande trouvée</td></tr>
                 @endforelse
             </tbody>
         </table>

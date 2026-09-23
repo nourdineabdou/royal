@@ -23,7 +23,7 @@ class CashRegisterController extends Controller
 {
     private function canManageSessionOpenClose($user): bool
     {
-        return $user->hasRole(['admin', 'accountant', 'super-admin', 'manager']);
+        return $user->hasRole(['admin', 'accountant', 'super-admin', 'manager', 'caissier']);
     }
 
     // ── Page d'accueil caissier : ouvrir / voir sa caisse ─────────────────
@@ -178,9 +178,11 @@ class CashRegisterController extends Controller
 
         $totalSales = $register->payments()->sum('amount');
 
+        $paymentTypes = \App\Models\PaymentType::posAllowed();
+
         return view('cashier.session', compact(
             'register', 'sessionOrders', 'cashTotal', 'totalSales',
-            'terminalStockItems', 'validatedTransfers'
+            'terminalStockItems', 'validatedTransfers', 'paymentTypes'
         ));
     }
 
@@ -198,8 +200,8 @@ class CashRegisterController extends Controller
         $register = CashRegister::with(['payments', 'orders', 'posTransfers.items'])
             ->findOrFail($id);
 
-        if ($register->user_id !== $user->id && !$user->hasRole(['admin', 'accountant', 'super-admin'])) {
-            abort(403, 'Vous ne pouvez pas fermer cette session.');
+        if ($register->user_id !== $user->id) {
+            abort(403, 'Seul le caissier propriétaire peut fermer cette session.');
         }
 
         if ($register->status !== 'open') {
@@ -359,6 +361,20 @@ class CashRegisterController extends Controller
         }, $fileName, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    /**
+     * Historique des sessions du caissier connecté (les siennes uniquement).
+     */
+    public function myHistory()
+    {
+        $user = auth()->user();
+
+        $registers = CashRegister::where('user_id', $user->id)
+            ->orderByDesc('opened_at')
+            ->paginate(20);
+
+        return view('cashier.history', compact('registers'));
     }
 
     // ── Vue comptable : toutes les sessions ────────────────────────────────

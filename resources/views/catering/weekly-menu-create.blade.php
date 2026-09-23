@@ -17,6 +17,46 @@
     </div>
 </div>
 
+{{-- Client + Week selector --}}
+<div class="bg-white rounded-2xl shadow-sm p-5 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2">
+                <i class="fa-solid fa-building mr-1 text-teal-500"></i>
+                Client catering
+            </label>
+            <select id="clientSelect" class="w-full">
+                @foreach($allContracts as $c)
+                <option value="{{ $c['id'] }}" data-programmed="{{ $c['programmed'] ? '1' : '0' }}" {{ $c['id'] === $contract->id ? 'selected' : '' }}>
+                    @if($c['out_of_period'])
+                        ⚠️ {{ $c['client_name'] }} — hors période (terminé/débute le {{ $c['end_date'] }})
+                    @else
+                        {{ $c['programmed'] ? '✅' : '⬜' }} {{ $c['client_name'] }} — {{ $c['programmed'] ? 'Programmé' : 'Non programmé' }}
+                    @endif
+                </option>
+                @endforeach
+            </select>
+            <div class="flex items-center gap-4 mt-2">
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <input type="checkbox" id="filterProgrammed" checked> Programmés
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <input type="checkbox" id="filterNotProgrammed" checked> Non programmés
+                </label>
+                <span class="text-xs text-slate-400">— statut pour la semaine affichée</span>
+            </div>
+        </div>
+        <div class="border-l border-slate-100 pl-6 md:pl-6">
+            <p class="text-sm font-semibold text-slate-700 mb-2">Contrat sélectionné</p>
+            <p class="text-sm text-slate-600">
+                <strong>{{ $contract->client->name ?? '—' }}</strong><br>
+                {{ $contract->guest_count }} convives ·
+                {{ implode(', ', array_map(fn($t) => match($t) { 'breakfast'=>'Petit-dej','lunch'=>'Déjeuner','dinner'=>'Dîner',default=>$t }, $contract->getActiveMealTypes())) }}
+            </p>
+        </div>
+    </div>
+</div>
+
 {{-- Week selector --}}
 <div class="bg-white rounded-2xl shadow-sm p-5 mb-6">
     <label class="block text-sm font-semibold text-slate-700 mb-2">
@@ -35,9 +75,47 @@
                 class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition">
             <i class="fa-solid fa-copy"></i> Copier la semaine precedente
         </button>
+        <a href="{{ route('catering.weekly-menu.print', $contract) }}?week_start={{ $prefillWeekStart }}" target="_blank"
+           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition">
+            <i class="fa-solid fa-print"></i> Imprimer ce menu
+        </a>
         <div id="weekLabel" class="text-sm text-slate-500 font-medium"></div>
     </div>
-    <p class="text-xs text-slate-400 mt-1">La semaine commence toujours le lundi. Vous choisissez un plat par type de repas et par jour.</p>
+
+    <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3 flex-wrap">
+        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <i class="fa-solid fa-copy text-indigo-500"></i> Copier le menu d'un autre client (même semaine)
+        </label>
+        <select id="copyFromClientSelect" style="min-width: 220px;">
+            <option value="">— Choisir un client —</option>
+            @foreach($allContracts as $c)
+                @if($c['id'] !== $contract->id)
+                <option value="{{ $c['id'] }}" {{ !$c['programmed'] ? 'disabled' : '' }}>
+                    {{ $c['client_name'] }} {{ $c['programmed'] ? '' : '(pas encore programmé)' }}
+                </option>
+                @endif
+            @endforeach
+        </select>
+        <button type="button" id="copyFromClientBtn"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold transition">
+            <i class="fa-solid fa-clone"></i> Copier ici
+        </button>
+        <span class="text-xs text-slate-400">Copie les plats et quantités de ce client sur cette semaine — à ajuster puis enregistrer pour {{ $contract->client->name ?? 'ce client' }}.</span>
+    </div>
+    <p class="text-xs text-slate-400 mt-1">La semaine commence toujours le lundi. Vous choisissez un ou plusieurs plats, et une quantité, par service et par jour.</p>
+
+    <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3 flex-wrap">
+        <label class="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <i class="fa-solid fa-bolt text-amber-500"></i> Quantité par défaut pour toute la semaine
+        </label>
+        <input type="number" min="0" id="globalQtyInput" placeholder="{{ $contract->guest_count }}"
+               class="border border-slate-200 rounded-xl px-3 py-2 text-sm w-28 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+        <button type="button" id="applyGlobalQtyBtn"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 text-sm font-semibold transition">
+            <i class="fa-solid fa-fill-drip"></i> Appliquer partout
+        </button>
+        <span class="text-xs text-slate-400">Par défaut chaque case reprend l'effectif du contrat ({{ $contract->guest_count }}) — modifiable case par case ou jour par jour ci-dessous.</span>
+    </div>
 </div>
 
 {{-- Dynamic planning table --}}
@@ -58,14 +136,19 @@
             </thead>
             <tbody id="planningBody">
                 @foreach($weekDays as $day)
-                    <tr class="border-b border-slate-100">
+                    <tr class="border-b border-slate-100 day-row" data-date="{{ $day['date'] }}">
                         <td class="px-4 py-3 align-top">
                             <p class="font-semibold text-slate-800 text-sm">{{ $day['label'] }}</p>
-                            <p class="text-xs text-slate-500">{{ $day['human_label'] }}</p>
+                            <p class="text-xs text-slate-500 mb-2">{{ $day['human_label'] }}</p>
+                            <label class="text-[11px] text-slate-400 block mb-0.5">Qté ce jour (tous services)</label>
+                            <input type="number" min="0" class="day-qty-input w-24 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                   placeholder="{{ $contract->guest_count }}" data-date="{{ $day['date'] }}">
                         </td>
                         @foreach($mealTypeDefs as $type)
                             @php
-                                $selectedIds = $prefillDays[$day['date']][$type['key']]['meal_ids'] ?? [];
+                                $cellData = $prefillDays[$day['date']][$type['key']] ?? [];
+                                $selectedIds = $cellData['meal_ids'] ?? [];
+                                $cellQty = $cellData['quantity'] ?? null;
                             @endphp
                             <td class="px-4 py-3">
                                 <select class="meal-select" multiple data-date="{{ $day['date'] }}" data-type="{{ $type['key'] }}">
@@ -73,7 +156,13 @@
                                         <option value="{{ $meal->id }}" {{ in_array($meal->id, $selectedIds) ? 'selected' : '' }}>{{ $meal->name }}</option>
                                     @endforeach
                                 </select>
-                                <p class="text-[11px] text-slate-400 mt-1">Ajouter un ou plusieurs plats</p>
+                                <div class="flex items-center gap-1.5 mt-2">
+                                    <i class="fa-solid fa-users text-slate-300 text-xs"></i>
+                                    <input type="number" min="0" class="qty-input w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                           data-date="{{ $day['date'] }}" data-type="{{ $type['key'] }}"
+                                           placeholder="{{ $contract->guest_count }}" value="{{ $cellQty }}">
+                                    <span class="text-[11px] text-slate-400">repas</span>
+                                </div>
                             </td>
                         @endforeach
                     </tr>
@@ -84,9 +173,10 @@
 </div>
 
 {{-- Empty state --}}
-<div id="emptyState" class="hidden bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center text-slate-400 mb-6">
-    <i class="fa-solid fa-calendar-days text-4xl mb-3 block opacity-30"></i>
-    <p>Aucun jour actif sur cette semaine pour ce contrat.</p>
+<div id="emptyState" class="hidden bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl p-12 text-center text-amber-700 mb-6">
+    <i class="fa-solid fa-triangle-exclamation text-4xl mb-3 block opacity-50"></i>
+    <p class="font-semibold">{{ $emptyReason ?? "Aucun jour actif sur cette semaine pour ce contrat." }}</p>
+    <p class="text-sm text-amber-500 mt-2">Choisissez une autre semaine, ou vérifiez les dates du contrat.</p>
 </div>
 
 {{-- Save button --}}
@@ -154,8 +244,47 @@ function initSelect2() {
             allowClear: true,
             closeOnSelect: false,
         });
+        window.jQuery('#copyFromClientSelect').select2({
+            width: '100%',
+            placeholder: 'Choisir un client…',
+        });
+        window.jQuery('#clientSelect').select2({
+            width: '100%',
+            placeholder: 'Choisir un client…',
+            matcher: function (params, data) {
+                if (!data.element) return data;
+                const isProgrammed = data.element.dataset.programmed === '1';
+                const showProgrammed = document.getElementById('filterProgrammed').checked;
+                const showNotProgrammed = document.getElementById('filterNotProgrammed').checked;
+                if (isProgrammed && !showProgrammed) return null;
+                if (!isProgrammed && !showNotProgrammed) return null;
+                if (!params.term || params.term.trim() === '') return data;
+                if (data.text.toLowerCase().indexOf(params.term.toLowerCase()) > -1) return data;
+                return null;
+            },
+        });
     }
 }
+
+// ── Sélecteur de client : changer de client sans quitter l'écran ────────────────
+// (jQuery .on('change') — Select2 déclenche le changement via jQuery, pas toujours via
+// l'événement natif du navigateur, donc addEventListener seul peut ne rien capter)
+function goToClient(contractId) {
+    if (!contractId) return;
+    const week = document.getElementById('weekInput').value || '{{ $prefillWeekStart }}';
+    window.location.href = `/catering/contracts/${contractId}/create-menu?week_start=${week}`;
+}
+document.getElementById('clientSelect').addEventListener('change', function () {
+    goToClient(this.value);
+});
+if (window.jQuery) {
+    window.jQuery('#clientSelect').on('select2:select', function (e) {
+        goToClient(e.params.data.id);
+    });
+}
+
+// ── Filtre programmé/non-programmé : pris en compte par le "matcher" Select2 ci-dessus
+// à chaque ouverture/recherche — rien d'autre à faire ici.
 
 // ── Collect form data ─────────────────────────────────────────────────────────
 function collectData() {
@@ -165,8 +294,10 @@ function collectData() {
         const type = select.dataset.type;
         const values = Array.from(select.selectedOptions).map(opt => parseInt(opt.value)).filter(v => !Number.isNaN(v));
         if (!values.length) return;
+        const qtyInput = document.querySelector(`.qty-input[data-date="${date}"][data-type="${type}"]`);
+        const qty = qtyInput && qtyInput.value !== '' ? parseInt(qtyInput.value) : null;
         if (!days[date]) days[date] = {};
-        days[date][type] = { meal_ids: values };
+        days[date][type] = { meal_ids: values, quantity: qty };
     });
     return days;
 }
@@ -175,6 +306,7 @@ function applyTemplateDays(days) {
     document.querySelectorAll('#planningBody .meal-select').forEach(select => {
         select.value = '';
     });
+    document.querySelectorAll('#planningBody .qty-input').forEach(input => { input.value = ''; });
 
     Object.entries(days || {}).forEach(([date, mealTypes]) => {
         Object.entries(mealTypes || {}).forEach(([type, mealData]) => {
@@ -185,6 +317,10 @@ function applyTemplateDays(days) {
                     opt.selected = mealIds.includes(opt.value);
                 });
             }
+            const qtyInput = document.querySelector(`.qty-input[data-date="${date}"][data-type="${type}"]`);
+            if (qtyInput && mealData?.quantity !== undefined && mealData?.quantity !== null) {
+                qtyInput.value = mealData.quantity;
+            }
         });
     });
 
@@ -192,6 +328,28 @@ function applyTemplateDays(days) {
         window.jQuery('#planningBody .meal-select').trigger('change.select2');
     }
 }
+
+// ── Quantité : réglage rapide par jour et pour toute la semaine (moins de clics) ─
+document.querySelectorAll('.day-qty-input').forEach(input => {
+    input.addEventListener('input', function () {
+        const date = this.dataset.date;
+        if (this.value === '') return;
+        document.querySelectorAll(`.qty-input[data-date="${date}"]`).forEach(qtyInput => {
+            qtyInput.value = this.value;
+        });
+    });
+});
+
+document.getElementById('applyGlobalQtyBtn').addEventListener('click', function () {
+    const val = document.getElementById('globalQtyInput').value;
+    if (val === '') {
+        showToast('Indiquez une quantité à appliquer.', true);
+        return;
+    }
+    document.querySelectorAll('.day-qty-input').forEach(input => { input.value = val; });
+    document.querySelectorAll('.qty-input').forEach(input => { input.value = val; });
+    showToast('Quantité appliquée à toute la semaine.');
+});
 
 function updateWeekLabel() {
     const weekInput = document.getElementById('weekInput');
@@ -267,6 +425,45 @@ document.getElementById('copyPrevWeekBtn').addEventListener('click', function ()
         })
         .catch(() => {
             showToast('Erreur pendant la copie de la semaine precedente.', true);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        });
+});
+
+// ── Copier le menu d'un autre client (même semaine) ─────────────────────────────
+document.getElementById('copyFromClientBtn').addEventListener('click', function () {
+    const fromContractId = document.getElementById('copyFromClientSelect').value;
+    if (!fromContractId) {
+        showToast('Choisissez un client à copier.', true);
+        return;
+    }
+    if (!weekInput.value) {
+        showToast('Sélectionnez d\'abord une semaine.', true);
+        return;
+    }
+
+    const btn = this;
+    const oldHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Copie...';
+
+    const monday = getMondayOf(weekInput.value);
+    const params = new URLSearchParams({ week_start: formatDate(monday), from_contract_id: fromContractId });
+
+    fetch(`{{ route('catering.weekly-menu.copy-from', $contract) }}?${params.toString()}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.exists) {
+                showToast(data.message || 'Ce client n\'a pas de menu sur cette semaine.', true);
+                return;
+            }
+            applyTemplateDays(data.days || {});
+            showToast('Menu copié — ajustez puis enregistrez pour ce client.');
+        })
+        .catch(() => {
+            showToast('Erreur pendant la copie.', true);
         })
         .finally(() => {
             btn.disabled = false;

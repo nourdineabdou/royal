@@ -1,4 +1,4 @@
-@extends('layouts.production')
+@extends('layouts.purchases')
 
 @section('title', 'Unités de Mesure')
 
@@ -7,7 +7,7 @@
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-gray-800">Gestion des Unités de Mesure</h1>
         @can('units.create')
-        <a href="{{ route('units.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+        <a href="{{ route('purchases.units.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
             <i class="fas fa-plus mr-2"></i>Ajouter Unité
         </a>
         @endcan
@@ -21,7 +21,7 @@
 
     <!-- Recherche -->
     <div class="mb-6 bg-white rounded-lg shadow p-4">
-        <form method="GET" action="{{ route('units.index') }}" class="flex gap-2">
+        <form method="GET" action="{{ route('purchases.units.index') }}" class="flex gap-2">
             <input
                 type="text"
                 name="search"
@@ -51,7 +51,7 @@
                     <tr class="border-b hover:bg-gray-50 transition">
                         <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ $unit->name }}</td>
                         <td class="px-6 py-4 text-sm">
-                            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded font-bold">{{ $unit->abbreviation }}</span>
+                            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded font-bold">{{ $unit->symbol }}</span>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-600">
                             <span class="px-3 py-1 bg-gray-100 rounded">{{ $unit->products()->count() }}</span>
@@ -59,13 +59,13 @@
                         <td class="px-6 py-4 text-center">
                             <div class="flex justify-center gap-2">
                                 @can('units.edit')
-                                <a href="{{ route('units.edit', $unit) }}" class="text-blue-600 hover:text-blue-800 text-lg" title="Modifier">
+                                <a href="{{ route('purchases.units.edit', $unit) }}" class="text-blue-600 hover:text-blue-800 text-lg" title="Modifier">
                                     <i class="fas fa-edit"></i>
                                 </a>
                                 @endcan
                                 @if($unit->products()->count() == 0)
                                     @can('units.delete')
-                                    <form action="{{ route('units.destroy', $unit) }}" method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr?');">
+                                    <form action="{{ route('purchases.units.destroy', $unit) }}" method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="text-red-600 hover:text-red-800 text-lg" title="Supprimer">

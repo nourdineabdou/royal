@@ -25,7 +25,8 @@ class PaymentTypeController extends Controller
     public function create()
     {
         $this->perm('payment-types.create');
-        return view('parameters.payment-types.create');
+        $chartOfAccounts = \App\Models\ChartOfAccount::forCompany()->where('class', 5)->orderBy('code')->get();
+        return view('parameters.payment-types.create', compact('chartOfAccounts'));
     }
 
     public function store(Request $request)
@@ -35,6 +36,7 @@ class PaymentTypeController extends Controller
             'name' => 'required|string|max:255|unique:payment_types',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
+            'chart_of_account_id' => 'nullable|exists:chart_of_accounts,id',
         ]);
 
         $validated['is_active'] = $request->has('is_active');
@@ -47,7 +49,8 @@ class PaymentTypeController extends Controller
     public function edit(PaymentType $paymentType)
     {
         $this->perm('payment-types.edit');
-        return view('parameters.payment-types.edit', compact('paymentType'));
+        $chartOfAccounts = \App\Models\ChartOfAccount::forCompany()->where('class', 5)->orderBy('code')->get();
+        return view('parameters.payment-types.edit', compact('paymentType', 'chartOfAccounts'));
     }
 
     public function update(Request $request, PaymentType $paymentType)
@@ -57,6 +60,7 @@ class PaymentTypeController extends Controller
             'name' => 'required|string|max:255|unique:payment_types,name,' . $paymentType->id,
             'description' => 'nullable|string',
             'is_active' => 'boolean',
+            'chart_of_account_id' => 'nullable|exists:chart_of_accounts,id',
         ]);
 
         $validated['is_active'] = $request->has('is_active');

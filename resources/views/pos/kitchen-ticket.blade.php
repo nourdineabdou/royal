@@ -157,7 +157,8 @@
 <hr class="sep-solid">
 
 {{-- ══ ARTICLES (SANS PRIX) ════════════════════════════════════ --}}
-@foreach($order->items as $item)
+{{-- Les extras vendus tels quels (boissons...) n'ont pas besoin d'être préparés en cuisine --}}
+@foreach($order->items->whereNotNull('meal_id') as $item)
 <div class="item-row">
     <span class="item-qty">{{ $item->quantity }}×</span>
     <div class="item-body">

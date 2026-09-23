@@ -37,7 +37,7 @@
                             class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
                         <option value="">Sélectionner le stock source…</option>
                         @foreach($stocks as $s)
-                            <option value="{{ $s->id }}" {{ old('source_stock_id') == $s->id ? 'selected' : '' }}>
+                            <option value="{{ $s->id }}" {{ old('source_stock_id', request('source_stock_id')) == $s->id ? 'selected' : '' }}>
                                 {{ $s->name }}
                                 @if($s->module) ({{ \App\Models\Stock::MODULES[$s->module] ?? $s->module }}) @endif
                             </option>
@@ -55,7 +55,7 @@
                             class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
                         <option value="">Sélectionner le stock destination…</option>
                         @foreach($stocks as $s)
-                            <option value="{{ $s->id }}" {{ old('destination_stock_id') == $s->id ? 'selected' : '' }}>
+                            <option value="{{ $s->id }}" {{ old('destination_stock_id', request('destination_stock_id')) == $s->id ? 'selected' : '' }}>
                                 {{ $s->name }}
                                 @if($s->module) ({{ \App\Models\Stock::MODULES[$s->module] ?? $s->module }}) @endif
                             </option>
@@ -69,7 +69,7 @@
                             class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
                         <option value="">Sélectionner un produit…</option>
                         @foreach($products as $p)
-                            <option value="{{ $p->id }}" {{ old('product_id') == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
+                            <option value="{{ $p->id }}" {{ old('product_id', request('product_id')) == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -77,7 +77,7 @@
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Quantité <span class="text-red-500">*</span></label>
                     <input type="number" name="quantity" step="0.01" min="0.001"
-                           value="{{ old('quantity') }}" required
+                           value="{{ old('quantity', request('quantity')) }}" required
                            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
                            placeholder="Ex. 10.5">
                 </div>

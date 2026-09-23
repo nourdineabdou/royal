@@ -38,6 +38,9 @@
                     <i class="fas fa-file-csv"></i> Export tickets CSV
                 </a>
             @endif
+            <a href="{{ route('cashier.history') }}" class="flex items-center gap-2 bg-slate-600 hover:bg-slate-500 text-white px-5 py-2.5 rounded-xl font-semibold transition-all">
+                <i class="fas fa-clock-rotate-left"></i> Mes sessions
+            </a>
             <a href="{{ route('cashier.open') }}" class="flex items-center gap-2 bg-slate-600 hover:bg-slate-500 text-white px-5 py-2.5 rounded-xl font-semibold transition-all">
                 <i class="fas fa-home"></i> Accueil
             </a>

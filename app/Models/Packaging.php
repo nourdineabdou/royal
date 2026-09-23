@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Packaging extends Model
 {
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'image', 'description'];
 
     public function products()
     {
@@ -16,5 +16,10 @@ class Packaging extends Model
     public function productPackagings()
     {
         return $this->hasMany(ProductPackaging::class);
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image ? asset('storage/' . $this->image) : null;
     }
 }

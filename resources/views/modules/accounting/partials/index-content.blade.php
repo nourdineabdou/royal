@@ -40,6 +40,82 @@
 		</div>
 	</div>
 
+	<!-- Comptabilité générale (Plan comptable mauritanien) -->
+	<div class="bg-white rounded-xl shadow p-4 mb-6">
+		<div class="text-sm font-bold text-gray-500 uppercase mb-3">Comptabilité générale (PCM)</div>
+		<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+			<a href="{{ route('accounting.journal') }}" class="rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 px-4 py-3 flex items-center gap-3 transition">
+				<div class="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center"><i class="fas fa-book"></i></div>
+				<span class="font-semibold text-gray-700 text-sm">Journal</span>
+			</a>
+			<a href="{{ route('accounting.ledger') }}" class="rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 px-4 py-3 flex items-center gap-3 transition">
+				<div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><i class="fas fa-columns"></i></div>
+				<span class="font-semibold text-gray-700 text-sm">Grand Livre</span>
+			</a>
+			<a href="{{ route('accounting.balance') }}" class="rounded-xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 px-4 py-3 flex items-center gap-3 transition">
+				<div class="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center"><i class="fas fa-balance-scale"></i></div>
+				<span class="font-semibold text-gray-700 text-sm">Balance</span>
+			</a>
+			<a href="{{ route('settings.chart-of-accounts') }}" class="rounded-xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50 px-4 py-3 flex items-center gap-3 transition">
+				<div class="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center"><i class="fas fa-sitemap"></i></div>
+				<span class="font-semibold text-gray-700 text-sm">Plan comptable</span>
+			</a>
+			<a href="{{ route('catering.billing.index') }}" class="rounded-xl border border-gray-200 hover:border-teal-300 hover:bg-teal-50 px-4 py-3 flex items-center gap-3 transition">
+				<div class="w-9 h-9 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center"><i class="fas fa-file-invoice"></i></div>
+				<span class="font-semibold text-gray-700 text-sm">Factures Catering</span>
+			</a>
+			<a href="{{ route('accounting.expenses.index') }}" class="rounded-xl border border-gray-200 hover:border-red-300 hover:bg-red-50 px-4 py-3 flex items-center gap-3 transition">
+				<div class="w-9 h-9 rounded-lg bg-red-100 text-red-600 flex items-center justify-center"><i class="fas fa-receipt"></i></div>
+				<span class="font-semibold text-gray-700 text-sm">Dépenses</span>
+			</a>
+		</div>
+	</div>
+
+	<!-- Factures Catering en attente de paiement/validation -->
+	@if($cateringInvoicesPending->isNotEmpty())
+	<div class="bg-white rounded-xl shadow p-4 mb-6">
+		<div class="flex items-center justify-between mb-3">
+			<div class="text-sm font-bold text-gray-500 uppercase">Factures Catering en attente</div>
+			<a href="{{ route('catering.billing.index') }}" class="text-xs text-teal-600 hover:underline font-semibold">Voir toutes les factures</a>
+		</div>
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-gray-200 text-sm">
+				<thead>
+					<tr>
+						<th class="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Facture</th>
+						<th class="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Client</th>
+						<th class="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Période</th>
+						<th class="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">Total</th>
+						<th class="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">Reste à payer</th>
+						<th class="px-3 py-2 text-center text-xs font-bold text-gray-500 uppercase">Statut</th>
+						<th class="px-3 py-2"></th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-gray-100">
+					@foreach($cateringInvoicesPending as $invoice)
+						@php
+							$statusColors = ['draft' => 'bg-gray-100 text-gray-600', 'issued' => 'bg-amber-100 text-amber-700', 'partial' => 'bg-blue-100 text-blue-700', 'paid' => 'bg-emerald-100 text-emerald-700'];
+						@endphp
+						<tr>
+							<td class="px-3 py-2 font-semibold text-gray-700">{{ $invoice->invoice_number }}</td>
+							<td class="px-3 py-2 text-gray-600">{{ $invoice->client->name ?? '—' }}</td>
+							<td class="px-3 py-2 text-gray-600">{{ $invoice->period_month }}/{{ $invoice->period_year }}</td>
+							<td class="px-3 py-2 text-right text-gray-700">{{ number_format($invoice->total_amount, 2, ',', ' ') }} MRU</td>
+							<td class="px-3 py-2 text-right font-bold text-red-600">{{ number_format($invoice->remaining_amount, 2, ',', ' ') }} MRU</td>
+							<td class="px-3 py-2 text-center">
+								<span class="text-xs px-2 py-1 rounded-full font-semibold {{ $statusColors[$invoice->status] ?? 'bg-gray-100 text-gray-600' }}">{{ ucfirst($invoice->status) }}</span>
+							</td>
+							<td class="px-3 py-2 text-right">
+								<a href="{{ route('catering.billing.show', $invoice) }}" class="text-teal-600 hover:underline text-xs font-semibold">Voir</a>
+							</td>
+						</tr>
+					@endforeach
+				</tbody>
+			</table>
+		</div>
+	</div>
+	@endif
+
 	<form method="GET" action="{{ route('modules.accounting') }}" class="bg-white rounded-xl shadow p-4 mb-6">
 		<div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
 			<div>

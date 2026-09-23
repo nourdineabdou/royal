@@ -37,6 +37,11 @@
             <i class="fas fa-file-invoice"></i> Rapport
         </a>
 
+        <a href="{{ route('cashier.history') }}"
+           class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">
+            <i class="fas fa-clock-rotate-left"></i> Mes sessions
+        </a>
+
         {{-- Transferts en attente (catering_pos uniquement) --}}
         @if($register->isCateringPos())
             @php $pendingCount = $register->pendingTransfers->count(); @endphp
@@ -418,6 +423,17 @@
                 <input type="number" id="sellQty" value="1" min="1" step="1"
                        class="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 text-xl font-bold outline-none">
             </div>
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">Mode de paiement</label>
+                <div class="flex flex-wrap gap-2" id="sellPaymentTypes">
+                    @foreach($paymentTypes ?? [] as $pt)
+                        <button type="button" data-payment-type-id="{{ $pt->id }}"
+                                class="sell-payment-btn px-3 py-2 rounded-xl text-sm font-semibold bg-slate-700 border border-slate-600 text-slate-200 hover:bg-slate-600 transition-all">
+                            {{ $pt->name }}
+                        </button>
+                    @endforeach
+                </div>
+            </div>
             <p class="text-emerald-400 font-bold text-lg" id="sellTotal"></p>
         </div>
         <div class="flex gap-3 mt-5">
@@ -439,7 +455,20 @@
     let currentSellItemId = null;
     let currentUnitPrice  = 0;
     let currentSellType   = 'transfer'; // 'transfer' ou 'stock'
+    let currentPaymentTypeId = null;
     let currentDistributeStockItemId = null;
+
+    document.getElementById('sellPaymentTypes').addEventListener('click', (e) => {
+        const btn = e.target.closest('.sell-payment-btn');
+        if (!btn) return;
+        currentPaymentTypeId = btn.dataset.paymentTypeId;
+        document.querySelectorAll('.sell-payment-btn').forEach(b => {
+            b.classList.remove('bg-emerald-600', 'border-emerald-500');
+            b.classList.add('bg-slate-700', 'border-slate-600');
+        });
+        btn.classList.remove('bg-slate-700', 'border-slate-600');
+        btn.classList.add('bg-emerald-600', 'border-emerald-500');
+    });
 
     // ── Distribution stock terminal (plat contrat) ─────────────────────
     function openDistributeModal(stockItemId, label) {
@@ -486,10 +515,19 @@
     });
 
     // ── Vente stock terminal (produit extra) ───────────────────────────
+    function resetSellPaymentType() {
+        currentPaymentTypeId = null;
+        document.querySelectorAll('.sell-payment-btn').forEach(b => {
+            b.classList.remove('bg-emerald-600', 'border-emerald-500');
+            b.classList.add('bg-slate-700', 'border-slate-600');
+        });
+    }
+
     function openSellStockModal(stockItemId, label) {
         currentSellItemId = stockItemId;
         currentSellType   = 'stock';
         currentUnitPrice  = 0;
+        resetSellPaymentType();
         document.getElementById('sellModalTitle').textContent = label;
         document.getElementById('sellModalPrice').textContent = 'Quantité à marquer comme vendue';
         updateSellTotal();
@@ -519,6 +557,7 @@
         currentSellItemId = itemId;
         currentSellType   = 'transfer';
         currentUnitPrice  = unitPrice;
+        resetSellPaymentType();
         document.getElementById('sellModalTitle').textContent = label;
         document.getElementById('sellModalPrice').textContent = unitPrice.toLocaleString() + ' MRU / unité';
         updateSellTotal();
@@ -539,12 +578,16 @@
     document.getElementById('sellConfirmBtn').addEventListener('click', () => {
         const qty = parseFloat(document.getElementById('sellQty').value);
         if (!qty || qty <= 0) return;
+        if (!currentPaymentTypeId) {
+            alert('Veuillez choisir un mode de paiement.');
+            return;
+        }
 
         if (currentSellType === 'stock') {
             fetch(`${BASE_URL}/pos-terminal-stock/${currentSellItemId}/sell`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                body: JSON.stringify({ qty }),
+                body: JSON.stringify({ qty, payment_type_id: currentPaymentTypeId }),
             })
             .then(r => r.json())
             .then(data => {
@@ -559,7 +602,7 @@
             fetch(`/pos-transfer/items/${currentSellItemId}/sell`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                body: JSON.stringify({ qty }),
+                body: JSON.stringify({ qty, payment_type_id: currentPaymentTypeId }),
             })
             .then(r => r.json())
             .then(data => {

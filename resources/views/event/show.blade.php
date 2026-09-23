@@ -490,6 +490,25 @@
                 @endif
             </div>
 
+            @if(!empty($missingRecipeMeals))
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-3 text-sm text-amber-800">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-2"></i>
+                Impossible de calculer les besoins pour : <strong>{{ implode(', ', $missingRecipeMeals) }}</strong> — aucune recette définie. Ajoutez une recette à ces plats ou vérifiez manuellement.
+            </div>
+            @endif
+
+            @if($purchaseNeedsOrder)
+            <div class="bg-violet-50 border border-violet-200 rounded-xl p-4 mb-3 text-sm text-violet-800 flex items-center justify-between gap-3">
+                <span>
+                    <i class="fa-solid fa-cart-shopping text-violet-500 mr-2"></i>
+                    Une commande d'achat a été générée automatiquement pour les produits manquants.
+                </span>
+                <a href="{{ route('purchases.orders.show', $purchaseNeedsOrder) }}" class="font-semibold whitespace-nowrap hover:underline">
+                    Voir la commande <i class="fa-solid fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+            @endif
+
             @if(!$event->stock_id)
             <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
                 <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-2"></i>

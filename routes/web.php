@@ -29,6 +29,7 @@ use App\Http\Controllers\PaymentTypeController;
 use App\Http\Controllers\POSController;
 use App\Http\Controllers\HRController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\PurchaseRequestController;
 use App\Http\Controllers\CateringController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\StockController;
@@ -60,6 +61,15 @@ Route::middleware(['auth'])->group(function () {
 
     // Dashboard moderne
     Route::get('/dashboard-modern', function () {
+        if (auth()->check() && auth()->user()->employee) {
+            $attendance = \App\Models\Attendance::where('employee_id', auth()->user()->employee->id)
+                ->where('date', today())
+                ->whereNotNull('check_in')
+                ->exists();
+            if (! $attendance) {
+                return redirect()->route('hr.clock');
+            }
+        }
         return view('dashboard-moderne-simple');
     })->name('dashboard-modern');
 
@@ -77,6 +87,21 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/accounting/sessions', [App\Http\Controllers\AccountingController::class, 'store'])->name('accounting.sessions.store');
         Route::get('/accounting/sessions/{id}', [App\Http\Controllers\AccountingController::class, 'detail'])->name('accounting.detail');
         Route::get('/accounting/traces', [App\Http\Controllers\AccountingController::class, 'traces'])->name('accounting.traces');
+        Route::get('/accounting/journal', [App\Http\Controllers\AccountingController::class, 'journal'])->name('accounting.journal');
+        Route::get('/accounting/journal/export', [App\Http\Controllers\AccountingController::class, 'exportJournal'])->name('accounting.journal.export');
+        Route::get('/accounting/grand-livre', [App\Http\Controllers\AccountingController::class, 'ledger'])->name('accounting.ledger');
+        Route::get('/accounting/balance', [App\Http\Controllers\AccountingController::class, 'trialBalance'])->name('accounting.balance');
+        Route::get('/accounting/bilan', [App\Http\Controllers\AccountingController::class, 'balanceSheet'])->name('accounting.balance-sheet');
+        Route::get('/accounting/compte-resultat', [App\Http\Controllers\AccountingController::class, 'incomeStatement'])->name('accounting.income-statement');
+        Route::get('/accounting/rapprochement-bancaire', [App\Http\Controllers\AccountingController::class, 'bankReconciliation'])->name('accounting.bank-reconciliation');
+        Route::post('/accounting/journal-lines/{line}/toggle-reconciliation', [App\Http\Controllers\AccountingController::class, 'toggleReconciliation'])->name('accounting.toggle-reconciliation');
+        Route::get('/accounting/supplier-invoices', [App\Http\Controllers\AccountingController::class, 'supplierInvoices'])->name('accounting.supplier-invoices');
+        Route::get('/accounting/supplier-balances', [App\Http\Controllers\AccountingController::class, 'supplierBalances'])->name('accounting.supplier-balances');
+        Route::get('/accounting/client-balances', [App\Http\Controllers\AccountingController::class, 'clientBalances'])->name('accounting.client-balances');
+        Route::get('/accounting/traces/export-csv', [POSController::class, 'exportAccountingTracesCsv'])->name('accounting.traces-export-csv');
+        Route::get('/accounting/expenses', [App\Http\Controllers\ExpenseController::class, 'index'])->name('accounting.expenses.index');
+        Route::post('/accounting/expenses', [App\Http\Controllers\ExpenseController::class, 'store'])->name('accounting.expenses.store');
+        Route::post('/accounting/expenses/types', [App\Http\Controllers\ExpenseController::class, 'storeType'])->name('accounting.expenses.types.store');
         // Ajout de la route pour fermer la caisse
         Route::post('/accounting/sessions/{id}/close', [App\Http\Controllers\AccountingController::class, 'close'])->name('accounting.close');
         Route::post('/accounting/sessions/{id}/validate', [App\Http\Controllers\AccountingController::class, 'validateRegister'])->name('accounting.validate');
@@ -92,20 +117,52 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('purchases')->name('purchases.')->group(function () {
         Route::get('/dashboard', [PurchaseController::class, 'dashboard'])->name('dashboard');
 
+        // Products & Units & Packaging Management
+        Route::resource('products', ProductController::class);
+        Route::resource('units', UnitController::class);
+        Route::resource('packagings', PackagingController::class);
+
         // Suppliers
         Route::get('/suppliers',              [PurchaseController::class, 'suppliers'])->name('suppliers');
         Route::post('/suppliers',             [PurchaseController::class, 'storeSupplier'])->name('suppliers.store');
         Route::put('/suppliers/{supplier}',   [PurchaseController::class, 'updateSupplier'])->name('suppliers.update');
         Route::delete('/suppliers/{supplier}',[PurchaseController::class, 'destroySupplier'])->name('suppliers.destroy');
 
-        // Orders
+        // Purchase Requests (Demande d'achat) — peut être scindée en plusieurs BC, un par fournisseur
+        Route::get('/requests',                       [PurchaseRequestController::class, 'index'])->name('requests');
+        Route::get('/requests/create',                [PurchaseRequestController::class, 'create'])->name('requests.create');
+        Route::post('/requests',                      [PurchaseRequestController::class, 'store'])->name('requests.store');
+        Route::get('/requests/{purchaseRequest}',      [PurchaseRequestController::class, 'show'])->name('requests.show');
+        Route::get('/requests/{purchaseRequest}/print', [PurchaseRequestController::class, 'print'])->name('requests.print');
+        Route::post('/requests/{purchaseRequest}/orders', [PurchaseRequestController::class, 'storeOrder'])->name('requests.orders.store');
+        Route::post('/requests/{purchaseRequest}/quotes', [PurchaseRequestController::class, 'storeQuote'])->name('requests.quotes.store');
+        Route::delete('/requests/quotes/{quote}', [PurchaseRequestController::class, 'destroyQuote'])->name('requests.quotes.destroy');
+
+        // Historique de prix (produit x fournisseur) — pré-remplissage du prix à la commande
+        Route::get('/price-history',          [PurchaseController::class, 'priceHistory'])->name('price-history');
+
+        // Purchase Orders (Bon de Commande)
         Route::get('/orders',                 [PurchaseController::class, 'orders'])->name('orders');
         Route::get('/orders/create',          [PurchaseController::class, 'createOrder'])->name('orders.create');
         Route::post('/orders',                [PurchaseController::class, 'storeOrder'])->name('orders.store');
         Route::get('/orders/{order}',         [PurchaseController::class, 'showOrder'])->name('orders.show');
         Route::post('/orders/{order}/confirm',[PurchaseController::class, 'confirmOrder'])->name('orders.confirm');
         Route::post('/orders/{order}/cancel', [PurchaseController::class, 'cancelOrder'])->name('orders.cancel');
+
+        // Contrôle comptable de la facture (avant paiement)
+        Route::post('/orders/{order}/validate-invoice', [PurchaseController::class, 'validateInvoice'])->name('orders.validate-invoice');
+
+        // Retour fournisseur (avoir)
+        Route::get('/orders/{order}/return',  [PurchaseController::class, 'createReturn'])->name('orders.return.create');
+        Route::post('/orders/{order}/return', [PurchaseController::class, 'storeReturn'])->name('orders.return.store');
+
+        // Delivery Notes (Bon de Livraison) - can be different from order
         Route::post('/orders/{order}/receipt',[PurchaseController::class, 'storeReceipt'])->name('orders.receipt');
+        Route::get('/deliveries',             [PurchaseController::class, 'deliveries'])->name('deliveries');
+        Route::get('/deliveries/{delivery}',  [PurchaseController::class, 'showDelivery'])->name('deliveries.show');
+        Route::put('/deliveries/{delivery}',  [PurchaseController::class, 'updateDelivery'])->name('deliveries.update');
+
+        // Invoices (handled in accounting module)
         Route::post('/orders/{order}/payment',[PurchaseController::class, 'storePayment'])->name('orders.payment');
 
         // Print / PDF A4
@@ -124,11 +181,24 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/employees', [HRController::class, 'employees'])->name('employees');
         Route::post('/employees', [HRController::class, 'storeEmployee'])->name('employees.store');
+        Route::post('/employees/{employee}/documents', [HRController::class, 'storeEmployeeDocument'])->name('employees.documents.store');
+        Route::delete('/employees/documents/{document}', [HRController::class, 'destroyEmployeeDocument'])->name('employees.documents.destroy');
+
+        Route::get('/contracts', [HRController::class, 'contracts'])->name('contracts');
+        Route::post('/contracts', [HRController::class, 'storeContract'])->name('contracts.store');
+        Route::post('/contracts/{contract}/terminate', [HRController::class, 'terminateContract'])->name('contracts.terminate');
         Route::put('/employees/{employee}', [HRController::class, 'updateEmployee'])->name('employees.update');
         Route::delete('/employees/{employee}', [HRController::class, 'destroyEmployee'])->name('employees.destroy');
 
         Route::get('/attendance', [HRController::class, 'attendance'])->name('attendance');
         Route::post('/attendance', [HRController::class, 'storeAttendance'])->name('attendance.store');
+        Route::post('/attendance/clock', [HRController::class, 'storeAttendanceClock'])->name('attendance.clock');
+        Route::get('/clock', [HRController::class, 'clock'])->name('clock');
+
+        Route::get('/sites', [HRController::class, 'sites'])->name('sites');
+        Route::post('/sites', [HRController::class, 'storeSite'])->name('sites.store');
+        Route::put('/sites/{site}', [HRController::class, 'updateSite'])->name('sites.update');
+        Route::delete('/sites/{site}', [HRController::class, 'destroySite'])->name('sites.destroy');
 
         Route::get('/leaves', [HRController::class, 'leaves'])->name('leaves');
         Route::post('/leaves', [HRController::class, 'storeLeave'])->name('leaves.store');
@@ -138,6 +208,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/payroll', [HRController::class, 'payroll'])->name('payroll');
         Route::post('/payroll/generate', [HRController::class, 'generatePayroll'])->name('payroll.generate');
         Route::post('/payroll/{payroll}/paid', [HRController::class, 'markPayrollPaid'])->name('payroll.paid');
+        Route::get('/payroll/{payroll}/payslip', [HRController::class, 'payslip'])->name('payroll.payslip');
 
         Route::get('/advances', [HRController::class, 'advances'])->name('advances');
         Route::post('/advances', [HRController::class, 'storeAdvance'])->name('advances.store');
@@ -147,6 +218,7 @@ Route::middleware(['auth'])->group(function () {
     // POS Routes
     Route::prefix('pos')->group(function () {
         Route::get('/meals',               [POSController::class, 'getMeals']);
+        Route::get('/extras',              [POSController::class, 'getExtras']);
         Route::post('/create-order',       [POSController::class, 'createOrder']);
         Route::get('/orders',              [POSController::class, 'orders'])->name('pos.orders');
         Route::get('/orders/{id}',         [POSController::class, 'orderDetail'])->name('pos.order-detail');
@@ -167,11 +239,13 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('modules/production')->group(function () {
         Route::get('/dashboard', [DashboardProductionController::class, 'index'])->name('production.dashboard');
         Route::resource('meals', MealController::class);
+        Route::get('meals/{meal}/recipe', [\App\Http\Controllers\RecipeController::class, 'edit'])->name('meals.recipe.edit');
+        Route::put('meals/{meal}/recipe', [\App\Http\Controllers\RecipeController::class, 'update'])->name('meals.recipe.update');
         Route::resource('categories', CategoryController::class);
         Route::resource('accompaniments', AccompanimentController::class);
-        Route::resource('products', ProductController::class);
-        Route::resource('units', UnitController::class);
-        Route::resource('packagings', PackagingController::class);
+
+        // Plan de production journalier (Catering)
+        Route::get('catering-today', [\App\Http\Controllers\ProductionPlanningController::class, 'cateringToday'])->name('production.catering-today');
 
         // Gestion des produits périmés/gâtés (pertes)
         Route::get('waste', [\App\Http\Controllers\ProductionWasteController::class, 'index'])->name('production.waste.index');
@@ -192,6 +266,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard',                                      [CateringController::class, 'dashboard'])->name('dashboard');
 
         // Clients (partagés avec Event)
+        Route::get('/clients/map',                                    [CateringController::class, 'clientsMap'])->name('clients.map');
         Route::get('/clients',                                        [CateringController::class, 'clients'])->name('clients');
         Route::post('/clients',                                       [CateringController::class, 'storeClient'])->name('clients.store');
         Route::put('/clients/{client}',                               [CateringController::class, 'updateClient'])->name('clients.update');
@@ -208,9 +283,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/planning',                                       [CateringController::class, 'weeklyPlanningIndex'])->name('planning.index');
         Route::get('/contracts/{contract}/create-menu',               [CateringController::class, 'weeklyMenuCreate'])->name('weekly-menu.create');
         Route::get('/contracts/{contract}/weekly-menu-template',      [CateringController::class, 'weeklyMenuTemplate'])->name('weekly-menu.template');
+        Route::get('/contracts/{contract}/weekly-menu-copy-from',     [CateringController::class, 'weeklyMenuCopyFrom'])->name('weekly-menu.copy-from');
         Route::post('/contracts/{contract}/weekly-menu',              [CateringController::class, 'weeklyMenuStore'])->name('weekly-menu.store');
+        Route::get('/contracts/{contract}/weekly-menu/print',         [CateringController::class, 'weeklyMenuPrint'])->name('weekly-menu.print');
+        Route::get('/weekly-menus/print-all',                         [CateringController::class, 'weeklyMenuPrintAll'])->name('weekly-menu.print-all');
         Route::get('/weekly-menus/{menu}',                            [CateringController::class, 'weeklyMenuShow'])->name('weekly-menu.show');
         Route::delete('/weekly-menus/{menu}',                         [CateringController::class, 'weeklyMenuDestroy'])->name('weekly-menu.destroy');
+
+        // Plats Catering (quels plats sont destinés en priorité au catering)
+        Route::get('/meals',                                          [CateringController::class, 'meals'])->name('meals');
+        Route::post('/meals/{meal}/toggle-catering',                  [CateringController::class, 'toggleMealCatering'])->name('meals.toggle-catering');
 
         // Validation
         Route::get('/validate',                                       [CateringController::class, 'validatePage'])->name('validate');
@@ -330,6 +412,7 @@ Route::middleware(['auth'])->group(function () {
         // Caissier
         Route::get('/open',                  [CashRegisterController::class, 'open'])->name('open');
         Route::post('/open',                 [CashRegisterController::class, 'startSession'])->name('start');
+        Route::get('/history',               [CashRegisterController::class, 'myHistory'])->name('history');
         Route::get('/session/{id}',          [CashRegisterController::class, 'session'])->name('session');
         Route::post('/session/{id}/close',   [CashRegisterController::class, 'closeSession'])->name('close');
         Route::get('/session/{id}/report',   [CashRegisterController::class, 'report'])->name('report');
@@ -343,6 +426,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/settings',              [CashRegisterController::class, 'settingsIndex'])->name('settings');
         Route::post('/settings',             [CashRegisterController::class, 'settingsStore'])->name('settings.store');
     });
+    // ── Plan comptable (lecture seule) ─────────────────────────────────────
+    Route::get('/settings/chart-of-accounts', [App\Http\Controllers\ChartOfAccountController::class, 'index'])->name('settings.chart-of-accounts');
     // ── Admin : terminaux POS (points de vente) ───────────────────────────
     Route::prefix('settings/pos-terminals')->name('settings.pos-terminals.')->group(function () {
         Route::get('/',                [PosTerminalController::class, 'index'])->name('index');

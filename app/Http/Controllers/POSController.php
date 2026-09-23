@@ -18,21 +18,13 @@ use App\Models\StockItem;
 use App\Models\StockMovement;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\AccountingEntryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class POSController extends Controller
 {
     private const POS_MODULE = 'restaurant';
-    private const POS_PAYMENT_KEYWORDS = [
-        'espece',
-        'espèce',
-        'bankili',
-        'bankily',
-        'sadad',
-        'masrivi',
-        'amanaty',
-    ];
 
     /**
      * Affiche le POS avec toutes les catégories et plats
@@ -47,7 +39,7 @@ class POSController extends Controller
             ->first();
 
         if (!$activeRegister) {
-            return redirect()->route('pos.accounting')->with('error', 'Aucune caisse restaurant ouverte. Ouvrez une session avant de prendre des commandes.');
+            return redirect()->route('cashier.open')->with('error', 'Aucune caisse restaurant ouverte. Ouvrez une session avant de prendre des commandes.');
         }
 
         $categories = Category::with('meals')->get();
@@ -77,7 +69,26 @@ class POSController extends Controller
     }
 
     /**
-     * API: Crée une commande et déduit le stock
+     * API: Récupère les produits consommables (boissons, extras) vendables au POS restaurant,
+     * au même titre qu'au POS catering — un produit "consommable" est vendable partout où le POS est utilisé.
+     */
+    public function getExtras()
+    {
+        $this->perm('pos.view');
+        $products = Product::where('is_consumable', true)
+            ->whereNotNull('sale_price')
+            ->select('id', 'name', 'sale_price', 'unit_id')
+            ->with('unit:id,name,symbol')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($products);
+    }
+
+    /**
+     * API: Crée une commande et déduit le stock.
+     * Une commande peut mélanger des plats (meal_id, cuisinés via recette) et des produits
+     * consommables vendus tels quels (product_id, ex: boissons) — même logique que le POS catering.
      */
     public function createOrder(Request $request)
     {
@@ -96,7 +107,8 @@ class POSController extends Controller
 
         $validated = $request->validate([
             'items'                         => 'required|array|min:1',
-            'items.*.meal_id'               => 'required|exists:meals,id',
+            'items.*.meal_id'               => 'nullable|exists:meals,id',
+            'items.*.product_id'            => 'nullable|exists:products,id',
             'items.*.quantity'              => 'required|integer|min:1',
             'items.*.accompaniments'        => 'nullable|array',
             'items.*.accompaniments.*'      => 'integer|exists:accompaniments,id',
@@ -104,16 +116,33 @@ class POSController extends Controller
             'total_amount'                  => 'required|numeric|min:0',
         ]);
 
+        foreach ($validated['items'] as $item) {
+            if (empty($item['meal_id']) && empty($item['product_id'])) {
+                return response()->json(['success' => false, 'message' => 'Article invalide dans le panier.'], 422);
+            }
+        }
+
         try {
             DB::beginTransaction();
 
             // Recalculer le total côté serveur (ne jamais faire confiance au client)
             $serverTotal = 0;
-            $mealPrices  = [];
+            $mealPrices    = [];
+            $productPrices = [];
             foreach ($validated['items'] as $item) {
-                $meal = Meal::findOrFail($item['meal_id']);
-                $mealPrices[$item['meal_id']] = $meal->price;
-                $serverTotal += $meal->price * $item['quantity'];
+                if (!empty($item['meal_id'])) {
+                    $meal = Meal::findOrFail($item['meal_id']);
+                    $mealPrices[$item['meal_id']] = $meal->price;
+                    $serverTotal += $meal->price * $item['quantity'];
+                } else {
+                    $product = Product::findOrFail($item['product_id']);
+                    if (!$product->is_consumable || $product->sale_price === null) {
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => "« {$product->name} » n'est pas vendable au POS."], 422);
+                    }
+                    $productPrices[$item['product_id']] = $product->sale_price;
+                    $serverTotal += $product->sale_price * $item['quantity'];
+                }
             }
 
             // Créer la commande
@@ -129,23 +158,38 @@ class POSController extends Controller
 
             // Traiter chaque article de la commande
             foreach ($validated['items'] as $item) {
-                $meal = Meal::find($item['meal_id']);
+                if (!empty($item['meal_id'])) {
+                    $meal = Meal::find($item['meal_id']);
 
-                $orderItem = OrderItem::create([
-                    'order_id'   => $order->id,
-                    'meal_id'    => $meal->id,
-                    'quantity'   => $item['quantity'],
-                    'price'      => $mealPrices[$item['meal_id']],  // prix de la DB
-                    'cost_price' => $this->calculateRecipeCost($meal->id), // coût recette
-                ]);
+                    $orderItem = OrderItem::create([
+                        'order_id'   => $order->id,
+                        'meal_id'    => $meal->id,
+                        'quantity'   => $item['quantity'],
+                        'price'      => $mealPrices[$item['meal_id']],  // prix de la DB
+                        'cost_price' => $this->calculateRecipeCost($meal->id), // coût recette
+                    ]);
 
-                // Sauvegarder les accompagnements sélectionnés
-                if (!empty($item['accompaniments'])) {
-                    $orderItem->accompaniments()->sync($item['accompaniments']);
+                    // Sauvegarder les accompagnements sélectionnés
+                    if (!empty($item['accompaniments'])) {
+                        $orderItem->accompaniments()->sync($item['accompaniments']);
+                    }
+
+                    // Déduire le stock basé sur la recette
+                    $this->deductStockFromRecipe($meal->id, $item['quantity'], $order->id);
+                } else {
+                    $product = Product::find($item['product_id']);
+
+                    OrderItem::create([
+                        'order_id'   => $order->id,
+                        'product_id' => $product->id,
+                        'quantity'   => $item['quantity'],
+                        'price'      => $productPrices[$item['product_id']],
+                        'cost_price' => 0,
+                    ]);
+
+                    // Déduire directement le stock du produit (pas de recette, vendu tel quel)
+                    $this->deductProductStock($product->id, $item['quantity'], $order->id);
                 }
-
-                // Déduire le stock basé sur la recette
-                $this->deductStockFromRecipe($meal->id, $item['quantity'], $order->id);
             }
 
             DB::commit();
@@ -165,6 +209,37 @@ class POSController extends Controller
                 'message' => 'Erreur lors de la création: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Déduit le stock d'un produit consommable vendu tel quel (boisson, extra) au POS restaurant.
+     */
+    private function deductProductStock(int $productId, float $quantity, int $orderId = 0): void
+    {
+        $restaurantStock = Stock::forModule('restaurant');
+
+        $stockItem = $restaurantStock
+            ? StockItem::where('stock_id', $restaurantStock->id)->where('product_id', $productId)->first()
+            : StockItem::where('product_id', $productId)->first();
+
+        if (!$stockItem) {
+            return;
+        }
+
+        $stockItem->quantity -= $quantity;
+        $stockItem->save();
+
+        StockMovement::create([
+            'product_id'     => $productId,
+            'stock_id'       => $stockItem->stock_id,
+            'type'           => 'out',
+            'quantity'       => $quantity,
+            'origin_module'  => 'restaurant',
+            'origin_type'    => 'order',
+            'origin_id'      => $orderId ?: null,
+            'user_id'        => auth()->id(),
+            'notes'          => 'Vente restaurant (extra) — Commande #' . $orderId,
+        ]);
     }
 
     /**
@@ -420,7 +495,7 @@ class POSController extends Controller
         try {
             DB::beginTransaction();
 
-            Payment::create([
+            $payment = Payment::create([
                 'order_id'         => $order->id,
                 'payment_type_id'  => $request->payment_type_id,
                 'amount'           => $order->total_amount,
@@ -434,6 +509,8 @@ class POSController extends Controller
                 'date'      => now()->toDateString(),
                 'module'    => 'pos',
             ]);
+
+            app(AccountingEntryService::class)->postSale($payment, self::POS_MODULE);
 
             $order->update([
                 'status'     => 'paid',
@@ -468,7 +545,7 @@ class POSController extends Controller
     {
         $this->perm('pos.orders.view');
 
-        $order = Order::with(['items.meal', 'items.accompaniments', 'server'])
+        $order = Order::with(['items.meal', 'items.product', 'items.accompaniments', 'server'])
             ->findOrFail($id);
 
         $company = config('app.company');
@@ -483,7 +560,7 @@ class POSController extends Controller
     {
         $this->perm('pos.orders.payment');
 
-        $order = Order::with(['items.meal', 'payment.paymentType', 'server', 'cashier', 'cashRegister'])
+        $order = Order::with(['items.meal', 'items.product', 'payment.paymentType', 'server', 'cashier', 'cashRegister'])
             ->findOrFail($id);
 
         // Monnaie rendue (passée en query string depuis la caisse)
@@ -650,7 +727,7 @@ class POSController extends Controller
                 $si->increment('quantity_sold', $line['qty']);
             }
 
-            Payment::create([
+            $payment = Payment::create([
                 'order_id'         => $order->id,
                 'payment_type_id'  => $validated['payment_type_id'],
                 'amount'           => $order->total_amount,
@@ -664,6 +741,8 @@ class POSController extends Controller
                 'date'      => now()->toDateString(),
                 'module'    => 'catering',
             ]);
+
+            app(AccountingEntryService::class)->postSale($payment, 'catering');
 
             DB::commit();
 
@@ -764,25 +843,12 @@ class POSController extends Controller
 
     private function getPosPaymentTypes()
     {
-        $keywords = self::POS_PAYMENT_KEYWORDS;
-
-        return PaymentType::where(function ($query) use ($keywords) {
-            foreach ($keywords as $keyword) {
-                $query->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($keyword) . '%']);
-            }
-        })->orderBy('name')->get();
+        return PaymentType::posAllowed();
     }
 
     private function isAllowedPosPaymentType(int $paymentTypeId): bool
     {
-        $keywords = self::POS_PAYMENT_KEYWORDS;
-
-        return PaymentType::where('id', $paymentTypeId)
-            ->where(function ($query) use ($keywords) {
-                foreach ($keywords as $keyword) {
-                    $query->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($keyword) . '%']);
-                }
-            })->exists();
+        return PaymentType::isPosAllowed($paymentTypeId);
     }
 
     public function accountingTraces(Request $request)

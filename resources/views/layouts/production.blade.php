@@ -11,6 +11,43 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        .select2-container--default .select2-selection--single {
+            height: 42px; border: 1px solid #d1d5db; border-radius: 0.5rem;
+            display: flex; align-items: center; padding: 0 0.5rem;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: normal; padding-left: 0.25rem; color: #111827;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
+        .select2-container--default.select2-container--focus .select2-selection--single,
+        .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.3);
+        }
+    </style>
+    <script>
+        (function ($) {
+            function initSelect2(scope) {
+                $(scope || document).find('select:not(.select2-hidden-accessible)').each(function () {
+                    $(this).select2({ width: 'resolve' });
+                });
+            }
+            $(function () { initSelect2(); });
+            if (window.MutationObserver) {
+                new MutationObserver(function (mutations) {
+                    mutations.forEach(function (m) {
+                        m.addedNodes.forEach(function (node) {
+                            if (node.nodeType !== 1) return;
+                            if (node.matches && node.matches('select')) initSelect2(node.parentNode || document);
+                            else if (node.querySelectorAll) initSelect2(node);
+                        });
+                    });
+                }).observe(document.body, { childList: true, subtree: true });
+            }
+        })(jQuery);
+    </script>
 </head>
 <body class="bg-gray-100">
     <div class="flex h-screen">
@@ -106,75 +143,11 @@
                         </div>
                     </div>
 
-                    <!-- Products -->
-                    <div class="mb-2">
-                        <button onclick="toggleSubmenu('products')"
-                            class="w-full flex items-center justify-between px-4 py-3 rounded-lg transition duration-300 {{ request()->routeIs('products.*') ? 'bg-white text-indigo-700 shadow-lg font-bold' : 'text-indigo-100 hover:bg-indigo-600' }}">
-                            <span class="flex items-center gap-3">
-                                <i class="fas fa-box text-lg"></i>
-                                <span>Produits</span>
-                            </span>
-                            <i class="fas fa-chevron-right text-sm transition-transform duration-300 {{ request()->routeIs('products.*') ? 'rotate-90' : '' }}" id="chevron-products"></i>
-                        </button>
-                        <div id="products-submenu" class="hidden pl-4 space-y-1 mt-1 {{ request()->routeIs('products.*') ? 'block' : '' }}">
-                            <a href="{{ route('products.index') }}" class="flex items-center gap-3 px-4 py-2 text-sm rounded-lg text-indigo-100 hover:bg-indigo-600 transition {{ request()->routeIs('products.index') ? 'bg-indigo-500 text-white font-semibold' : '' }}">
-                                <i class="fas fa-list"></i>
-                                <span>Lister les Produits</span>
-                            </a>
-                            <a href="{{ route('products.create') }}" class="flex items-center gap-3 px-4 py-2 text-sm rounded-lg text-indigo-100 hover:bg-indigo-600 transition {{ request()->routeIs('products.create') ? 'bg-indigo-500 text-white font-semibold' : '' }}">
-                                <i class="fas fa-plus-circle"></i>
-                                <span>Ajouter Produit</span>
-                            </a>
-                            <a href="{{ route('production.waste.index') }}" class="flex items-center gap-3 px-4 py-2 text-sm rounded-lg text-orange-600 hover:bg-orange-100 transition {{ request()->routeIs('production.waste.*') ? 'bg-orange-500 text-white font-semibold' : '' }}">
-                                <i class="fas fa-trash-alt"></i>
-                                <span>Pertes / Périmés</span>
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Units -->
-                    <div class="mb-2">
-                        <button onclick="toggleSubmenu('units')"
-                            class="w-full flex items-center justify-between px-4 py-3 rounded-lg transition duration-300 {{ request()->routeIs('units.*') ? 'bg-white text-indigo-700 shadow-lg font-bold' : 'text-indigo-100 hover:bg-indigo-600' }}">
-                            <span class="flex items-center gap-3">
-                                <i class="fas fa-ruler text-lg"></i>
-                                <span>Unités</span>
-                            </span>
-                            <i class="fas fa-chevron-right text-sm transition-transform duration-300 {{ request()->routeIs('units.*') ? 'rotate-90' : '' }}" id="chevron-units"></i>
-                        </button>
-                        <div id="units-submenu" class="hidden pl-4 space-y-1 mt-1 {{ request()->routeIs('units.*') ? 'block' : '' }}">
-                            <a href="{{ route('units.index') }}" class="flex items-center gap-3 px-4 py-2 text-sm rounded-lg text-indigo-100 hover:bg-indigo-600 transition {{ request()->routeIs('units.index') ? 'bg-indigo-500 text-white font-semibold' : '' }}">
-                                <i class="fas fa-list"></i>
-                                <span>Lister les Unités</span>
-                            </a>
-                            <a href="{{ route('units.create') }}" class="flex items-center gap-3 px-4 py-2 text-sm rounded-lg text-indigo-100 hover:bg-indigo-600 transition {{ request()->routeIs('units.create') ? 'bg-indigo-500 text-white font-semibold' : '' }}">
-                                <i class="fas fa-plus-circle"></i>
-                                <span>Ajouter Unité</span>
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Packagings -->
-                    <div class="mb-2">
-                        <button onclick="toggleSubmenu('packagings')"
-                            class="w-full flex items-center justify-between px-4 py-3 rounded-lg transition duration-300 {{ request()->routeIs('packagings.*') ? 'bg-white text-indigo-700 shadow-lg font-bold' : 'text-indigo-100 hover:bg-indigo-600' }}">
-                            <span class="flex items-center gap-3">
-                                <i class="fas fa-cube text-lg"></i>
-                                <span>Emballages</span>
-                            </span>
-                            <i class="fas fa-chevron-right text-sm transition-transform duration-300 {{ request()->routeIs('packagings.*') ? 'rotate-90' : '' }}" id="chevron-packagings"></i>
-                        </button>
-                        <div id="packagings-submenu" class="hidden pl-4 space-y-1 mt-1 {{ request()->routeIs('packagings.*') ? 'block' : '' }}">
-                            <a href="{{ route('packagings.index') }}" class="flex items-center gap-3 px-4 py-2 text-sm rounded-lg text-indigo-100 hover:bg-indigo-600 transition {{ request()->routeIs('packagings.index') ? 'bg-indigo-500 text-white font-semibold' : '' }}">
-                                <i class="fas fa-list"></i>
-                                <span>Lister les Emballages</span>
-                            </a>
-                            <a href="{{ route('packagings.create') }}" class="flex items-center gap-3 px-4 py-2 text-sm rounded-lg text-indigo-100 hover:bg-indigo-600 transition {{ request()->routeIs('packagings.create') ? 'bg-indigo-500 text-white font-semibold' : '' }}">
-                                <i class="fas fa-plus-circle"></i>
-                                <span>Ajouter Emballage</span>
-                            </a>
-                        </div>
-                    </div>
+                    <!-- Pertes / Périmés -->
+                    <a href="{{ route('production.waste.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition duration-300 mb-2 {{ request()->routeIs('production.waste.*') ? 'bg-white text-indigo-700 shadow-lg font-bold' : 'text-indigo-100 hover:bg-indigo-600' }}">
+                        <i class="fas fa-trash-alt text-lg"></i>
+                        <span>Pertes / Périmés</span>
+                    </a>
                 </div>
 
                 <!-- POS Section -->

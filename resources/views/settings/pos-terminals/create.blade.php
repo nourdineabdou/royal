@@ -7,6 +7,44 @@
     <title>{{ isset($posTerminal) ? 'Modifier' : 'Nouveau' }} terminal POS — Complex Royal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        .select2-container--default .select2-selection--single {
+            height: 42px; border: 1px solid #d1d5db; border-radius: 0.5rem;
+            display: flex; align-items: center; padding: 0 0.5rem;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: normal; padding-left: 0.25rem; color: #111827;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
+        .select2-container--default.select2-container--focus .select2-selection--single,
+        .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.3);
+        }
+    </style>
+    <script>
+        (function ($) {
+            function initSelect2(scope) {
+                $(scope || document).find('select:not(.select2-hidden-accessible)').each(function () {
+                    $(this).select2({ width: 'resolve' });
+                });
+            }
+            $(function () { initSelect2(); });
+            if (window.MutationObserver) {
+                new MutationObserver(function (mutations) {
+                    mutations.forEach(function (m) {
+                        m.addedNodes.forEach(function (node) {
+                            if (node.nodeType !== 1) return;
+                            if (node.matches && node.matches('select')) initSelect2(node.parentNode || document);
+                            else if (node.querySelectorAll) initSelect2(node);
+                        });
+                    });
+                }).observe(document.body, { childList: true, subtree: true });
+            }
+        })(jQuery);
+    </script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
 

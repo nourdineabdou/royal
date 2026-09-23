@@ -7,6 +7,44 @@
     <title>Nouveau Transfert POS — Complex Royal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        .select2-container--default .select2-selection--single {
+            height: 42px; border: 1px solid #d1d5db; border-radius: 0.5rem;
+            display: flex; align-items: center; padding: 0 0.5rem;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: normal; padding-left: 0.25rem; color: #111827;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
+        .select2-container--default.select2-container--focus .select2-selection--single,
+        .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.3);
+        }
+    </style>
+    <script>
+        (function ($) {
+            function initSelect2(scope) {
+                $(scope || document).find('select:not(.select2-hidden-accessible)').each(function () {
+                    $(this).select2({ width: 'resolve' });
+                });
+            }
+            $(function () { initSelect2(); });
+            if (window.MutationObserver) {
+                new MutationObserver(function (mutations) {
+                    mutations.forEach(function (m) {
+                        m.addedNodes.forEach(function (node) {
+                            if (node.nodeType !== 1) return;
+                            if (node.matches && node.matches('select')) initSelect2(node.parentNode || document);
+                            else if (node.querySelectorAll) initSelect2(node);
+                        });
+                    });
+                }).observe(document.body, { childList: true, subtree: true });
+            }
+        })(jQuery);
+    </script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
 
@@ -37,6 +75,25 @@
         <ul class="list-disc list-inside space-y-1">
             @foreach($errors->all() as $e) <li>{{ $e }}</li> @endforeach
         </ul>
+    </div>
+@endif
+
+{{-- Alerte : produits extra sans prix de vente --}}
+@if($productsWithoutPrice->isNotEmpty())
+    <div class="mx-6 mt-4 p-4 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-200 text-sm flex items-start gap-3">
+        <i class="fas fa-triangle-exclamation mt-0.5 text-amber-400"></i>
+        <div class="flex-1">
+            <strong class="block mb-1">{{ $productsWithoutPrice->count() }} produit(s) sans prix de vente</strong>
+            <p class="mb-2">Ces produits ne pourront pas être vendus correctement au POS (prix à 0 MRU) tant qu'un prix de vente n'est pas défini :</p>
+            <div class="flex flex-wrap gap-2">
+                @foreach($productsWithoutPrice as $p)
+                    <a href="{{ route('purchases.products.edit', $p) }}" target="_blank"
+                       class="inline-flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/40 border border-amber-500/40 rounded-lg px-3 py-1.5 text-xs font-semibold transition">
+                        {{ $p->name }} <i class="fas fa-pen text-[10px]"></i>
+                    </a>
+                @endforeach
+            </div>
+        </div>
     </div>
 @endif
 
@@ -305,24 +362,22 @@
     </div>
 </template>
 
+@php
+    $productsForJs = $products->map(function ($p) {
+        $packagings = $p->productPackagings->map(function ($pp) {
+            $qty = (float) $pp->quantity;
+            return ['packaging_id' => $pp->packaging_id, 'packaging_name' => $pp->packaging?->name, 'quantity' => $qty];
+        })->values();
+        return ['id' => $p->id, 'name' => $p->name, 'packagings' => $packagings];
+    })->values();
+    $mealsForJs = $meals->map(fn ($m) => ['id' => $m->id, 'name' => $m->name])->values();
+@endphp
 <script>
 let rowIndex = 0;
 let suggestedMeals = [];
 
-const products = @json($products->map(function($p){
-    return [
-        'id' => $p->id,
-        'name' => $p->name,
-        'packagings' => $p->productPackagings->map(function($pp){
-            return [
-                'packaging_id' => $pp->packaging_id,
-                'packaging_name' => $pp->packaging?->name,
-                'quantity' => (float) $pp->quantity,
-            ];
-        })->values(),
-    ];
-})->values());
-const meals = @json($meals->map(fn($m) => ['id' => $m->id, 'name' => $m->name])->values());
+const products = @json($productsForJs);
+const meals = @json($mealsForJs);
 
 document.getElementById('addRowBtn').addEventListener('click', () => addRow());
 document.getElementById('clientSelect').addEventListener('change', () => loadClientContractsAndMeals());

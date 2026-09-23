@@ -29,6 +29,39 @@ class PurchaseOrderItem extends Model
         return $this->belongsTo(Packaging::class);
     }
 
+    public function goodsReceiptItems()
+    {
+        return $this->hasMany(GoodsReceiptItem::class, 'order_item_id');
+    }
+
+    /** Quantité déjà reçue (cumulée sur tous les BL), dans l'unité de la ligne de commande (ex: colis). */
+    public function getReceivedQuantityAttribute(): float
+    {
+        return (float) $this->goodsReceiptItems()->sum('received_quantity');
+    }
+
+    public function getRemainingQuantityAttribute(): float
+    {
+        return max(0, (float) $this->quantity - $this->received_quantity);
+    }
+
+    public function supplierReturnItems()
+    {
+        return $this->hasMany(SupplierReturnItem::class, 'order_item_id');
+    }
+
+    /** Quantité déjà retournée au fournisseur (cumulée), dans l'unité de la ligne de commande. */
+    public function getReturnedQuantityAttribute(): float
+    {
+        return (float) $this->supplierReturnItems()->sum('quantity');
+    }
+
+    /** Ce qui peut encore être retourné = ce qui a été reçu moins ce qui a déjà été retourné. */
+    public function getReturnableQuantityAttribute(): float
+    {
+        return max(0, $this->received_quantity - $this->returned_quantity);
+    }
+
     public function productPackaging()
     {
         return $this->hasOne(ProductPackaging::class, 'product_id', 'product_id')

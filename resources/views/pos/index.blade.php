@@ -59,6 +59,9 @@
                     {{ $category->name }}
                 </button>
             @endforeach
+            <button class="category-btn" onclick="filterByCategory('extras')" data-category-id="extras" style="background:#0891b2;color:#fff;">
+                <i class="fas fa-wine-bottle mr-1"></i>Boissons & Extras
+            </button>
         </div>
     </div>
 
@@ -157,14 +160,19 @@
 <script>
 let cart = [];
 let meals = [];
+let extras = [];
 const categoryColors = ['#3b82f6', '#10b981', '#a855f7', '#f97316'];
 const BASE_URL = '{{ rtrim(url('/'), '/') }}';
 
-// Charger les plats
+// Charger les plats + les boissons/extras consommables
 async function loadMeals() {
     try {
-        const response = await fetch(`${BASE_URL}/pos/meals`);
-        meals = await response.json();
+        const [mealsRes, extrasRes] = await Promise.all([
+            fetch(`${BASE_URL}/pos/meals`),
+            fetch(`${BASE_URL}/pos/extras`),
+        ]);
+        meals = await mealsRes.json();
+        extras = await extrasRes.json();
         displayMeals('all');
     } catch (error) {
         console.error('Erreur lors du chargement des plats:', error);
@@ -193,6 +201,27 @@ function filterByCategory(categoryId) {
 function displayMeals(categoryId) {
     const grid = document.getElementById('mealsGrid');
 
+    if (categoryId === 'extras') {
+        grid.innerHTML = extras.map(product => `
+            <div class="meal-card">
+                <div class="meal-image">
+                    <i class="fas fa-wine-bottle"></i>
+                    <div class="meal-category-badge" style="background:#0891b2">
+                        ${product.unit ? product.unit.name : ''}
+                    </div>
+                </div>
+                <div class="meal-info">
+                    <div class="meal-name">${product.name}</div>
+                    <div class="meal-price">${Number(product.sale_price).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} MRU</div>
+                    <button onclick="addToCart(${product.id}, 'product')" class="meal-add-btn">
+                        <i class="fas fa-plus"></i>Ajouter
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        return;
+    }
+
     let filteredMeals = meals;
     if (categoryId !== 'all') {
         filteredMeals = meals.filter(meal => meal.category_id == categoryId);
@@ -213,7 +242,7 @@ function displayMeals(categoryId) {
                 <div class="meal-info">
                     <div class="meal-name">${meal.name}</div>
                     <div class="meal-price">${meal.price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} MRU</div>
-                    <button onclick="addToCart(${meal.id})" class="meal-add-btn">
+                    <button onclick="addToCart(${meal.id}, 'meal')" class="meal-add-btn">
                         <i class="fas fa-plus"></i>Ajouter
                     </button>
                 </div>
@@ -222,44 +251,51 @@ function displayMeals(categoryId) {
     }).join('');
 }
 
-// Ajouter au panier
-function addToCart(mealId) {
-    const meal = meals.find(m => m.id == mealId);
-    if (!meal) {
-        console.error('Plat introuvable id=', mealId, 'meals=', meals.length);
-        return;
-    }
-    const cartItem = cart.find(item => item.id == mealId);
+// Ajouter au panier (type: 'meal' ou 'product')
+function addToCart(id, type) {
+    const cartKey = type + '-' + id;
+    const cartItem = cart.find(item => item.cartKey === cartKey);
     if (cartItem) {
         cartItem.quantity++;
+        updateCart();
+        return;
+    }
+
+    if (type === 'product') {
+        const product = extras.find(p => p.id == id);
+        if (!product) { console.error('Produit introuvable id=', id); return; }
+        cart.push({ cartKey, id, type, name: product.name, price: Number(product.sale_price), quantity: 1 });
     } else {
-        cart.push({ ...meal, quantity: 1 });
+        const meal = meals.find(m => m.id == id);
+        if (!meal) { console.error('Plat introuvable id=', id); return; }
+        cart.push({ cartKey, id, type, name: meal.name, price: meal.price, quantity: 1 });
     }
     updateCart();
 }
 
 // Retirer du panier
-function removeFromCart(mealId) {
-    cart = cart.filter(item => item.id !== mealId);
+function removeFromCart(cartKey) {
+    cart = cart.filter(item => item.cartKey !== cartKey);
     updateCart();
 }
 
 // Diminuer quantitÃ©
-function decreaseQuantity(mealId) {
-    const item = cart.find(m => m.id === mealId);
+function decreaseQuantity(cartKey) {
+    const item = cart.find(m => m.cartKey === cartKey);
     if (item) {
         if (item.quantity > 1) {
             item.quantity--;
         } else {
-            removeFromCart(mealId);
+            removeFromCart(cartKey);
+            return;
         }
     }
     updateCart();
 }
 
 // Augmenter quantitÃ©
-function increaseQuantity(mealId) {
-    const item = cart.find(m => m.id === mealId);
+function increaseQuantity(cartKey) {
+    const item = cart.find(m => m.cartKey === cartKey);
     if (item) {
         item.quantity++;
     }
@@ -292,14 +328,14 @@ function updateCart() {
             <div style="flex: 1;">
                 <div class="cart-item-name">${item.name}</div>
                 <div class="cart-item-qty">
-                    <button onclick="decreaseQuantity(${item.id})" class="qty-btn">âˆ’</button>
+                    <button onclick="decreaseQuantity('${item.cartKey}')" class="qty-btn">âˆ’</button>
                     <span class="qty-display">${item.quantity}</span>
-                    <button onclick="increaseQuantity(${item.id})" class="qty-btn">+</button>
+                    <button onclick="increaseQuantity('${item.cartKey}')" class="qty-btn">+</button>
                 </div>
             </div>
             <div style="text-align: right;">
                 <div class="cart-item-price">${(item.price * item.quantity).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} MRU</div>
-                <button onclick="removeFromCart(${item.id})" class="cart-item-remove">
+                <button onclick="removeFromCart('${item.cartKey}')" class="cart-item-remove">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -340,9 +376,10 @@ async function checkout() {
             },
             body: JSON.stringify({
                 items: cart.map(item => ({
-                    meal_id:  item.id,
-                    quantity: item.quantity,
-                    price:    item.price,
+                    meal_id:    item.type === 'meal' ? item.id : null,
+                    product_id: item.type === 'product' ? item.id : null,
+                    quantity:   item.quantity,
+                    price:      item.price,
                 })),
                 customer_number: document.getElementById('customerNumber').value,
                 total_amount: totalAmount

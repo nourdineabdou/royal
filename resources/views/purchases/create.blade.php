@@ -20,13 +20,14 @@
         {{-- Header --}}
         <div class="bg-white rounded-2xl shadow-sm p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Fournisseur <span class="text-red-500">*</span></label>
-                <select name="supplier_id" required class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
-                    <option value="">— Choisir un fournisseur —</option>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Fournisseur <span class="text-slate-400 font-normal">(optionnel)</span></label>
+                <select name="supplier_id" id="supplierSelect" onchange="refreshAllPriceHints()" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+                    <option value="">— Pas encore connu —</option>
                     @foreach($suppliers as $s)
                     <option value="{{ $s->id }}">{{ $s->name }}</option>
                     @endforeach
                 </select>
+                <p class="text-xs text-slate-400 mt-1">Vous pourrez le renseigner plus tard, au moment du bon de livraison.</p>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1">Notes</label>
@@ -51,7 +52,9 @@
                         <tr>
                             <th class="pb-2 text-left">Produit</th>
                             <th class="pb-2 text-left w-44">Emballage</th>
-                            <th class="pb-2 text-right w-28">Quantité</th>
+                            <th class="pb-2 text-right w-24">Quantité</th>
+                            <th class="pb-2 text-right w-28">Prix unitaire</th>
+                            <th class="pb-2 text-right w-28">Montant</th>
                             <th class="pb-2 w-10"></th>
                         </tr>
                     </thead>
@@ -74,6 +77,10 @@
                 <div class="flex justify-between text-slate-600">
                     <span>Nb articles</span>
                     <span id="summaryLines" class="font-semibold">0</span>
+                </div>
+                <div class="flex justify-between text-slate-800 font-bold border-t border-slate-100 pt-3">
+                    <span>Montant total</span>
+                    <span id="summaryTotal">0 MRU</span>
                 </div>
 
             </div>
@@ -141,6 +148,12 @@ function addLine() {
                    oninput="recalc()" class="w-full text-right border border-slate-200 rounded-xl px-2 py-1.5 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none qty-input">
             <p class="actual-units text-xs text-emerald-600 mt-0.5 hidden"></p>
         </td>
+        <td class="py-2 px-2">
+            <input type="number" name="items[${i}][unit_price]" step="0.01" min="0" placeholder="0"
+                   oninput="recalc()" class="w-full text-right border border-slate-200 rounded-xl px-2 py-1.5 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none price-input">
+            <p class="price-hint text-xs text-indigo-500 mt-0.5 hidden"></p>
+        </td>
+        <td class="py-2 px-2 text-right text-xs font-semibold text-slate-700 line-total">0</td>
         <td class="py-2 pl-2">
             <button type="button" onclick="removeLine(this)" class="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition">
                 <i class="fa-solid fa-xmark text-xs"></i>
@@ -175,6 +188,42 @@ function onProductChange(sel) {
         });
     }
     recalc();
+    fetchPriceHint(row);
+}
+
+// Historique de prix (produit x fournisseur) — pré-remplit le prix si le champ est vide
+function fetchPriceHint(row) {
+    const productSelect = row.querySelector('select[name$="[product_id]"]');
+    const hintEl = row.querySelector('.price-hint');
+    const priceInput = row.querySelector('.price-input');
+    const productId = productSelect ? productSelect.value : '';
+    const supplierId = document.getElementById('supplierSelect')?.value || '';
+
+    if (!productId) { hintEl.classList.add('hidden'); return; }
+
+    const params = new URLSearchParams({ product_id: productId });
+    if (supplierId) params.set('supplier_id', supplierId);
+
+    fetch(`{{ route('purchases.price-history') }}?${params}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.last_price === null || data.last_price === undefined) {
+                hintEl.classList.add('hidden');
+                return;
+            }
+            const last = data.history[0];
+            hintEl.textContent = `Dernier prix : ${Number(last.price).toLocaleString('fr-FR')} MRU (${last.supplier}, ${last.date})`;
+            hintEl.classList.remove('hidden');
+            if (!priceInput.value) {
+                priceInput.value = data.last_price;
+                recalc();
+            }
+        })
+        .catch(() => hintEl.classList.add('hidden'));
+}
+
+function refreshAllPriceHints() {
+    document.querySelectorAll('.line-row').forEach(row => fetchPriceHint(row));
 }
 
 function onPackagingChange(sel) {
@@ -202,8 +251,10 @@ function removeLine(btn) {
 
 function recalc() {
     let count = 0;
+    let grandTotal = 0;
     document.querySelectorAll('.line-row').forEach(row => {
         const qty    = parseFloat(row.querySelector('.qty-input').value) || 0;
+        const price  = parseFloat(row.querySelector('.price-input').value) || 0;
 
         // Show actual units when packaging is selected
         const pkgSel   = row.querySelector('.packaging-select');
@@ -217,9 +268,14 @@ function recalc() {
         } else if (actualEl) {
             actualEl.classList.add('hidden');
         }
+
+        const lineTotal = qty * price;
+        row.querySelector('.line-total').textContent = lineTotal.toLocaleString('fr-FR', {minimumFractionDigits: 0});
+        grandTotal += lineTotal;
         count++;
     });
     document.getElementById('summaryLines').textContent = count;
+    document.getElementById('summaryTotal').textContent = grandTotal.toLocaleString('fr-FR', {minimumFractionDigits: 0}) + ' MRU';
 }
 
 // Start with one line

@@ -185,7 +185,7 @@ class CateringPOSDemoSeeder extends Seeder
                         'product_id'      => $product->id,
                         'label'           => $product->name . ' (extra)',
                         'quantity'        => 20,
-                        'unit'            => $product->unit?->abbreviation ?? 'unité',
+                        'unit'            => $product->unit?->symbol ?? 'unité',
                         'item_type'       => 'extra',
                         'unit_price'      => 500,
                     ]);

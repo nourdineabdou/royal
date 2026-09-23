@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Meal extends Model
 {
-    protected $fillable = ['name', 'image', 'price', 'category_id'];
+    protected $fillable = ['name', 'image', 'price', 'category_id', 'is_catering'];
+
+    protected $casts = ['is_catering' => 'boolean'];
 
     protected $appends = ['image_url'];
 

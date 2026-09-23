@@ -235,7 +235,7 @@
                         @endphp
                         <tr>
                             <td>
-                                <a href="{{ route('accounting.order-detail', $order->id) }}"
+                                <a href="{{ route('pos.order-detail', $order->id) }}"
                                    style="text-decoration:none;color:#4f46e5;font-weight:700;">#{{ $order->id }}</a>
                                 @if($order->customer_number)
                                     <div style="font-size:11px;color:#9ca3af;">Table {{ $order->customer_number }}</div>

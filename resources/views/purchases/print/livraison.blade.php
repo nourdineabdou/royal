@@ -114,7 +114,7 @@
             <tr>
                 <td>{{ $i + 1 }}</td>
                 <td>{{ $item->product->name ?? '-' }}</td>
-                <td>{{ $item->product->unit->abbreviation ?? '-' }}</td>
+                <td>{{ $item->product->unit->symbol ?? '-' }}</td>
                 <td class="right">{{ $ordered ? number_format($ordered->quantity, 2, ',', ' ') : '-' }}</td>
                 <td class="right">{{ number_format($item->quantity, 2, ',', ' ') }}</td>
                 <td>&nbsp;</td>

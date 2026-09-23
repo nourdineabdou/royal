@@ -56,6 +56,21 @@ class Employee extends Model
         return $this->hasMany(SalaryAdjustment::class);
     }
 
+    public function documents()
+    {
+        return $this->hasMany(EmployeeDocument::class);
+    }
+
+    public function contracts()
+    {
+        return $this->hasMany(EmployeeContract::class);
+    }
+
+    public function currentContract()
+    {
+        return $this->hasOne(EmployeeContract::class)->where('status', 'active')->latestOfMany('start_date');
+    }
+
     public function getFullNameAttribute()
     {
         return $this->first_name . ' ' . $this->last_name;

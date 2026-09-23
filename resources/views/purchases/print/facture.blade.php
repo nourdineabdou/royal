@@ -121,7 +121,7 @@
                 <td>{{ $i + 1 }}</td>
                 <td>{{ $item->product->name ?? '-' }}</td>
                 <td>{{ $item->packaging->name ?? '-' }}</td>
-                <td class="right">{{ number_format($item->quantity, 2, ',', ' ') }} {{ $item->product->unit->abbreviation ?? '' }}</td>
+                <td class="right">{{ number_format($item->quantity, 2, ',', ' ') }} {{ $item->product->unit->symbol ?? '' }}</td>
                 <td class="right">{{ number_format($item->price, 2, ',', ' ') }}</td>
                 <td class="right">{{ number_format($item->total, 2, ',', ' ') }}</td>
             </tr>

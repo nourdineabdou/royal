@@ -216,7 +216,12 @@
             </form>
         </div>
 
-        <div class="text-center">
+        <div class="text-center flex items-center justify-center gap-4">
+            <a href="{{ route('cashier.history') }}"
+               class="text-sm text-slate-500 hover:text-slate-300 transition">
+                <i class="fas fa-clock-rotate-left mr-1"></i> Mes sessions
+            </a>
+            <span class="text-slate-700">·</span>
             <a href="{{ url('/dashboard-modern') }}"
                class="text-sm text-slate-500 hover:text-slate-300 transition">
                 <i class="fas fa-arrow-left mr-1"></i> Retour au tableau de bord

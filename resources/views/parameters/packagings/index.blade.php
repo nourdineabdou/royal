@@ -1,4 +1,4 @@
-@extends('layouts.production')
+@extends('layouts.purchases')
 
 @section('title', 'Types d\'Emballage')
 
@@ -7,7 +7,7 @@
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-gray-800">Gestion des Types d'Emballage</h1>
         @can('packagings.create')
-        <a href="{{ route('packagings.create') }}" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+        <a href="{{ route('purchases.packagings.create') }}" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
             <i class="fas fa-plus mr-2"></i>Ajouter Emballage
         </a>
         @endcan
@@ -21,7 +21,7 @@
 
     <!-- Recherche -->
     <div class="mb-6 bg-white rounded-lg shadow p-4">
-        <form method="GET" action="{{ route('packagings.index') }}" class="flex gap-2">
+        <form method="GET" action="{{ route('purchases.packagings.index') }}" class="flex gap-2">
             <input
                 type="text"
                 name="search"
@@ -40,6 +40,7 @@
         <table class="w-full">
             <thead class="bg-gray-200 border-b">
                 <tr>
+                    <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Photo</th>
                     <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Nom de l'Emballage</th>
                     <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Description</th>
                     <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Produits</th>
@@ -49,6 +50,17 @@
             <tbody>
                 @forelse($packagings as $packaging)
                     <tr class="border-b hover:bg-gray-50 transition">
+                        <td class="px-6 py-4">
+                            @if($packaging->image)
+                                <img src="{{ $packaging->image_url }}" alt="{{ $packaging->name }}"
+                                     onclick="openImageLightbox('{{ $packaging->image_url }}', '{{ $packaging->name }}')"
+                                     class="h-12 w-12 object-cover rounded-lg border border-gray-200 cursor-zoom-in hover:scale-105 transition">
+                            @else
+                                <div class="h-12 w-12 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-300">
+                                    <i class="fas fa-image"></i>
+                                </div>
+                            @endif
+                        </td>
                         <td class="px-6 py-4 text-sm font-semibold text-gray-900">
                             <i class="fas fa-cube text-purple-600 mr-2"></i>{{ $packaging->name }}
                         </td>
@@ -56,18 +68,18 @@
                             {{ $packaging->description ?? '-' }}
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-600">
-                            <span class="px-3 py-1 bg-gray-100 rounded">{{ $packaging->products()->count() }}</span>
+                            <span class="px-3 py-1 bg-gray-100 rounded">{{ $packaging->product_packagings_count }}</span>
                         </td>
                         <td class="px-6 py-4 text-center">
                             <div class="flex justify-center gap-2">
                                 @can('packagings.edit')
-                                <a href="{{ route('packagings.edit', $packaging) }}" class="text-blue-600 hover:text-blue-800 text-lg" title="Modifier">
+                                <a href="{{ route('purchases.packagings.edit', $packaging) }}" class="text-blue-600 hover:text-blue-800 text-lg" title="Modifier">
                                     <i class="fas fa-edit"></i>
                                 </a>
                                 @endcan
-                                @if($packaging->products()->count() == 0)
+                                @if($packaging->product_packagings_count == 0)
                                     @can('packagings.delete')
-                                    <form action="{{ route('packagings.destroy', $packaging) }}" method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr?');">
+                                    <form action="{{ route('purchases.packagings.destroy', $packaging) }}" method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="text-red-600 hover:text-red-800 text-lg" title="Supprimer">
@@ -85,7 +97,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                        <td colspan="5" class="px-6 py-8 text-center text-gray-500">
                             <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
                             <p class="text-lg">Aucun type d'emballage trouvé.</p>
                         </td>

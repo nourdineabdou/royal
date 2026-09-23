@@ -126,6 +126,8 @@ class PermissionSeeder extends Seeder
 
             // ── Achats (Purchases) ────────────────────────────────────────────
             'purchases.dashboard',
+            'purchases.requests.view',
+            'purchases.requests.create',
             'purchases.suppliers.view',
             'purchases.suppliers.create',
             'purchases.suppliers.edit',
@@ -135,6 +137,7 @@ class PermissionSeeder extends Seeder
             'purchases.orders.confirm',
             'purchases.orders.cancel',
             'purchases.orders.receipt',
+            'purchases.orders.validate-invoice',
             'purchases.orders.payment',
             'purchases.stock-ruptures.view',
 
@@ -261,7 +264,7 @@ class PermissionSeeder extends Seeder
             'pos.view', 'pos.orders.view', 'pos.orders.cancel',
             'pos.accounting.view', 'pos.accounting.traces.view',
             'pos.accounting.register.validate', 'pos.accounting.profitability',
-            'purchases.dashboard', 'purchases.suppliers.view',
+            'purchases.dashboard', 'purchases.requests.view', 'purchases.suppliers.view',
             'purchases.orders.view', 'purchases.orders.confirm', 'purchases.orders.cancel',
             'hr.dashboard', 'hr.employees.view',
             'hr.attendance.view', 'hr.leaves.view', 'hr.leaves.approve', 'hr.leaves.reject',
@@ -324,9 +327,11 @@ class PermissionSeeder extends Seeder
         $achat->syncPermissions([
             'dashboard.view',
             'purchases.dashboard',
+            'purchases.requests.view', 'purchases.requests.create',
             'purchases.suppliers.view', 'purchases.suppliers.create', 'purchases.suppliers.edit',
             'purchases.orders.view', 'purchases.orders.create', 'purchases.orders.confirm',
-            'purchases.orders.cancel', 'purchases.orders.receipt', 'purchases.orders.payment',
+            'purchases.orders.cancel', 'purchases.orders.receipt',
+            'purchases.orders.validate-invoice', 'purchases.orders.payment',
             'purchases.stock-ruptures.view',
             'stock.view', 'stock.movements.view', 'stock.movements.all',
             'stock.products.adjust', 'stock.transfer',
