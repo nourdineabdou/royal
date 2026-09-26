@@ -51,6 +51,11 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register')->middleware('guest');
 Route::post('/register', [AuthController::class, 'register'])->middleware('guest');
 
+// Guide de formation RH (public — consultable sans connexion, pour partage avec un client/formateur)
+Route::get('/guide-rh', function () {
+    return view('hr.guide');
+})->name('hr.guide');
+
 // Routes pour la gestion des utilisateurs, rôles et permissions (protégées)
 use App\Http\Controllers\ProductionWasteApiController;
 Route::middleware(['auth'])->group(function () {
