@@ -258,14 +258,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('waste', [\App\Http\Controllers\ProductionWasteController::class, 'store'])->name('production.waste.store');
     });
 
-    // Parameters Management Routes (Settings - Payment Types & User Management)
+    // Parameters Management Routes (Settings - Payment Types, Users, Roles & Permissions)
     Route::prefix('modules/parameters')->group(function () {
         Route::resource('payment-types', PaymentTypeController::class);
         Route::resource('users', UserController::class);
         Route::post('users/{user}/permissions', [UserController::class, 'updatePermissions'])->name('users.updatePermissions');
+        Route::resource('roles', RoleController::class);
+        Route::resource('permissions', PermissionController::class);
     });
 
-    // Gestion des rôles
     // Catering Routes
     Route::prefix('catering')->name('catering.')->group(function () {
         Route::get('/dashboard',                                      [CateringController::class, 'dashboard'])->name('dashboard');
@@ -404,12 +405,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/caisse/open',                       [ResidenceController::class, 'openRegister'])->name('caisse.open');
         Route::post('/caisse/{register}/close',           [ResidenceController::class, 'closeRegister'])->name('caisse.close');
     });
-
-    // Gestion des rôles
-    Route::resource('roles', RoleController::class);
-
-    // Gestion des permissions
-    Route::resource('permissions', PermissionController::class);
 
     // ── Caissier : ouverture / gestion de sa propre session ───────────────
 

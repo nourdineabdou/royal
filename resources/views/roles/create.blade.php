@@ -37,20 +37,10 @@
 
         <div class="mb-4">
             <label class="block text-gray-700 font-bold mb-2">Permissions</label>
-            <div class="grid grid-cols-2 gap-4">
-                @foreach($permissions as $permission)
-                    <div class="flex items-center">
-                        <input type="checkbox" name="permissions[]" id="permission_{{ $permission->id }}"
-                            value="{{ $permission->id }}"
-                            {{ in_array($permission->id, old('permissions', [])) ? 'checked' : '' }}
-                            class="form-checkbox">
-                        <label for="permission_{{ $permission->id }}" class="ml-2 text-gray-700">
-                            {{ $permission->name }}
-                            <small class="text-gray-500 block">{{ $permission->description }}</small>
-                        </label>
-                    </div>
-                @endforeach
-            </div>
+            @include('partials.permission-checklist', [
+                'permissions' => $permissions,
+                'checkedIds'  => old('permissions', []),
+            ])
         </div>
 
         <div class="flex justify-between">

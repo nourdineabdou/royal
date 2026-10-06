@@ -312,7 +312,7 @@ class PermissionSeeder extends Seeder
             'meals.view',
         ]);
 
-        // ── RH : module RH uniquement ─────────────────────────────────────────
+        // ── RH : module RH + comptabilité (le RH gère aussi la comptabilité) ───
         $rh->syncPermissions([
             'dashboard.view',
             'hr.dashboard',
@@ -321,6 +321,10 @@ class PermissionSeeder extends Seeder
             'hr.leaves.view', 'hr.leaves.approve', 'hr.leaves.reject',
             'hr.payroll.view', 'hr.payroll.generate', 'hr.payroll.mark-paid',
             'hr.advances.view', 'hr.advances.approve',
+            'accounting.view', 'accounting.validate',
+            'pos.accounting.view', 'pos.accounting.traces.view', 'pos.accounting.traces.export',
+            'pos.accounting.sessions.export', 'pos.accounting.register.open', 'pos.accounting.register.close',
+            'pos.accounting.register.validate', 'pos.accounting.register.view-detail', 'pos.accounting.profitability',
         ]);
 
         // ── Achat : module achats + stock ─────────────────────────────────────
