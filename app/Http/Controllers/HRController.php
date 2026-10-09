@@ -583,14 +583,14 @@ class HRController extends Controller
 
     public function jobTitles()
     {
-        $this->perm('hr.employees.view');
+        $this->perm('hr.job-titles.view');
         $jobTitles = JobTitle::withCount('employees')->orderBy('name')->paginate(15);
         return view('hr.job-titles', compact('jobTitles'));
     }
 
     public function storeJobTitle(Request $request)
     {
-        $this->perm('hr.employees.edit');
+        $this->perm('hr.job-titles.create');
         $validated = $request->validate([
             'name' => 'required|string|max:150',
             'description' => 'nullable|string|max:1000',
@@ -602,7 +602,7 @@ class HRController extends Controller
 
     public function updateJobTitle(Request $request, JobTitle $jobTitle)
     {
-        $this->perm('hr.employees.edit');
+        $this->perm('hr.job-titles.edit');
         $validated = $request->validate([
             'name' => 'required|string|max:150',
             'description' => 'nullable|string|max:1000',
@@ -614,7 +614,7 @@ class HRController extends Controller
 
     public function destroyJobTitle(JobTitle $jobTitle)
     {
-        $this->perm('hr.employees.delete');
+        $this->perm('hr.job-titles.delete');
         if ($jobTitle->employees()->exists()) {
             return redirect()->route('hr.job-titles')
                 ->with('error', 'Impossible de supprimer ce poste : des employés y sont encore rattachés.');
