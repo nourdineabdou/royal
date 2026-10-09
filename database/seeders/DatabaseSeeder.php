@@ -9,10 +9,11 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            CompanySeeder::class,      // 0. Sociétés & sites (doit être en premier)
-            PermissionSeeder::class,   // 1. Rôles & permissions Spatie
-            UserSeeder::class,         // 2. Super-admins (nourdine, saydou) + RH (salamata.ball)
-            ReferenceDataSeeder::class,// 3. Unités, emballages, catégories, types de paiement, postes RH, types de chambre, services
+            CompanySeeder::class,        // 0. Sociétés & sites (doit être en premier)
+            PermissionSeeder::class,     // 1. Rôles & permissions Spatie
+            UserSeeder::class,           // 2. Super-admins (nourdine, saydou) + RH (salamata.ball)
+            ReferenceDataSeeder::class,  // 3. Unités, emballages, catégories, types de paiement, postes RH, types de chambre, services
+            ChartOfAccountsSeeder::class,// 4. Plan comptable mauritanien (indispensable au module Comptabilité)
         ]);
 
         // Jeux de données de démonstration (commandes, clients, contrats, réservations, etc.)
