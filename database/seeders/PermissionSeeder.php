@@ -316,7 +316,7 @@ class PermissionSeeder extends Seeder
         $rh->syncPermissions([
             'dashboard.view',
             'hr.dashboard',
-            'hr.employees.view', 'hr.employees.create', 'hr.employees.edit',
+            'hr.employees.view', 'hr.employees.create', 'hr.employees.edit', 'hr.employees.delete',
             'hr.attendance.view', 'hr.attendance.record',
             'hr.leaves.view', 'hr.leaves.approve', 'hr.leaves.reject',
             'hr.payroll.view', 'hr.payroll.generate', 'hr.payroll.mark-paid',

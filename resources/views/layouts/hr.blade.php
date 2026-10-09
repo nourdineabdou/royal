@@ -128,6 +128,10 @@
                class="sidebar-link {{ request()->routeIs('hr.sites') ? 'active' : '' }} flex items-center gap-2 px-3 py-1.5 rounded-t text-sm text-white/90 hover:text-white hover:bg-white/10 transition whitespace-nowrap">
                 <i class="fas fa-map-marker-alt"></i> Emplacements
             </a>
+            <a href="{{ route('hr.job-titles') }}"
+               class="sidebar-link {{ request()->routeIs('hr.job-titles') ? 'active' : '' }} flex items-center gap-2 px-3 py-1.5 rounded-t text-sm text-white/90 hover:text-white hover:bg-white/10 transition whitespace-nowrap">
+                <i class="fas fa-briefcase"></i> Postes
+            </a>
         </nav>
         @endif
     </header>

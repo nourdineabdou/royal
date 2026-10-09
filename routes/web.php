@@ -205,6 +205,11 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/sites/{site}', [HRController::class, 'updateSite'])->name('sites.update');
         Route::delete('/sites/{site}', [HRController::class, 'destroySite'])->name('sites.destroy');
 
+        Route::get('/job-titles', [HRController::class, 'jobTitles'])->name('job-titles');
+        Route::post('/job-titles', [HRController::class, 'storeJobTitle'])->name('job-titles.store');
+        Route::put('/job-titles/{jobTitle}', [HRController::class, 'updateJobTitle'])->name('job-titles.update');
+        Route::delete('/job-titles/{jobTitle}', [HRController::class, 'destroyJobTitle'])->name('job-titles.destroy');
+
         Route::get('/leaves', [HRController::class, 'leaves'])->name('leaves');
         Route::post('/leaves', [HRController::class, 'storeLeave'])->name('leaves.store');
         Route::post('/leaves/{leave}/approve', [HRController::class, 'approveLeave'])->name('leaves.approve');

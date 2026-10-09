@@ -581,6 +581,48 @@ class HRController extends Controller
         return redirect()->route('hr.sites')->with('success', 'Emplacement supprimé.');
     }
 
+    public function jobTitles()
+    {
+        $this->perm('hr.employees.view');
+        $jobTitles = JobTitle::withCount('employees')->orderBy('name')->paginate(15);
+        return view('hr.job-titles', compact('jobTitles'));
+    }
+
+    public function storeJobTitle(Request $request)
+    {
+        $this->perm('hr.employees.edit');
+        $validated = $request->validate([
+            'name' => 'required|string|max:150',
+            'description' => 'nullable|string|max:1000',
+            'base_salary' => 'nullable|numeric|min:0',
+        ]);
+        JobTitle::create($validated);
+        return redirect()->route('hr.job-titles')->with('success', 'Poste ajouté.');
+    }
+
+    public function updateJobTitle(Request $request, JobTitle $jobTitle)
+    {
+        $this->perm('hr.employees.edit');
+        $validated = $request->validate([
+            'name' => 'required|string|max:150',
+            'description' => 'nullable|string|max:1000',
+            'base_salary' => 'nullable|numeric|min:0',
+        ]);
+        $jobTitle->update($validated);
+        return redirect()->route('hr.job-titles')->with('success', 'Poste modifié.');
+    }
+
+    public function destroyJobTitle(JobTitle $jobTitle)
+    {
+        $this->perm('hr.employees.delete');
+        if ($jobTitle->employees()->exists()) {
+            return redirect()->route('hr.job-titles')
+                ->with('error', 'Impossible de supprimer ce poste : des employés y sont encore rattachés.');
+        }
+        $jobTitle->delete();
+        return redirect()->route('hr.job-titles')->with('success', 'Poste supprimé.');
+    }
+
     public function advances()
     {
         $this->perm('hr.advances.view');
