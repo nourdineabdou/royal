@@ -104,6 +104,37 @@
     </div>
 </div>
 
+{{-- ===== ALERTE CONTRATS EXPIRÉS (CDD/Stage/Prestation dont la période est terminée) ===== --}}
+@if($expiredContracts->isNotEmpty())
+<div class="bg-red-50 border border-red-200 rounded-xl p-5 mb-6">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold text-red-700 flex items-center gap-2">
+            <i class="fas fa-triangle-exclamation"></i>
+            {{ $expiredContracts->count() }} contrat(s) arrivé(s) à échéance — à régulariser
+        </h2>
+        <a href="{{ route('hr.contracts', ['status' => 'expired']) }}" class="text-xs text-red-600 hover:text-red-800 font-semibold underline whitespace-nowrap">
+            Voir tout
+        </a>
+    </div>
+    <div class="divide-y divide-red-100">
+        @foreach($expiredContracts->take(5) as $c)
+        <div class="flex items-center justify-between py-2 text-sm">
+            <div>
+                <span class="font-medium text-gray-800">{{ $c->employee->full_name ?? '—' }}</span>
+                <span class="text-gray-400 ml-1">— {{ $c->employee->jobTitle->name ?? '' }}</span>
+                <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium ml-2">
+                    {{ \App\Models\EmployeeContract::TYPES[$c->type] ?? $c->type }}
+                </span>
+            </div>
+            <span class="text-red-600 text-xs font-semibold">
+                Terminé le {{ $c->end_date->format('d/m/Y') }} ({{ (int) $c->end_date->diffInDays(now()) }} j)
+            </span>
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
 {{-- ===== CHARTS ROW ===== --}}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 

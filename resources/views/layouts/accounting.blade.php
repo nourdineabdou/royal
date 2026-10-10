@@ -96,6 +96,10 @@ function submitOpenRegister() {
     <!-- Header -->
     <header class="bg-white shadow flex items-center justify-between px-8 py-3 h-16 sticky top-0 z-30">
         <div class="flex items-center gap-4">
+            <a href="{{ route('dashboard-modern') }}" class="text-gray-500 hover:text-red-600 transition text-sm flex items-center gap-1">
+                <i class="fas fa-arrow-left"></i> Accueil
+            </a>
+            <span class="text-gray-300">|</span>
             <span class="sidebar-logo flex items-center gap-2">
                 <i class="fas fa-calculator text-2xl text-red-600"></i>
                 <span>Comptabilité</span>
@@ -104,7 +108,10 @@ function submitOpenRegister() {
         <div class="flex items-center gap-4">
             @auth
                 <span class="text-gray-600 text-sm font-semibold">{{ auth()->user()->name }}</span>
-                <a href="{{ route('logout') }}" class="text-red-500 hover:underline text-sm">Déconnexion</a>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="text-red-500 hover:underline text-sm">Déconnexion</button>
+                </form>
             @endauth
         </div>
     </header>

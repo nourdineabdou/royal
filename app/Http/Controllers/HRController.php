@@ -57,6 +57,13 @@ class HRController extends Controller
         $pendingAdvances       = Advance::where('status', 'pending')->count();
         $pendingAdvancesAmount = Advance::where('status', 'pending')->sum('amount');
 
+        // Contrats (CDD/Stage/Prestation) dont la période est terminée mais toujours actifs en base
+        $expiredContracts = \App\Models\EmployeeContract::with('employee.jobTitle')
+            ->where('status', 'active')->whereNotNull('end_date')
+            ->whereDate('end_date', '<', $today)
+            ->orderBy('end_date')
+            ->get();
+
         // Derniers employés
         $recentEmployees = Employee::with('jobTitle')->latest()->take(6)->get();
 
@@ -95,6 +102,7 @@ class HRController extends Controller
             'payrollsPending', 'payrollsPaid', 'totalPayrollAmount',
             'presentToday', 'absentToday', 'lateToday',
             'pendingAdvances', 'pendingAdvancesAmount',
+            'expiredContracts',
             'recentEmployees', 'recentLeaves',
             'employeesByJobTitle', 'payrollChart', 'attendanceChart'
         ));
@@ -146,9 +154,13 @@ class HRController extends Controller
             'notes'             => 'nullable|string',
         ]);
 
-        // Un nouveau contrat actif remplace l'ancien (renouvellement) — on clôture les précédents actifs.
-        \App\Models\EmployeeContract::where('employee_id', $validated['employee_id'])
-            ->where('status', 'active')->update(['status' => 'ended']);
+        // Un employé ne peut avoir qu'un seul contrat actif à la fois : il faut
+        // d'abord rompre le contrat en cours avant d'en créer un nouveau.
+        $hasActiveContract = \App\Models\EmployeeContract::where('employee_id', $validated['employee_id'])
+            ->where('status', 'active')->exists();
+        if ($hasActiveContract) {
+            return back()->withInput()->with('error', 'Cet employé a déjà un contrat actif. Rompez-le d\'abord avant d\'en créer un nouveau.');
+        }
 
         \App\Models\EmployeeContract::create($validated + ['status' => 'active']);
 
@@ -245,6 +257,9 @@ class HRController extends Controller
     public function updateEmployee(Request $request, Employee $employee)
     {
         $this->perm('hr.employees.edit');
+        // La date d'embauche est fixée une seule fois à la création et n'est
+        // plus modifiable ensuite — on l'ignore volontairement ici même si
+        // elle est présente dans la requête.
         $validated = $request->validate([
             'job_title_id' => 'required|exists:job_titles,id',
             'site_id'      => 'nullable|exists:sites,id',
@@ -252,7 +267,6 @@ class HRController extends Controller
             'last_name'    => 'required|string|max:100',
             'phone'        => 'nullable|string|max:30',
             'address'      => 'nullable|string|max:255',
-            'hire_date'    => 'required|date',
             'salary_base'  => 'nullable|numeric|min:0',
             'status'       => 'required|in:active,inactive',
         ]);
@@ -260,11 +274,11 @@ class HRController extends Controller
         return redirect()->route('hr.employees')->with('success', 'Employé modifié avec succès.');
     }
 
-    public function destroyEmployee(Employee $employee)
+    public function toggleActiveEmployee(Employee $employee)
     {
-        $this->perm('hr.employees.delete');
-        $employee->delete();
-        return redirect()->route('hr.employees')->with('success', 'Employé supprimé.');
+        $this->perm('hr.employees.edit');
+        $employee->update(['status' => $employee->status === 'active' ? 'inactive' : 'active']);
+        return redirect()->route('hr.employees')->with('success', 'Employé ' . ($employee->status === 'active' ? 'réactivé' : 'désactivé') . '.');
     }
 
     public function leaves()
@@ -574,11 +588,11 @@ class HRController extends Controller
         return redirect()->route('hr.sites')->with('success', 'Emplacement modifié.');
     }
 
-    public function destroySite(Site $site)
+    public function toggleActiveSite(Site $site)
     {
-        $this->perm('hr.employees.delete');
-        $site->delete();
-        return redirect()->route('hr.sites')->with('success', 'Emplacement supprimé.');
+        $this->perm('hr.employees.edit');
+        $site->update(['status' => $site->status === 'active' ? 'inactive' : 'active']);
+        return redirect()->route('hr.sites')->with('success', 'Emplacement ' . ($site->status === 'active' ? 'réactivé' : 'désactivé') . '.');
     }
 
     public function jobTitles()
@@ -594,7 +608,6 @@ class HRController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:150',
             'description' => 'nullable|string|max:1000',
-            'base_salary' => 'nullable|numeric|min:0',
         ]);
         JobTitle::create($validated);
         return redirect()->route('hr.job-titles')->with('success', 'Poste ajouté.');
@@ -606,21 +619,16 @@ class HRController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:150',
             'description' => 'nullable|string|max:1000',
-            'base_salary' => 'nullable|numeric|min:0',
         ]);
         $jobTitle->update($validated);
         return redirect()->route('hr.job-titles')->with('success', 'Poste modifié.');
     }
 
-    public function destroyJobTitle(JobTitle $jobTitle)
+    public function toggleActiveJobTitle(JobTitle $jobTitle)
     {
-        $this->perm('hr.job-titles.delete');
-        if ($jobTitle->employees()->exists()) {
-            return redirect()->route('hr.job-titles')
-                ->with('error', 'Impossible de supprimer ce poste : des employés y sont encore rattachés.');
-        }
-        $jobTitle->delete();
-        return redirect()->route('hr.job-titles')->with('success', 'Poste supprimé.');
+        $this->perm('hr.job-titles.edit');
+        $jobTitle->update(['status' => $jobTitle->status === 'active' ? 'inactive' : 'active']);
+        return redirect()->route('hr.job-titles')->with('success', 'Poste ' . ($jobTitle->status === 'active' ? 'réactivé' : 'désactivé') . '.');
     }
 
     public function advances()

@@ -27,34 +27,38 @@
                 <tr>
                     <th class="px-4 py-3 text-left">Nom</th>
                     <th class="px-4 py-3 text-left">Description</th>
-                    <th class="px-4 py-3 text-right">Salaire de base</th>
                     <th class="px-4 py-3 text-center">Employés</th>
+                    <th class="px-4 py-3 text-center">Statut</th>
                     <th class="px-4 py-3 text-center">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 @forelse($jobTitles as $jt)
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-gray-50 {{ $jt->status === 'inactive' ? 'opacity-60' : '' }}">
                     <td class="px-4 py-3 font-medium text-gray-800">{{ $jt->name }}</td>
                     <td class="px-4 py-3 text-gray-500 max-w-xs truncate">{{ $jt->description ?? '—' }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-700">
-                        {{ $jt->base_salary ? number_format($jt->base_salary, 0, ',', ' ').' MRU' : '—' }}
-                    </td>
                     <td class="px-4 py-3 text-center">
                         <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium {{ $jt->employees_count > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500' }}">
                             {{ $jt->employees_count }}
                         </span>
                     </td>
                     <td class="px-4 py-3 text-center">
-                        <button onclick="openEditJobTitleModal(@json($jt))"
+                        <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium
+                            {{ $jt->status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500' }}">
+                            {{ $jt->status === 'active' ? 'Actif' : 'Inactif' }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick='openEditJobTitleModal(@json($jt))'
                                 class="text-blue-500 hover:text-blue-700 p-1" title="Modifier">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <form method="POST" action="{{ route('hr.job-titles.destroy', $jt) }}" class="inline"
-                              onsubmit="return confirm('Supprimer ce poste ?')">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="text-red-400 hover:text-red-600 p-1" title="Supprimer">
-                                <i class="fas fa-trash"></i>
+                        <form method="POST" action="{{ route('hr.job-titles.toggle-active', $jt) }}" class="inline"
+                              onsubmit="return confirm('{{ $jt->status === 'active' ? 'Désactiver' : 'Réactiver' }} ce poste ?')">
+                            @csrf
+                            <button type="submit" class="p-1 {{ $jt->status === 'active' ? 'text-amber-500 hover:text-amber-700' : 'text-green-500 hover:text-green-700' }}"
+                                    title="{{ $jt->status === 'active' ? 'Désactiver' : 'Réactiver' }}">
+                                <i class="fas {{ $jt->status === 'active' ? 'fa-ban' : 'fa-rotate-left' }}"></i>
                             </button>
                         </form>
                     </td>
@@ -80,11 +84,6 @@
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
                 <input name="name" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="ex: Chef Cuisinier">
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Salaire de base (MRU)</label>
-                <input name="base_salary" type="number" step="0.01" min="0" class="w-full border rounded-lg px-3 py-2 text-sm">
-                <p class="text-xs text-gray-400 mt-1">Utilisé par défaut lors de la génération de paie si l'employé n'a pas de salaire propre.</p>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Description</label>
@@ -113,10 +112,6 @@
                 <input id="ejt_name" name="name" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Salaire de base (MRU)</label>
-                <input id="ejt_base_salary" name="base_salary" type="number" step="0.01" min="0" class="w-full border rounded-lg px-3 py-2 text-sm">
-            </div>
-            <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Description</label>
                 <textarea id="ejt_description" name="description" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
             </div>
@@ -135,7 +130,6 @@
 function openEditJobTitleModal(jt) {
     document.getElementById('editJobTitleForm').action = '/hr/job-titles/' + jt.id;
     document.getElementById('ejt_name').value = jt.name;
-    document.getElementById('ejt_base_salary').value = jt.base_salary ?? '';
     document.getElementById('ejt_description').value = jt.description ?? '';
     document.getElementById('modalEditJobTitle').classList.remove('hidden');
 }

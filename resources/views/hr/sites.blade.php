@@ -21,30 +21,39 @@
                     <th class="px-4 py-3 text-left">Nom</th>
                     <th class="px-4 py-3 text-left">Adresse</th>
                     <th class="px-4 py-3 text-left">Téléphone</th>
+                    <th class="px-4 py-3 text-center">Statut</th>
                     <th class="px-4 py-3 text-center">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 @forelse($sites as $site)
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-gray-50 {{ $site->status === 'inactive' ? 'opacity-60' : '' }}">
                     <td class="px-4 py-3 text-gray-800">{{ $site->name }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $site->address ?? '—' }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $site->phone ?? '—' }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium
+                            {{ $site->status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500' }}">
+                            {{ $site->status === 'active' ? 'Actif' : 'Inactif' }}
+                        </span>
+                    </td>
                     <td class="px-4 py-3 text-center">
                         <button onclick="openSiteEditModal(@json($site))"
                                 class="text-blue-500 hover:text-blue-700 p-1" title="Modifier">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <form method="POST" action="{{ route('hr.sites.destroy', $site) }}" class="inline" onsubmit="return confirm('Supprimer cet emplacement ?')">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="text-red-400 hover:text-red-600 p-1" title="Supprimer">
-                                <i class="fas fa-trash"></i>
+                        <form method="POST" action="{{ route('hr.sites.toggle-active', $site) }}" class="inline"
+                              onsubmit="return confirm('{{ $site->status === 'active' ? 'Désactiver' : 'Réactiver' }} cet emplacement ?')">
+                            @csrf
+                            <button type="submit" class="p-1 {{ $site->status === 'active' ? 'text-amber-500 hover:text-amber-700' : 'text-green-500 hover:text-green-700' }}"
+                                    title="{{ $site->status === 'active' ? 'Désactiver' : 'Réactiver' }}">
+                                <i class="fas {{ $site->status === 'active' ? 'fa-ban' : 'fa-rotate-left' }}"></i>
                             </button>
                         </form>
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="4" class="text-center py-10 text-gray-400">Aucun emplacement défini.</td></tr>
+                <tr><td colspan="5" class="text-center py-10 text-gray-400">Aucun emplacement défini.</td></tr>
                 @endforelse
             </tbody>
         </table>

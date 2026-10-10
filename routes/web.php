@@ -193,7 +193,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/contracts', [HRController::class, 'storeContract'])->name('contracts.store');
         Route::post('/contracts/{contract}/terminate', [HRController::class, 'terminateContract'])->name('contracts.terminate');
         Route::put('/employees/{employee}', [HRController::class, 'updateEmployee'])->name('employees.update');
-        Route::delete('/employees/{employee}', [HRController::class, 'destroyEmployee'])->name('employees.destroy');
+        Route::post('/employees/{employee}/toggle-active', [HRController::class, 'toggleActiveEmployee'])->name('employees.toggle-active');
 
         Route::get('/attendance', [HRController::class, 'attendance'])->name('attendance');
         Route::post('/attendance', [HRController::class, 'storeAttendance'])->name('attendance.store');
@@ -203,12 +203,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/sites', [HRController::class, 'sites'])->name('sites');
         Route::post('/sites', [HRController::class, 'storeSite'])->name('sites.store');
         Route::put('/sites/{site}', [HRController::class, 'updateSite'])->name('sites.update');
-        Route::delete('/sites/{site}', [HRController::class, 'destroySite'])->name('sites.destroy');
+        Route::post('/sites/{site}/toggle-active', [HRController::class, 'toggleActiveSite'])->name('sites.toggle-active');
 
         Route::get('/job-titles', [HRController::class, 'jobTitles'])->name('job-titles');
         Route::post('/job-titles', [HRController::class, 'storeJobTitle'])->name('job-titles.store');
         Route::put('/job-titles/{jobTitle}', [HRController::class, 'updateJobTitle'])->name('job-titles.update');
-        Route::delete('/job-titles/{jobTitle}', [HRController::class, 'destroyJobTitle'])->name('job-titles.destroy');
+        Route::post('/job-titles/{jobTitle}/toggle-active', [HRController::class, 'toggleActiveJobTitle'])->name('job-titles.toggle-active');
 
         Route::get('/leaves', [HRController::class, 'leaves'])->name('leaves');
         Route::post('/leaves', [HRController::class, 'storeLeave'])->name('leaves.store');

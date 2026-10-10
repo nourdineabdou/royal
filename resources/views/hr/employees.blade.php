@@ -102,12 +102,13 @@
                             <i class="fas fa-folder-open"></i>
                         </button>
                         @endcan
-                        @can('hr.employees.delete')
-                        <form method="POST" action="{{ route('hr.employees.destroy', $emp) }}" class="inline"
-                              onsubmit="return confirm('Supprimer cet employé ?')">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="text-red-400 hover:text-red-600 p-1" title="Supprimer">
-                                <i class="fas fa-trash"></i>
+                        @can('hr.employees.edit')
+                        <form method="POST" action="{{ route('hr.employees.toggle-active', $emp) }}" class="inline"
+                              onsubmit="return confirm('{{ $emp->status === 'active' ? 'Désactiver' : 'Réactiver' }} cet employé ?')">
+                            @csrf
+                            <button type="submit" class="p-1 {{ $emp->status === 'active' ? 'text-amber-500 hover:text-amber-700' : 'text-green-500 hover:text-green-700' }}"
+                                    title="{{ $emp->status === 'active' ? 'Désactiver' : 'Réactiver' }}">
+                                <i class="fas {{ $emp->status === 'active' ? 'fa-ban' : 'fa-rotate-left' }}"></i>
                             </button>
                         </form>
                         @endcan
@@ -220,8 +221,9 @@
             </div>
             <div><label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
                 <input id="ef_phone" name="phone" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
-            <div><label class="block text-xs font-medium text-gray-600 mb-1">Date d'embauche *</label>
-                <input id="ef_hire_date" name="hire_date" type="date" required class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-medium text-gray-600 mb-1">Date d'embauche</label>
+                <div id="ef_hire_date" class="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed"></div>
+                <p class="text-xs text-gray-400 mt-1">Fixée à la création, non modifiable.</p></div>
             <div><label class="block text-xs font-medium text-gray-600 mb-1">Salaire de base (MRU)</label>
                 <input id="ef_salary_base" name="salary_base" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-xs font-medium text-gray-600 mb-1">Statut *</label>
@@ -309,6 +311,12 @@ function openDocsModal(employeeId, employeeName, documents) {
     document.getElementById('modalDocs').classList.remove('hidden');
 }
 
+function formatDateFr(iso) {
+    if (!iso) return '—';
+    const parts = iso.slice(0, 10).split('-');
+    return parts[2] + '/' + parts[1] + '/' + parts[0];
+}
+
 function openEditModal(emp) {
     document.getElementById('editForm').action = '/hr/employees/' + emp.id;
     document.getElementById('ef_first_name').value  = emp.first_name;
@@ -316,7 +324,7 @@ function openEditModal(emp) {
     document.getElementById('ef_job_title_id').value = emp.job_title_id;
     document.getElementById('ef_site_id').value      = emp.site_id ?? '';
     document.getElementById('ef_phone').value       = emp.phone ?? '';
-    document.getElementById('ef_hire_date').value   = emp.hire_date;
+    document.getElementById('ef_hire_date').textContent = formatDateFr(emp.hire_date);
     document.getElementById('ef_salary_base').value = emp.salary_base ?? '';
     document.getElementById('ef_status').value      = emp.status;
     document.getElementById('ef_address').value     = emp.address ?? '';

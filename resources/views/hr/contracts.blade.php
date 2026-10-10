@@ -13,6 +13,9 @@
 @if(session('success'))
 <div class="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm">{{ session('success') }}</div>
 @endif
+@if(session('error'))
+<div class="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{{ session('error') }}</div>
+@endif
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
     <a href="{{ route('hr.contracts') }}" class="bg-white rounded-xl shadow p-4 {{ !$status ? 'ring-2 ring-indigo-400' : '' }}">
