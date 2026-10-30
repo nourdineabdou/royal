@@ -50,7 +50,7 @@ class UserController extends Controller
         ]);
 
         if (!empty($validated['roles'])) {
-            $user->syncRoles($validated['roles']);
+            $user->syncRoles(Role::whereIn('id', $validated['roles'])->get());
         }
 
         return redirect()->route('users.index')
@@ -102,7 +102,7 @@ class UserController extends Controller
         }
 
         if (!empty($validated['roles'])) {
-            $user->syncRoles($validated['roles']);
+            $user->syncRoles(Role::whereIn('id', $validated['roles'])->get());
         } else {
             $user->syncRoles([]);
         }
