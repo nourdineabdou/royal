@@ -38,7 +38,12 @@
                         </span>
                     </td>
                     <td class="px-4 py-3 text-center">
-                        <button onclick="openSiteEditModal(@json($site))"
+                        <button type="button"
+                                onclick="openSiteEditModal(this)"
+                                data-update-url="{{ route('hr.sites.update', $site) }}"
+                                data-name="{{ $site->name }}"
+                                data-address="{{ $site->address ?? '' }}"
+                                data-phone="{{ $site->phone ?? '' }}"
                                 class="text-blue-500 hover:text-blue-700 p-1" title="Modifier">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -122,11 +127,11 @@
 
 @push('scripts')
 <script>
-function openSiteEditModal(site) {
-    document.getElementById('editSiteForm').action = '/hr/sites/' + site.id;
-    document.getElementById('es_name').value = site.name;
-    document.getElementById('es_address').value = site.address ?? '';
-    document.getElementById('es_phone').value = site.phone ?? '';
+function openSiteEditModal(button) {
+    document.getElementById('editSiteForm').action = button.dataset.updateUrl;
+    document.getElementById('es_name').value = button.dataset.name;
+    document.getElementById('es_address').value = button.dataset.address;
+    document.getElementById('es_phone').value = button.dataset.phone;
     document.getElementById('modalEditSite').classList.remove('hidden');
 }
 </script>
