@@ -19,6 +19,7 @@
             <thead class="bg-gray-50 text-gray-600 text-xs uppercase border-b">
                 <tr>
                     <th class="px-4 py-3 text-left">Nom</th>
+                    <th class="px-4 py-3 text-left">Entreprise</th>
                     <th class="px-4 py-3 text-left">Adresse</th>
                     <th class="px-4 py-3 text-left">Téléphone</th>
                     <th class="px-4 py-3 text-center">Statut</th>
@@ -29,6 +30,7 @@
                 @forelse($sites as $site)
                 <tr class="hover:bg-gray-50 {{ $site->status === 'inactive' ? 'opacity-60' : '' }}">
                     <td class="px-4 py-3 text-gray-800">{{ $site->name }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ $site->company->name ?? '—' }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $site->address ?? '—' }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $site->phone ?? '—' }}</td>
                     <td class="px-4 py-3 text-center">
@@ -58,7 +60,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="5" class="text-center py-10 text-gray-400">Aucun emplacement défini.</td></tr>
+                <tr><td colspan="6" class="text-center py-10 text-gray-400">Aucun emplacement défini.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -75,16 +77,39 @@
         <form method="POST" action="{{ route('hr.sites.store') }}" class="p-6 grid grid-cols-1 gap-4">
             @csrf
             <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Entreprise *</label>
+                <select name="company_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">Choisir une entreprise</option>
+                    @foreach($companies as $company)
+                        <option value="{{ $company->id }}" {{ old('company_id') == $company->id ? 'selected' : '' }}>
+                            {{ $company->name }}
+                        </option>
+                    @endforeach
+                </select>
+                @error('company_id')
+                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
-                <input name="name" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                <input name="name" value="{{ old('name') }}" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                @error('name')
+                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                @enderror
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Adresse</label>
-                <input name="address" class="w-full border rounded-lg px-3 py-2 text-sm">
+                <input name="address" value="{{ old('address') }}" class="w-full border rounded-lg px-3 py-2 text-sm">
+                @error('address')
+                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                @enderror
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
-                <input name="phone" class="w-full border rounded-lg px-3 py-2 text-sm">
+                <input name="phone" value="{{ old('phone') }}" class="w-full border rounded-lg px-3 py-2 text-sm">
+                @error('phone')
+                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                @enderror
             </div>
             <div class="flex justify-end gap-3 pt-2">
                 <button type="button" onclick="document.getElementById('modalAddSite').classList.add('hidden')"
@@ -134,5 +159,9 @@ function openSiteEditModal(button) {
     document.getElementById('es_phone').value = button.dataset.phone;
     document.getElementById('modalEditSite').classList.remove('hidden');
 }
+
+@if($errors->any())
+document.getElementById('modalAddSite').classList.remove('hidden');
+@endif
 </script>
 @endpush

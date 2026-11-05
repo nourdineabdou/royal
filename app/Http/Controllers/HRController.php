@@ -11,6 +11,7 @@ use App\Models\Attendance;
 use App\Models\Advance;
 use App\Models\SalaryAdjustment;
 use App\Models\Site;
+use App\Models\Company;
 use Carbon\Carbon;
 use App\Models\Transaction;
 
@@ -560,19 +561,21 @@ class HRController extends Controller
     public function sites()
     {
         $this->perm('hr.employees.view');
-        $sites = Site::orderBy('name')->paginate(15);
-        return view('hr.sites', compact('sites'));
+        $sites = Site::with('company')->orderBy('name')->paginate(15);
+        $companies = Company::where('status', 'active')->orderBy('name')->get();
+        return view('hr.sites', compact('sites', 'companies'));
     }
 
     public function storeSite(Request $request)
     {
         $this->perm('hr.employees.edit');
         $validated = $request->validate([
+            'company_id' => 'required|exists:companies,id,status,active',
             'name' => 'required|string|max:150',
             'address' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:30',
         ]);
-        Site::create($validated);
+        Site::create($validated + ['type' => 'restaurant', 'status' => 'active']);
         return redirect()->route('hr.sites')->with('success', 'Emplacement ajouté.');
     }
 
