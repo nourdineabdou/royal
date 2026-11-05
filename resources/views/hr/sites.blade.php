@@ -19,9 +19,6 @@
             <thead class="bg-gray-50 text-gray-600 text-xs uppercase border-b">
                 <tr>
                     <th class="px-4 py-3 text-left">Nom</th>
-                    <th class="px-4 py-3 text-left">Entreprise</th>
-                    <th class="px-4 py-3 text-left">Adresse</th>
-                    <th class="px-4 py-3 text-left">Téléphone</th>
                     <th class="px-4 py-3 text-center">Statut</th>
                     <th class="px-4 py-3 text-center">Actions</th>
                 </tr>
@@ -30,9 +27,6 @@
                 @forelse($sites as $site)
                 <tr class="hover:bg-gray-50 {{ $site->status === 'inactive' ? 'opacity-60' : '' }}">
                     <td class="px-4 py-3 text-gray-800">{{ $site->name }}</td>
-                    <td class="px-4 py-3 text-gray-700">{{ $site->company->name ?? '—' }}</td>
-                    <td class="px-4 py-3 text-gray-600">{{ $site->address ?? '—' }}</td>
-                    <td class="px-4 py-3 text-gray-600">{{ $site->phone ?? '—' }}</td>
                     <td class="px-4 py-3 text-center">
                         <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium
                             {{ $site->status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500' }}">
@@ -44,8 +38,6 @@
                                 onclick="openSiteEditModal(this)"
                                 data-update-url="{{ route('hr.sites.update', $site) }}"
                                 data-name="{{ $site->name }}"
-                                data-address="{{ $site->address ?? '' }}"
-                                data-phone="{{ $site->phone ?? '' }}"
                                 class="text-blue-500 hover:text-blue-700 p-1" title="Modifier">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -60,7 +52,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="text-center py-10 text-gray-400">Aucun emplacement défini.</td></tr>
+                <tr><td colspan="3" class="text-center py-10 text-gray-400">Aucun emplacement défini.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -77,37 +69,9 @@
         <form method="POST" action="{{ route('hr.sites.store') }}" class="p-6 grid grid-cols-1 gap-4">
             @csrf
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Entreprise *</label>
-                <select name="company_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
-                    <option value="">Choisir une entreprise</option>
-                    @foreach($companies as $company)
-                        <option value="{{ $company->id }}" {{ old('company_id') == $company->id ? 'selected' : '' }}>
-                            {{ $company->name }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('company_id')
-                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-            <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
                 <input name="name" value="{{ old('name') }}" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
                 @error('name')
-                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Adresse</label>
-                <input name="address" value="{{ old('address') }}" class="w-full border rounded-lg px-3 py-2 text-sm">
-                @error('address')
-                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
-                <input name="phone" value="{{ old('phone') }}" class="w-full border rounded-lg px-3 py-2 text-sm">
-                @error('phone')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
@@ -132,14 +96,6 @@
                 <label class="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
                 <input id="es_name" name="name" required class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
             </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Adresse</label>
-                <input id="es_address" name="address" class="w-full border rounded-lg px-3 py-2 text-sm">
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
-                <input id="es_phone" name="phone" class="w-full border rounded-lg px-3 py-2 text-sm">
-            </div>
             <div class="flex justify-end gap-3 pt-2">
                 <button type="button" onclick="document.getElementById('modalEditSite').classList.add('hidden')"
                         class="px-4 py-2 text-sm border rounded-lg text-gray-600 hover:bg-gray-50">Annuler</button>
@@ -155,12 +111,10 @@
 function openSiteEditModal(button) {
     document.getElementById('editSiteForm').action = button.dataset.updateUrl;
     document.getElementById('es_name').value = button.dataset.name;
-    document.getElementById('es_address').value = button.dataset.address;
-    document.getElementById('es_phone').value = button.dataset.phone;
     document.getElementById('modalEditSite').classList.remove('hidden');
 }
 
-@if($errors->any())
+@if($errors->has('name'))
 document.getElementById('modalAddSite').classList.remove('hidden');
 @endif
 </script>

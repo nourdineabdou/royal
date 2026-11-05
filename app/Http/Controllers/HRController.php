@@ -11,8 +11,8 @@ use App\Models\Attendance;
 use App\Models\Advance;
 use App\Models\SalaryAdjustment;
 use App\Models\Site;
-use App\Models\Company;
 use Carbon\Carbon;
+use App\Models\Company;
 use App\Models\Transaction;
 
 class HRController extends Controller
@@ -561,31 +561,32 @@ class HRController extends Controller
     public function sites()
     {
         $this->perm('hr.employees.view');
-        $sites = Site::with('company')->orderBy('name')->paginate(15);
-        $companies = Company::where('status', 'active')->orderBy('name')->get();
-        return view('hr.sites', compact('sites', 'companies'));
+        $company = $this->cssCompany();
+        $sites = Site::where('company_id', $company->id)->orderBy('name')->paginate(15);
+        return view('hr.sites', compact('sites'));
     }
 
     public function storeSite(Request $request)
     {
         $this->perm('hr.employees.edit');
+        $company = $this->cssCompany();
         $validated = $request->validate([
-            'company_id' => 'required|exists:companies,id,status,active',
             'name' => 'required|string|max:150',
-            'address' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:30',
         ]);
-        Site::create($validated + ['type' => 'restaurant', 'status' => 'active']);
+        Site::create($validated + [
+            'company_id' => $company->id,
+            'type' => 'restaurant',
+            'status' => 'active',
+        ]);
         return redirect()->route('hr.sites')->with('success', 'Emplacement ajouté.');
     }
 
     public function updateSite(Request $request, Site $site)
     {
         $this->perm('hr.employees.edit');
+        abort_unless((int) $site->company_id === (int) $this->cssCompany()->id, 404);
         $validated = $request->validate([
             'name' => 'required|string|max:150',
-            'address' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:30',
         ]);
         $site->update($validated);
         return redirect()->route('hr.sites')->with('success', 'Emplacement modifié.');
@@ -594,8 +595,14 @@ class HRController extends Controller
     public function toggleActiveSite(Site $site)
     {
         $this->perm('hr.employees.edit');
+        abort_unless((int) $site->company_id === (int) $this->cssCompany()->id, 404);
         $site->update(['status' => $site->status === 'active' ? 'inactive' : 'active']);
         return redirect()->route('hr.sites')->with('success', 'Emplacement ' . ($site->status === 'active' ? 'réactivé' : 'désactivé') . '.');
+    }
+
+    private function cssCompany(): Company
+    {
+        return Company::where('name', 'Catering Solution & Service')->firstOrFail();
     }
 
     public function jobTitles()
