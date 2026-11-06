@@ -328,7 +328,7 @@
           <div class="grid-2">
             <ol class="steps c-green">
               <li>Cliquer sur l'icône crayon de la ligne concernée : le formulaire s'ouvre déjà pré-rempli avec les informations actuelles.</li>
-              <li>Modifier les champs nécessaires (poste, site, salaire, statut…).</li>
+              <li>Modifier les champs nécessaires (poste, site, date d'embauche, salaire, statut…).</li>
               <li>Cliquer sur <b>Enregistrer</b> pour appliquer les changements.</li>
             </ol>
             <div class="card"><img src="{{ asset('guide/hr/05-hr-employees-edit-modal.png') }}" alt="Formulaire de modification d'employé"><div class="shot-cap">Modification d'un employé existant</div></div>

@@ -93,7 +93,7 @@
                     </td>
                     <td class="px-4 py-3 text-center">
                         @can('hr.employees.edit')
-                        <button onclick='openEditModal(@json($emp))'
+                        <button onclick='openEditModal(@json($emp), @json($emp->site_id))'
                                 class="text-blue-500 hover:text-blue-700 p-1" title="Modifier">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -185,7 +185,7 @@
 
 {{-- MODAL EDIT --}}
 <div id="modalEdit" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b">
             <h3 class="font-bold text-gray-800">Modifier l'employé</h3>
             <button onclick="document.getElementById('modalEdit').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
@@ -210,9 +210,9 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Emplacement</label>
+                    <label for="ef_site_id" class="block text-xs font-medium text-gray-600 mb-1">Emplacement de travail</label>
                     <select id="ef_site_id" name="site_id" class="w-full border rounded-lg px-3 py-2 text-sm">
-                        <option value="">-- Aucun --</option>
+                        <option value="">-- Aucun emplacement --</option>
                         @foreach($sites as $site)
                         <option value="{{ $site->id }}">{{ $site->name }}</option>
                         @endforeach
@@ -221,9 +221,8 @@
             </div>
             <div><label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
                 <input id="ef_phone" name="phone" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
-            <div><label class="block text-xs font-medium text-gray-600 mb-1">Date d'embauche</label>
-                <div id="ef_hire_date" class="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed"></div>
-                <p class="text-xs text-gray-400 mt-1">Fixée à la création, non modifiable.</p></div>
+            <div><label for="ef_hire_date" class="block text-xs font-medium text-gray-600 mb-1">Date d'embauche *</label>
+                <input id="ef_hire_date" name="hire_date" type="date" required class="w-full border rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-xs font-medium text-gray-600 mb-1">Salaire de base (MRU)</label>
                 <input id="ef_salary_base" name="salary_base" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-xs font-medium text-gray-600 mb-1">Statut *</label>
@@ -317,14 +316,22 @@ function formatDateFr(iso) {
     return parts[2] + '/' + parts[1] + '/' + parts[0];
 }
 
-function openEditModal(emp) {
+function openEditModal(emp, assignedSiteId) {
+    const $modal = $('#modalEdit');
+    $('#ef_job_title_id, #ef_site_id').each(function () {
+        if ($(this).hasClass('select2-hidden-accessible')) {
+            $(this).select2('destroy');
+        }
+        $(this).select2({ width: '100%', dropdownParent: $modal });
+    });
+
     document.getElementById('editForm').action = '/hr/employees/' + emp.id;
     document.getElementById('ef_first_name').value  = emp.first_name;
     document.getElementById('ef_last_name').value   = emp.last_name;
-    document.getElementById('ef_job_title_id').value = emp.job_title_id;
-    document.getElementById('ef_site_id').value      = emp.site_id ?? '';
+    $('#ef_job_title_id').val(String(emp.job_title_id)).trigger('change');
+    $('#ef_site_id').val(assignedSiteId ?? emp.site_id ?? '').trigger('change');
     document.getElementById('ef_phone').value       = emp.phone ?? '';
-    document.getElementById('ef_hire_date').textContent = formatDateFr(emp.hire_date);
+    document.getElementById('ef_hire_date').value = emp.hire_date ? emp.hire_date.slice(0, 10) : '';
     document.getElementById('ef_salary_base').value = emp.salary_base ?? '';
     document.getElementById('ef_status').value      = emp.status;
     document.getElementById('ef_address').value     = emp.address ?? '';

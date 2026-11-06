@@ -258,9 +258,6 @@ class HRController extends Controller
     public function updateEmployee(Request $request, Employee $employee)
     {
         $this->perm('hr.employees.edit');
-        // La date d'embauche est fixée une seule fois à la création et n'est
-        // plus modifiable ensuite — on l'ignore volontairement ici même si
-        // elle est présente dans la requête.
         $validated = $request->validate([
             'job_title_id' => 'required|exists:job_titles,id',
             'site_id'      => 'nullable|exists:sites,id',
@@ -268,6 +265,7 @@ class HRController extends Controller
             'last_name'    => 'required|string|max:100',
             'phone'        => 'nullable|string|max:30',
             'address'      => 'nullable|string|max:255',
+            'hire_date'    => 'required|date',
             'salary_base'  => 'nullable|numeric|min:0',
             'status'       => 'required|in:active,inactive',
         ]);
