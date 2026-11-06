@@ -9,7 +9,8 @@ class EmployeeDocument extends Model
     protected $fillable = ['employee_id', 'type', 'name', 'file_path', 'uploaded_by'];
 
     public const TYPES = [
-        'piece_identite' => "Pièce d'identité",
+        'piece_identite' => "Carte d'identité",
+        'passeport'       => 'Passeport',
         'diplome'        => 'Diplôme',
         'contrat'        => 'Contrat',
         'autre'          => 'Autre',

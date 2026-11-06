@@ -187,6 +187,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/employees', [HRController::class, 'employees'])->name('employees');
         Route::post('/employees', [HRController::class, 'storeEmployee'])->name('employees.store');
         Route::post('/employees/{employee}/documents', [HRController::class, 'storeEmployeeDocument'])->name('employees.documents.store');
+        Route::get('/employees/documents/{document}', [HRController::class, 'showEmployeeDocument'])->name('employees.documents.show');
         Route::delete('/employees/documents/{document}', [HRController::class, 'destroyEmployeeDocument'])->name('employees.documents.destroy');
 
         Route::get('/contracts', [HRController::class, 'contracts'])->name('contracts');

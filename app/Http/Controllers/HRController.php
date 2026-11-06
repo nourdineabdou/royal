@@ -215,7 +215,7 @@ class HRController extends Controller
             'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
-        $path = $request->file('file')->store('employee-documents', 'public');
+        $path = $request->file('file')->store('employee-documents', 'local');
 
         \App\Models\EmployeeDocument::create([
             'employee_id' => $employee->id,
@@ -228,9 +228,27 @@ class HRController extends Controller
         return back()->with('success', 'Document ajouté.');
     }
 
+    public function showEmployeeDocument(\App\Models\EmployeeDocument $document)
+    {
+        $this->perm('hr.employees.view');
+
+        $disk = \Illuminate\Support\Facades\Storage::disk('local');
+        if (! $disk->exists($document->file_path)) {
+            $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        }
+
+        abort_unless($disk->exists($document->file_path), 404);
+
+        return $disk->response($document->file_path, null, [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ], 'inline');
+    }
+
     public function destroyEmployeeDocument(\App\Models\EmployeeDocument $document)
     {
         $this->perm('hr.employees.edit');
+        \Illuminate\Support\Facades\Storage::disk('local')->delete($document->file_path);
         \Illuminate\Support\Facades\Storage::disk('public')->delete($document->file_path);
         $document->delete();
 

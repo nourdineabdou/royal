@@ -338,7 +338,7 @@
           <div class="grid-2">
             <ol class="steps c-green">
               <li>Cliquer sur l'icône dossier d'une ligne pour ouvrir le dossier documentaire de l'employé.</li>
-              <li>Les documents déjà déposés (pièce d'identité, diplôme, contrat scanné…) sont listés, avec un lien pour les <b>consulter</b> ou les <b>supprimer</b>.</li>
+              <li>Les documents déjà déposés (carte d'identité, passeport, diplôme, contrat…) sont listés, avec un lien pour les <b>consulter</b> ou les <b>supprimer</b>.</li>
               <li>Pour ajouter un document : choisir le <b>type</b>, donner un <b>nom</b> explicite (ex. « CNI recto-verso ») et sélectionner le <b>fichier</b> (PDF, JPG ou PNG, 5 Mo maximum).</li>
               <li>Cliquer sur <b>Ajouter le document</b>.</li>
             </ol>

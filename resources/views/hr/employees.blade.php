@@ -282,6 +282,7 @@
 @push('scripts')
 <script>
 const DOC_TYPE_LABELS = @json(\App\Models\EmployeeDocument::TYPES);
+const DOC_VIEW_URL = @json(route('hr.employees.documents.show', ['document' => 'DOCUMENT_ID']));
 
 function openDocsModal(employeeId, employeeName, documents) {
     document.getElementById('docs_emp_name').textContent = employeeName;
@@ -298,7 +299,7 @@ function openDocsModal(employeeId, employeeName, documents) {
                     <span class="text-sm text-gray-700 ml-2">${doc.name}</span>
                 </div>
                 <div class="flex items-center gap-3">
-                    <a href="/storage/${doc.file_path}" target="_blank" class="text-blue-500 hover:text-blue-700" title="Voir"><i class="fas fa-eye"></i></a>
+                    <a href="${DOC_VIEW_URL.replace('DOCUMENT_ID', encodeURIComponent(doc.id))}" target="_blank" rel="noopener" class="text-blue-500 hover:text-blue-700" title="Voir"><i class="fas fa-eye"></i></a>
                     <form method="POST" action="/hr/employees/documents/${doc.id}" onsubmit="return confirm('Supprimer ce document ?')">
                         @csrf @method('DELETE')
                         <button type="submit" class="text-red-400 hover:text-red-600" title="Supprimer"><i class="fas fa-trash"></i></button>
