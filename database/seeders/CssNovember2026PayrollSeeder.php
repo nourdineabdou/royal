@@ -2,13 +2,17 @@
 
 namespace Database\Seeders;
 
+use App\Models\Advance;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\JobTitle;
 use App\Models\Payroll;
 use App\Models\Site;
+use App\Models\Transaction;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 class CssNovember2026PayrollSeeder extends Seeder
@@ -72,116 +76,48 @@ class CssNovember2026PayrollSeeder extends Seeder
                 throw new RuntimeException('Entreprise Catering Solution & Service introuvable. Vérifiez les seeders de sociétés.');
             }
 
-            $expectedEmployeeKeys = [];
-            $expectedSiteKeys = [];
-            $expectedJobTitleKeys = [];
-            foreach (self::EMPLOYEES as [$firstName, $lastName, $jobTitleName, $siteName]) {
-                $employeeKey = $this->normalize($firstName.' '.$lastName);
-                if (isset($expectedEmployeeKeys[$employeeKey])) {
-                    throw new RuntimeException("Le seeder contient plusieurs employés nommés « {$firstName} {$lastName} ».");
-                }
-                $expectedEmployeeKeys[$employeeKey] = true;
-                $expectedSiteKeys[$this->normalize($siteName)] = true;
-                $expectedJobTitleKeys[$this->normalize($jobTitleName)] = true;
-            }
-
-            $employeesByName = [];
-            $deletedEmployees = 0;
-            $employeeBlockers = [];
-            $employees = Employee::orderByRaw('CASE WHEN company_id = ? THEN 0 ELSE 1 END', [$company->id])
-                ->orderBy('id')
-                ->get();
-
-            foreach ($employees as $employee) {
-                $key = $this->normalize($employee->first_name.' '.$employee->last_name);
-                $keepForImport = isset($expectedEmployeeKeys[$key]) && ! isset($employeesByName[$key]);
-
-                if ($keepForImport) {
-                    $employeesByName[$key] = $employee;
-
-                    continue;
-                }
-
-                $references = $this->employeeReferences($employee);
-                if ($references) {
-                    $employeeBlockers[] = [
-                        'id' => $employee->id,
-                        'name' => $employee->full_name,
-                        'references' => $references,
-                    ];
-
-                    continue;
-                }
-
-                $employee->delete();
-                $deletedEmployees++;
-            }
+            $cleanup = $this->clearExistingHrData();
 
             $sites = [];
-            foreach (Site::where('company_id', $company->id)->get() as $site) {
-                $key = $this->normalize($site->name);
-                if (! isset($sites[$key])) {
-                    $sites[$key] = $site;
-                }
-            }
-
             $jobTitles = [];
-            foreach (JobTitle::orderBy('id')->get() as $jobTitle) {
-                $key = $this->normalize($jobTitle->name);
-                if (! isset($jobTitles[$key])) {
-                    $jobTitles[$key] = $jobTitle;
-                }
-            }
-
-            $createdSites = 0;
-            $createdJobTitles = 0;
-            $createdEmployees = 0;
-            $updatedEmployees = 0;
             $createdPayrolls = 0;
 
             foreach (self::EMPLOYEES as [$firstName, $lastName, $jobTitleName, $siteName, $salary]) {
                 $siteKey = $this->normalize($siteName);
-                if (! isset($sites[$siteKey])) {
-                    $sites[$siteKey] = Site::create([
+                if (isset($sites[$siteKey])) {
+                    $site = $sites[$siteKey];
+                } else {
+                    $site = Site::create([
                         'company_id' => $company->id,
                         'name' => $siteName,
                         'type' => 'bureau',
                         'status' => 'active',
                     ]);
-                    $createdSites++;
+                    $sites[$siteKey] = $site;
                 }
 
                 $jobTitleKey = $this->normalize($jobTitleName);
-                if (! isset($jobTitles[$jobTitleKey])) {
-                    $jobTitles[$jobTitleKey] = JobTitle::create([
+                if (isset($jobTitles[$jobTitleKey])) {
+                    $jobTitle = $jobTitles[$jobTitleKey];
+                } else {
+                    $jobTitle = JobTitle::create([
                         'name' => $jobTitleName,
                         'base_salary' => 0,
                         'status' => 'active',
                     ]);
-                    $createdJobTitles++;
+                    $jobTitles[$jobTitleKey] = $jobTitle;
                 }
 
-                $employeeKey = $this->normalize($firstName.' '.$lastName);
-                $attributes = [
+                $employee = Employee::create([
                     'company_id' => $company->id,
-                    'site_id' => $sites[$siteKey]->id,
-                    'job_title_id' => $jobTitles[$jobTitleKey]->id,
+                    'site_id' => $site->id,
+                    'job_title_id' => $jobTitle->id,
                     'first_name' => $firstName,
                     'last_name' => $lastName,
                     'hire_date' => '2026-11-01',
                     'salary_base' => $salary,
                     'status' => 'active',
-                ];
-
-                if (isset($employeesByName[$employeeKey])) {
-                    $employee = $employeesByName[$employeeKey];
-                    $employee->update($attributes);
-                    $updatedEmployees++;
-                } else {
-                    $employee = Employee::create($attributes);
-                    $employeesByName[$employeeKey] = $employee;
-                    $createdEmployees++;
-                }
+                ]);
 
                 $payroll = Payroll::firstOrCreate(
                     [
@@ -205,115 +141,137 @@ class CssNovember2026PayrollSeeder extends Seeder
                 }
             }
 
-            $deletedSites = 0;
-            $siteBlockers = [];
-            foreach (Site::orderBy('id')->get() as $site) {
-                $isCanonicalSite = (int) $site->company_id === (int) $company->id
-                    && isset($expectedSiteKeys[$this->normalize($site->name)])
-                    && $sites[$this->normalize($site->name)]->id === $site->id;
-
-                if ($isCanonicalSite) {
-                    continue;
-                }
-
-                $references = $this->siteReferences($site);
-                if ($references) {
-                    $siteBlockers[] = [
-                        'id' => $site->id,
-                        'name' => $site->name,
-                        'references' => $references,
-                    ];
-
-                    continue;
-                }
-
-                $site->delete();
-                $deletedSites++;
-            }
-
-            $deletedJobTitles = 0;
-            $jobTitleBlockers = [];
-            $canonicalJobTitles = [];
-            foreach (JobTitle::orderBy('id')->get() as $jobTitle) {
-                $key = $this->normalize($jobTitle->name);
-                $isCanonicalJobTitle = isset($expectedJobTitleKeys[$key]) && ! isset($canonicalJobTitles[$key]);
-
-                if ($isCanonicalJobTitle) {
-                    $canonicalJobTitles[$key] = true;
-
-                    continue;
-                }
-
-                $employeeCount = Employee::where('job_title_id', $jobTitle->id)->count();
-                if ($employeeCount > 0) {
-                    $jobTitleBlockers[] = [
-                        'id' => $jobTitle->id,
-                        'name' => $jobTitle->name,
-                        'employees' => $employeeCount,
-                    ];
-
-                    continue;
-                }
-
-                $jobTitle->delete();
-                $deletedJobTitles++;
-            }
-
-            return [
+            return array_merge([
                 'company' => $company->name,
-                'employees_in_file' => count(self::EMPLOYEES),
-                'employees_created' => $createdEmployees,
-                'employees_updated' => $updatedEmployees,
-                'employees_deleted' => $deletedEmployees,
-                'employees_preserved_with_history' => $employeeBlockers,
-                'sites_created' => $createdSites,
-                'sites_deleted' => $deletedSites,
-                'sites_preserved_with_references' => $siteBlockers,
-                'job_titles_created' => $createdJobTitles,
-                'job_titles_deleted' => $deletedJobTitles,
-                'job_titles_preserved_in_use' => $jobTitleBlockers,
+                'employees_imported' => count(self::EMPLOYEES),
+                'sites_created' => count($sites),
+                'job_titles_created' => count($jobTitles),
                 'november_payrolls_created' => $createdPayrolls,
                 'payroll_status' => 'pending',
                 'advances_and_deductions' => 'none',
                 'duplicate_name_rows_excluded' => 6,
-            ];
+            ], $cleanup);
         });
 
+        $documentPaths = $summary['_employee_document_paths'];
+        unset($summary['_employee_document_paths']);
+
+        $deletedDocumentFiles = 0;
+        $missingDocumentFiles = 0;
+        foreach ($documentPaths as $path) {
+            $disk = Storage::disk('public');
+            if (! $disk->exists($path)) {
+                $missingDocumentFiles++;
+
+                continue;
+            }
+
+            if (! $disk->delete($path)) {
+                throw new RuntimeException("Impossible de supprimer le document employé « {$path} » du stockage public.");
+            }
+
+            $deletedDocumentFiles++;
+        }
+
+        $summary['employee_document_files_deleted'] = $deletedDocumentFiles;
+        $summary['employee_document_files_already_missing'] = $missingDocumentFiles;
         $this->command?->info(json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     }
 
-    private function employeeReferences(Employee $employee): array
+    private function clearExistingHrData(): array
     {
-        $references = [];
+        $siteBlockers = [];
+        foreach (['stocks', 'orders', 'cash_registers', 'rooms', 'bookings'] as $table) {
+            $count = DB::table($table)->whereNotNull('site_id')->count();
+            if ($count > 0) {
+                $siteBlockers[$table] = $count;
+            }
+        }
+
+        $payrollTransactionIds = DB::table('payrolls')->whereNotNull('transaction_id')->pluck('transaction_id');
+        $hrTransactionIds = DB::table('transactions')
+            ->where(function ($query) {
+                $query->where('module', 'hr')
+                    ->orWhere('type', 'salary');
+            })
+            ->pluck('id')
+            ->merge($payrollTransactionIds)
+            ->unique()
+            ->values();
+
+        $transactionBlockers = [];
+        if ($hrTransactionIds->isNotEmpty()) {
+            foreach (['payments', 'bookings', 'room_payments', 'events', 'catering_consumptions'] as $table) {
+                if (! Schema::hasColumn($table, 'transaction_id')) {
+                    continue;
+                }
+
+                $count = DB::table($table)->whereIn('transaction_id', $hrTransactionIds)->count();
+                if ($count > 0) {
+                    $transactionBlockers[$table] = $count;
+                }
+            }
+        }
+
+        if ($siteBlockers || $transactionBlockers) {
+            $details = [];
+            if ($siteBlockers) {
+                $details[] = 'emplacements encore utilisés : '.json_encode($siteBlockers, JSON_UNESCAPED_UNICODE);
+            }
+            if ($transactionBlockers) {
+                $details[] = 'transactions RH liées à d’autres modules : '.json_encode($transactionBlockers, JSON_UNESCAPED_UNICODE);
+            }
+
+            throw new RuntimeException('Nettoyage annulé sans modification. '.implode(' ; ', $details));
+        }
+
+        $documentPaths = DB::table('employee_documents')->pluck('file_path')->all();
+        $journalEntries = DB::table('journal_entries')
+            ->where(function ($query) use ($hrTransactionIds) {
+                $query->whereIn('source_type', [Payroll::class, Advance::class]);
+
+                if ($hrTransactionIds->isNotEmpty()) {
+                    $query->orWhere(function ($query) use ($hrTransactionIds) {
+                        $query->where('source_type', Transaction::class)
+                            ->whereIn('source_id', $hrTransactionIds);
+                    });
+                }
+            });
+        $deletedJournalEntries = $journalEntries->count();
+        $journalEntries->delete();
+
+        $deleted = [];
         foreach ([
-            'payrolls',
+            'employee_contracts',
+            'employee_documents',
+            'attendances',
             'advances',
             'leaves',
-            'attendances',
             'salary_adjustments',
-            'employee_documents',
-            'employee_contracts',
+            'payrolls',
+            'employees',
+            'job_titles',
+            'sites',
         ] as $table) {
-            $count = DB::table($table)->where('employee_id', $employee->id)->count();
-            if ($count > 0) {
-                $references[$table] = $count;
-            }
+            $deleted[$table] = DB::table($table)->count();
+            DB::table($table)->delete();
         }
 
-        return $references;
-    }
+        $deleted['transaction_details'] = DB::table('transaction_details')
+            ->whereIn('transaction_id', $hrTransactionIds)
+            ->count();
+        DB::table('transaction_details')->whereIn('transaction_id', $hrTransactionIds)->delete();
 
-    private function siteReferences(Site $site): array
-    {
-        $references = [];
-        foreach (['employees', 'stocks', 'orders', 'cash_registers', 'rooms', 'bookings'] as $table) {
-            $count = DB::table($table)->where('site_id', $site->id)->count();
-            if ($count > 0) {
-                $references[$table] = $count;
-            }
+        $deleted['hr_transactions'] = $hrTransactionIds->count();
+        if ($hrTransactionIds->isNotEmpty()) {
+            DB::table('transactions')->whereIn('id', $hrTransactionIds)->delete();
         }
 
-        return $references;
+        return [
+            'old_records_deleted' => $deleted,
+            'old_payroll_and_advance_journal_entries_deleted' => $deletedJournalEntries,
+            '_employee_document_paths' => $documentPaths,
+        ];
     }
 
     private function normalize(string $value): string
