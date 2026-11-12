@@ -71,6 +71,20 @@
     </div>
 </form>
 
+@if(session('success'))
+<div class="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm">{{ session('success') }}</div>
+@endif
+@if($errors->any())
+<div class="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm" role="alert">
+    <p class="font-semibold">Vérifiez les informations saisies :</p>
+    <ul class="list-disc ml-5 mt-1">
+        @foreach($errors->all() as $error)
+        <li>{{ $error }}</li>
+        @endforeach
+    </ul>
+</div>
+@endif
+
 {{-- Summary bar (calculé sur l'ensemble filtré, pas seulement la page affichée) --}}
 <div class="grid grid-cols-3 gap-4 mb-5">
     <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
@@ -86,6 +100,58 @@
         <p class="text-2xl font-bold text-amber-700 mt-1">{{ $pendCount }}</p>
     </div>
 </div>
+
+@can('hr.payroll.generate')
+<section class="bg-white rounded-xl shadow p-5 mb-6">
+    <h2 class="text-lg font-bold text-gray-800">Saisir un bonus ou une déduction</h2>
+    <p class="text-sm text-gray-500 mt-1 mb-4">
+        Les montants enregistrés pour {{ \Carbon\Carbon::createFromDate($year, $month, 1)->translatedFormat('F Y') }} seront repris à la génération de la paie.
+        Calcul net : montant non négatif = salaire de base + bonus − déductions − remboursements d’avances.
+    </p>
+    <form method="POST" action="{{ route('hr.payroll.adjustments.store') }}" class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+        @csrf
+        <input type="hidden" name="month" value="{{ $month }}">
+        <input type="hidden" name="year" value="{{ $year }}">
+        <div class="md:col-span-2">
+            <label for="adjustment_employee" class="block text-xs font-medium text-gray-600 mb-1">Employé *</label>
+            <select id="adjustment_employee" name="employee_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                <option value="">Choisir un employé</option>
+                @foreach($employees as $employee)
+                <option value="{{ $employee->id }}" {{ old('employee_id') == $employee->id ? 'selected' : '' }}>{{ $employee->full_name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label for="adjustment_type" class="block text-xs font-medium text-gray-600 mb-1">Type *</label>
+            <select id="adjustment_type" name="type" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                <option value="">Choisir</option>
+                <option value="bonus" {{ old('type') === 'bonus' ? 'selected' : '' }}>Bonus</option>
+                <option value="deduction" {{ old('type') === 'deduction' ? 'selected' : '' }}>Déduction</option>
+            </select>
+        </div>
+        <div>
+            <label for="adjustment_amount" class="block text-xs font-medium text-gray-600 mb-1">Montant (MRU) *</label>
+            <input id="adjustment_amount" name="amount" type="number" min="0.01" max="99999999.99" step="0.01" required value="{{ old('amount') }}" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div>
+            <label for="adjustment_date" class="block text-xs font-medium text-gray-600 mb-1">Date *</label>
+            <input id="adjustment_date" name="date" type="date" required min="{{ \Carbon\Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateString() }}" max="{{ \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateString() }}" value="{{ old('date') }}" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div class="md:col-span-4">
+            <label for="adjustment_reason" class="block text-xs font-medium text-gray-600 mb-1">Motif *</label>
+            <input id="adjustment_reason" name="reason" type="text" maxlength="255" required value="{{ old('reason') }}" placeholder="Motif de l’ajustement" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div class="md:col-span-2 flex justify-end">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                <i class="fas fa-plus mr-1"></i> Enregistrer l’ajustement
+            </button>
+        </div>
+    </form>
+    @if($employees->isEmpty())
+    <p class="mt-3 text-sm text-amber-700">Aucun employé actif disponible pour la saisie.</p>
+    @endif
+</section>
+@endcan
 
 <div class="bg-white rounded-xl shadow overflow-hidden">
     <div class="overflow-x-auto">
@@ -159,6 +225,45 @@
     </div>
     <div class="px-4 py-3 border-t">{{ $payrolls->links() }}</div>
 </div>
+
+<section class="bg-white rounded-xl shadow overflow-hidden mt-6">
+    <div class="px-5 py-4 border-b">
+        <h2 class="font-bold text-gray-800">Historique des ajustements — {{ \Carbon\Carbon::createFromDate($year, $month, 1)->translatedFormat('F Y') }}</h2>
+        <p class="text-xs text-gray-500 mt-1">Les 50 ajustements les plus récents pour cette période.</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600 text-xs uppercase border-b">
+                <tr>
+                    <th class="px-4 py-3 text-left">Date</th>
+                    <th class="px-4 py-3 text-left">Employé</th>
+                    <th class="px-4 py-3 text-left">Type</th>
+                    <th class="px-4 py-3 text-left">Motif</th>
+                    <th class="px-4 py-3 text-right">Montant</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                @forelse($adjustments as $adjustment)
+                <tr>
+                    <td class="px-4 py-3">{{ $adjustment->date->format('d/m/Y') }}</td>
+                    <td class="px-4 py-3">{{ $adjustment->employee->full_name ?? '—' }}</td>
+                    <td class="px-4 py-3">
+                        <span class="{{ $adjustment->type === 'bonus' ? 'text-green-700' : 'text-red-600' }}">
+                            {{ $adjustment->type === 'bonus' ? 'Bonus' : 'Déduction' }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">{{ $adjustment->reason }}</td>
+                    <td class="px-4 py-3 text-right font-mono {{ $adjustment->type === 'bonus' ? 'text-green-700' : 'text-red-600' }}">
+                        {{ $adjustment->type === 'bonus' ? '+' : '−' }}{{ number_format($adjustment->amount, 2, ',', ' ') }} MRU
+                    </td>
+                </tr>
+                @empty
+                <tr><td colspan="5" class="text-center py-8 text-gray-400">Aucun ajustement pour cette période.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</section>
 
 {{-- MODAL PAIEMENT --}}
 <div id="modalPay" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

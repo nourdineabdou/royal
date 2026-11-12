@@ -58,17 +58,31 @@
                 @enderror
             </div>
 
+            <!-- Code-barres unité de base -->
+            <div class="mb-4">
+                <label for="barcode" class="block text-sm font-bold text-gray-700 mb-2">
+                    <i class="fas fa-barcode mr-2"></i>Code-barres de l'unité de base (optionnel)
+                </label>
+                <input type="text" id="barcode" name="barcode" value="{{ old('barcode') }}" maxlength="64" autocomplete="off"
+                       placeholder="Scannez ou tapez le code"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('barcode') border-red-500 @enderror">
+                <p class="text-xs text-gray-500 mt-1">Un scan de ce code compte <strong>1 unité de base</strong> (utile pour les produits à la pièce). Pour une bouteille, une caisse, un carton… mettez le code sur l'emballage correspondant ci-dessous.</p>
+                @error('barcode')
+                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+
             <!-- Emballages (achat/vente) -->
             <div class="mb-4">
                 <label class="block text-sm font-bold text-gray-700 mb-2">
                     <i class="fas fa-cube mr-2"></i>Emballages (achat / vente)
                 </label>
-                <p class="text-xs text-gray-500 mb-2">Un produit peut avoir plusieurs emballages (ex: Bouteille = 0,5 L, Caisse = 6 L). Chaque emballage indique combien d'unités de base (ci-dessus) il contient — sert à convertir les achats/ventes en stock.</p>
+                <p class="text-xs text-gray-500 mb-2">Un produit peut avoir plusieurs emballages (ex: Bouteille = 0,5 L, Caisse = 6 L). Chaque emballage indique combien d'unités de base (ci-dessus) il contient — sert à convertir les achats/ventes en stock. Donnez à chaque emballage son propre code-barres : scanner une caisse compte toute la caisse, scanner une bouteille compte une bouteille.</p>
 
                 <div id="packaging-rows" class="space-y-2 mb-2">
                     @foreach(old('packaging_id', []) as $i => $pkgId)
-                        <div class="packaging-row flex items-center gap-2">
-                            <select name="packaging_id[]" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <div class="packaging-row flex flex-wrap items-center gap-2">
+                            <select name="packaging_id[]" class="flex-1 min-w-[10rem] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                 <option value="">-- Emballage --</option>
                                 @foreach($packagings as $packaging)
                                     <option value="{{ $packaging->id }}" {{ $pkgId == $packaging->id ? 'selected' : '' }}>{{ $packaging->name }}</option>
@@ -77,7 +91,10 @@
                             <input type="number" step="0.01" min="0.01" name="packaging_quantity[]"
                                    value="{{ old('packaging_quantity')[$i] ?? '' }}"
                                    placeholder="Qté en unité de base (ex: 6)"
-                                   class="w-56 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                   class="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <input type="text" name="packaging_barcode[]" value="{{ old('packaging_barcode')[$i] ?? '' }}" maxlength="64" autocomplete="off"
+                                   placeholder="Code-barres (optionnel)"
+                                   class="w-48 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <button type="button" onclick="this.closest('.packaging-row').remove()" class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -94,6 +111,11 @@
                 @error('packaging_quantity.*')
                     <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                 @enderror
+                @foreach($errors->getMessages() as $key => $msgs)
+                    @if(str_starts_with($key, 'packaging_barcode'))
+                        <p class="text-red-500 text-sm mt-1">{{ $msgs[0] }}</p>
+                    @endif
+                @endforeach
             </div>
 
             <!-- Options de vente libre -->
@@ -140,8 +162,8 @@
 </div>
 
 <template id="packaging-row-template">
-    <div class="packaging-row flex items-center gap-2">
-        <select name="packaging_id[]" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+    <div class="packaging-row flex flex-wrap items-center gap-2">
+        <select name="packaging_id[]" class="flex-1 min-w-[10rem] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="">-- Emballage --</option>
             @foreach($packagings as $packaging)
                 <option value="{{ $packaging->id }}">{{ $packaging->name }}</option>
@@ -149,14 +171,24 @@
         </select>
         <input type="number" step="0.01" min="0.01" name="packaging_quantity[]"
                placeholder="Qté en unité de base (ex: 6)"
-               class="w-56 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        <button type="button" onclick="this.closest('.packaging-row').remove()" class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+               class="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <input type="text" name="packaging_barcode[]" value="" maxlength="64" autocomplete="off"
+                                   placeholder="Code-barres (optionnel)"
+                                   class="w-48 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button type="button" onclick="this.closest('.packaging-row').remove()" class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
             <i class="fas fa-trash"></i>
         </button>
     </div>
 </template>
 
 <script>
+    // Les douchettes envoient "Entrée" après le code : ne pas soumettre le formulaire
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.target.matches('input[name="barcode"], input[name="packaging_barcode[]"]')) {
+            e.preventDefault();
+        }
+    });
+
     document.getElementById('add-packaging-row').addEventListener('click', function () {
         const tpl = document.getElementById('packaging-row-template').content.cloneNode(true);
         document.getElementById('packaging-rows').appendChild(tpl);

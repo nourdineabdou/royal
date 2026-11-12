@@ -33,6 +33,7 @@ use App\Http\Controllers\PurchaseRequestController;
 use App\Http\Controllers\CateringController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\StockScanController;
 use App\Http\Controllers\ResidenceController;
 
 // Home page redirect
@@ -217,6 +218,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/leaves/{leave}/reject', [HRController::class, 'rejectLeave'])->name('leaves.reject');
 
         Route::get('/payroll', [HRController::class, 'payroll'])->name('payroll');
+        Route::post('/payroll/adjustments', [HRController::class, 'storeSalaryAdjustment'])->name('payroll.adjustments.store');
         Route::post('/payroll/generate', [HRController::class, 'generatePayroll'])->name('payroll.generate');
         Route::post('/payroll/{payroll}/paid', [HRController::class, 'markPayrollPaid'])->name('payroll.paid');
         Route::get('/payroll/{payroll}/payslip', [HRController::class, 'payslip'])->name('payroll.payslip');
@@ -370,6 +372,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/transfer',                [StockController::class, 'transfer'])->name('transfer');
         Route::post('/transfer',               [StockController::class, 'storeTransfer'])->name('storeTransfer');
         Route::post('/assign-module',          [StockController::class, 'assignModule'])->name('assign-module');
+        Route::get('/adjustments',             [StockController::class, 'adjustments'])->name('adjustments');
+        Route::post('/adjustments',            [StockController::class, 'storeAdjustments'])->name('adjustments.store');
+        Route::get('/scan',                    [StockScanController::class, 'index'])->name('scan');
+        Route::get('/scan/lookup',             [StockScanController::class, 'lookup'])->name('scan.lookup');
+        Route::post('/scan',                   [StockScanController::class, 'store'])->name('scan.store');
+        Route::post('/scan/link',              [StockScanController::class, 'link'])->name('scan.link');
         Route::get('/{stock}',                 [StockController::class, 'show'])->name('show');
         Route::get('/{stock}/movements',       [StockController::class, 'movements'])->name('movements');
         Route::get('/{stock}/export/inventory',[StockController::class, 'exportStockInventoryCsv'])->name('export.stock-inventory');

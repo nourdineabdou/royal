@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use App\Models\Employee;
 use App\Models\JobTitle;
 use App\Models\Payroll;
@@ -239,10 +240,11 @@ class HRController extends Controller
 
         abort_unless($disk->exists($document->file_path), 404);
 
-        return $disk->response($document->file_path, null, [
-            'Cache-Control' => 'private, no-store',
-            'X-Content-Type-Options' => 'nosniff',
-        ], 'inline');
+        $response = response()->file($disk->path($document->file_path));
+        $response->headers->set('Cache-Control', 'private, no-store');
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+        return $response;
     }
 
     public function destroyEmployeeDocument(\App\Models\EmployeeDocument $document)
@@ -366,11 +368,69 @@ class HRController extends Controller
 
         $jobTitles = JobTitle::orderBy('name')->get();
         $paymentTypes = \App\Models\PaymentType::orderBy('name')->get();
+        $employees = Employee::forCompany()->where('status', 'active')
+            ->orderBy('first_name')->orderBy('last_name')->get();
+        $period = Carbon::createFromDate((int) $year, (int) $month, 1);
+        $adjustments = SalaryAdjustment::with('employee')
+            ->whereBetween('date', [$period->copy()->startOfMonth()->toDateString(), $period->copy()->endOfMonth()->toDateString()])
+            ->whereHas('employee', fn ($query) => $query->forCompany())
+            ->latest('date')->latest('id')->limit(50)->get();
 
         return view('hr.payroll', compact(
-            'payrolls', 'month', 'year', 'jobTitleId', 'phone', 'name', 'jobTitles', 'paymentTypes',
+            'payrolls', 'month', 'year', 'jobTitleId', 'phone', 'name', 'jobTitles', 'paymentTypes', 'employees', 'adjustments',
             'totalNet', 'paidCount', 'pendCount'
         ));
+    }
+
+    public function storeSalaryAdjustment(Request $request)
+    {
+        $this->perm('hr.payroll.generate');
+
+        $validated = $request->validate([
+            'employee_id' => 'required|integer',
+            'type' => 'required|in:bonus,deduction',
+            'amount' => 'required|numeric|min:0.01|max:99999999.99',
+            'reason' => 'required|string|max:255',
+            'date' => 'required|date_format:Y-m-d',
+            'month' => 'required|integer|between:1,12',
+            'year' => 'required|integer|between:2000,2100',
+        ]);
+
+        $date = Carbon::createFromFormat('Y-m-d', $validated['date']);
+        if ($date->month !== (int) $validated['month'] || $date->year !== (int) $validated['year']) {
+            throw ValidationException::withMessages([
+                'date' => 'La date doit appartenir au mois de paie sélectionné.',
+            ]);
+        }
+
+        $employee = Employee::forCompany()->where('status', 'active')->find($validated['employee_id']);
+        if (!$employee) {
+            throw ValidationException::withMessages([
+                'employee_id' => 'Sélectionnez un employé actif de votre société.',
+            ]);
+        }
+
+        $payrollExists = Payroll::where('employee_id', $employee->id)
+            ->where('month', $validated['month'])
+            ->where('year', $validated['year'])
+            ->exists();
+        if ($payrollExists) {
+            throw ValidationException::withMessages([
+                'employee_id' => 'La fiche de paie de cet employé existe déjà pour ce mois ; aucun ajustement ne peut y être ajouté.',
+            ]);
+        }
+
+        $employee->salaryAdjustments()->create([
+            'type' => $validated['type'],
+            'amount' => $validated['amount'],
+            'reason' => $validated['reason'],
+            'date' => $validated['date'],
+        ]);
+
+        return redirect()->route('hr.payroll', [
+            'month' => $validated['month'],
+            'year' => $validated['year'],
+        ])->with('success', 'Ajustement de paie enregistré.');
     }
 
     /**
@@ -388,8 +448,12 @@ class HRController extends Controller
     public function generatePayroll(Request $request)
     {
         $this->perm('hr.payroll.generate');
-        $month = $request->input('month', now()->month);
-        $year  = $request->input('year', now()->year);
+        $period = $request->validate([
+            'month' => 'required|integer|between:1,12',
+            'year' => 'required|integer|between:2000,2100',
+        ]);
+        $month = $period['month'];
+        $year  = $period['year'];
 
         $employees = Employee::where('status', 'active')->get();
         $created = 0;

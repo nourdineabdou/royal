@@ -100,6 +100,18 @@
                class="sidebar-link {{ request()->routeIs('stock.transfer') ? 'active' : '' }}">
                 <i class="fa-solid fa-right-left"></i> Transfert de stock
             </a>
+            @can('stock.products.adjust')
+            <a href="{{ route('stock.scan') }}"
+               class="sidebar-link {{ request()->routeIs('stock.scan') ? 'active' : '' }}">
+                <i class="fa-solid fa-barcode"></i> Scanner entrée / sortie
+            </a>
+            @endcan
+            @if(auth()->user()?->hasRole(['admin', 'super-admin']))
+            <a href="{{ route('stock.adjustments') }}"
+               class="sidebar-link {{ request()->routeIs('stock.adjustments') ? 'active' : '' }}">
+                <i class="fa-solid fa-sliders"></i> Ajustement / Stock initial
+            </a>
+            @endif
             <div class="pt-3 pb-1 px-2">
                 <p class="text-xs font-semibold text-emerald-200 uppercase tracking-widest">Navigation</p>
             </div>
@@ -121,24 +133,47 @@
     <div class="flex-1 flex flex-col overflow-hidden">
 
         {{-- Top bar --}}
-        <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
-            <div class="flex items-center gap-3">
+        <header class="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-2 shadow-sm">
+            <div class="flex items-center gap-3 min-w-0">
                 <i class="fa-solid fa-boxes-stacked text-emerald-600 text-xl"></i>
-                <span class="font-semibold text-slate-800">@yield('header', 'Gestion des Stocks')</span>
+                <span class="font-semibold text-slate-800 truncate">@yield('header', 'Gestion des Stocks')</span>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-2 md:gap-3">
                 @yield('header-actions')
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button class="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1">
-                        <i class="fa-solid fa-right-from-bracket"></i> Déconnexion
+                    <button class="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1" title="Déconnexion">
+                        <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">Déconnexion</span>
                     </button>
                 </form>
             </div>
         </header>
 
+        {{-- Navigation mobile / tablette (la barre latérale est masquée sous md) --}}
+        <nav class="md:hidden bg-emerald-700 text-white flex gap-1 overflow-x-auto px-2 py-2 text-xs font-medium whitespace-nowrap">
+            @php
+                $mobileLinks = [
+                    ['stock.index', 'fa-warehouse', 'Stocks'],
+                    ['stock.all-movements', 'fa-arrows-rotate', 'Mouvements'],
+                    ['stock.transfer', 'fa-right-left', 'Transfert'],
+                ];
+                if (auth()->user()?->can('stock.products.adjust')) {
+                    array_splice($mobileLinks, 1, 0, [['stock.scan', 'fa-barcode', 'Scanner']]);
+                }
+                if (auth()->user()?->hasRole(['admin', 'super-admin'])) {
+                    $mobileLinks[] = ['stock.adjustments', 'fa-sliders', 'Ajustement'];
+                }
+            @endphp
+            @foreach($mobileLinks as [$r, $icon, $label])
+                <a href="{{ route($r) }}"
+                   class="flex items-center gap-1.5 px-3 py-2 rounded-lg {{ request()->routeIs($r) ? 'bg-white text-emerald-700' : 'hover:bg-white/20' }}">
+                    <i class="fa-solid {{ $icon }}"></i> {{ $label }}
+                </a>
+            @endforeach
+        </nav>
+
         {{-- Flash messages --}}
-        <div class="px-6 pt-3">
+        <div class="px-4 md:px-6 pt-3">
             @if(session('success'))
                 <div class="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg px-4 py-2 text-sm mb-3">
                     <i class="fa-solid fa-circle-check text-emerald-500"></i> {{ session('success') }}
@@ -151,7 +186,7 @@
             @endif
         </div>
 
-        <main class="flex-1 overflow-y-auto px-6 pb-8">
+        <main class="flex-1 overflow-y-auto px-4 md:px-6 pb-8">
             @yield('content')
         </main>
     </div>

@@ -45,6 +45,12 @@
                             <p class="text-lg font-semibold text-gray-900">
                                 {{ $pp->packaging->name }}
                                 <span class="text-sm text-gray-500">(1 {{ $pp->packaging->name }} = {{ rtrim(rtrim(number_format($pp->quantity, 2), '0'), '.') }} {{ $product->unit->symbol ?? $product->unit->name }})</span>
+                                @if($breakdown = $pp->breakdown($product->productPackagings))
+                                    <span class="ml-1 text-xs font-medium bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">contient {{ $breakdown }}</span>
+                                @endif
+                                @if($pp->barcode)
+                                    <span class="block text-xs font-mono text-gray-400"><i class="fas fa-barcode mr-1"></i>{{ $pp->barcode }}</span>
+                                @endif
                             </p>
                         </div>
                     @empty

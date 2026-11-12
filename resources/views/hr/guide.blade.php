@@ -464,7 +464,7 @@
         <section class="module" id="paie">
           <div class="module-head">
             <div class="module-icon" style="background:var(--accent);">09</div>
-            <div><h2>Paie</h2><p class="lede">Génération mensuelle des fiches de paie, paiement et fiche imprimable — avec écriture comptable automatique.</p></div>
+            <div><h2>Paie</h2><p class="lede">Saisie et historique des bonus et déductions individuels, génération mensuelle des fiches de paie, paiement et fiche imprimable — avec écriture comptable automatique.</p></div>
           </div>
           <div class="perm-row"><span class="perm-tag">hr.payroll.view</span><span class="perm-tag">hr.payroll.generate</span><span class="perm-tag">hr.payroll.mark-paid</span></div>
 

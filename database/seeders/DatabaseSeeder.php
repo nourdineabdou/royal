@@ -13,7 +13,8 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,     // 1. Rôles & permissions Spatie
             UserSeeder::class,           // 2. Super-admins (nourdine, saydou) + RH (salamata.ball)
             ReferenceDataSeeder::class,  // 3. Unités, emballages, catégories, types de paiement, postes RH, types de chambre, services
-            ChartOfAccountsSeeder::class,// 4. Plan comptable mauritanien (indispensable au module Comptabilité)
+            ComplexRoyalProductSeeder::class, // 4. Catalogue produits Complex Royal
+            ChartOfAccountsSeeder::class, // 5. Plan comptable mauritanien (indispensable au module Comptabilité)
         ]);
 
         // Jeux de données de démonstration (commandes, clients, contrats, réservations, etc.)
@@ -39,4 +40,3 @@ class DatabaseSeeder extends Seeder
         // ]);
     }
 }
-

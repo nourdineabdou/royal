@@ -39,6 +39,8 @@
                     <option value="transfer"   {{ ($filters['origin_module'] ?? '') === 'transfer'   ? 'selected' : '' }}>Transfert</option>
                     <option value="purchase"   {{ ($filters['origin_module'] ?? '') === 'purchase'   ? 'selected' : '' }}>Achat</option>
                     <option value="manual"     {{ ($filters['origin_module'] ?? '') === 'manual'     ? 'selected' : '' }}>Manuel</option>
+                    <option value="adjustment" {{ ($filters['origin_module'] ?? '') === 'adjustment' ? 'selected' : '' }}>Ajustement / Stock initial</option>
+                    <option value="scan"       {{ ($filters['origin_module'] ?? '') === 'scan'       ? 'selected' : '' }}>Scan</option>
                 </select>
             </div>
             <div>

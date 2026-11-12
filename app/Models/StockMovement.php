@@ -57,6 +57,8 @@ class StockMovement extends Model
             'transfer'   => 'Transfert',
             'purchase'   => 'Achat',
             'manual'     => 'Manuel',
+            'adjustment' => $this->origin_type === 'initial' ? 'Stock initial' : 'Ajustement',
+            'scan'       => 'Scan',
             default      => $this->origin_module ?? '—',
         };
     }

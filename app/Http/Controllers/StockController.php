@@ -260,6 +260,100 @@ class StockController extends Controller
         }
     }
 
+    // ─── Ajustement / stock initial (administrateurs uniquement) ─────────────
+
+    public function adjustments(Request $request)
+    {
+        $this->ensureAdmin();
+
+        $stocks = Stock::orderBy('name')->get(['id', 'name', 'module']);
+        $stock  = $request->filled('stock_id')
+            ? $stocks->firstWhere('id', (int) $request->stock_id)
+            : $stocks->first();
+
+        $products = collect();
+        $recent   = collect();
+
+        if ($stock) {
+            $quantities = StockItem::where('stock_id', $stock->id)->pluck('quantity', 'product_id');
+            $withMoves  = StockMovement::where('stock_id', $stock->id)
+                ->distinct()->pluck('product_id')->flip();
+
+            $products = Product::with('unit')->orderBy('name')->get()
+                ->map(function ($p) use ($quantities, $withMoves) {
+                    $p->current_qty = (float) ($quantities[$p->id] ?? 0);
+                    $p->is_new      = !isset($withMoves[$p->id]) && $p->current_qty == 0;
+                    return $p;
+                });
+
+            $recent = StockMovement::with(['product.unit', 'user'])
+                ->where('stock_id', $stock->id)
+                ->where('origin_module', 'adjustment')
+                ->latest()->limit(15)->get();
+        }
+
+        return view('stock.adjustments', compact('stocks', 'stock', 'products', 'recent'));
+    }
+
+    public function storeAdjustments(Request $request)
+    {
+        $this->ensureAdmin();
+
+        $data = $request->validate([
+            'stock_id'     => 'required|exists:stocks,id',
+            'quantities'   => 'required|array|min:1',
+            'quantities.*' => 'required|numeric|min:0|max:99999999',
+            'notes'        => 'nullable|string|max:500',
+        ], [
+            'quantities.required' => 'Aucune quantité modifiée.',
+            'quantities.*.min'    => 'Une quantité ne peut pas être négative.',
+        ]);
+
+        $stockId = (int) $data['stock_id'];
+        $notes   = trim($data['notes'] ?? '');
+        $count   = 0;
+
+        DB::transaction(function () use ($data, $stockId, $notes, &$count) {
+            $productIds = Product::whereIn('id', array_keys($data['quantities']))->pluck('id');
+
+            foreach ($productIds as $prodId) {
+                $newQty = round((float) $data['quantities'][$prodId], 2);
+
+                $item = StockItem::where('stock_id', $stockId)->where('product_id', $prodId)
+                    ->lockForUpdate()->first()
+                    ?? StockItem::create(['stock_id' => $stockId, 'product_id' => $prodId, 'quantity' => 0]);
+
+                $diff = round($newQty - (float) $item->quantity, 2);
+                if ($diff == 0.0) {
+                    continue;
+                }
+
+                $isInitial = (float) $item->quantity == 0.0
+                    && !StockMovement::where('stock_id', $stockId)->where('product_id', $prodId)->exists();
+
+                $item->update(['quantity' => $newQty]);
+
+                StockMovement::create([
+                    'stock_id'      => $stockId,
+                    'product_id'    => $prodId,
+                    'type'          => $diff > 0 ? 'in' : 'out',
+                    'quantity'      => abs($diff),
+                    'origin_module' => 'adjustment',
+                    'origin_type'   => $isInitial ? 'initial' : 'adjustment',
+                    'user_id'       => auth()->id(),
+                    'notes'         => $notes !== '' ? $notes : ($isInitial ? 'Stock initial' : 'Ajustement d\'inventaire'),
+                ]);
+                $count++;
+            }
+        });
+
+        return redirect()
+            ->route('stock.adjustments', ['stock_id' => $stockId])
+            ->with($count ? 'success' : 'error', $count
+                ? "{$count} produit(s) ajusté(s) avec succès."
+                : 'Aucune différence avec le stock actuel : rien n\'a été modifié.');
+    }
+
     // ─── CSV Exports ──────────────────────────────────────────────────────────
 
     public function exportInventoryCsv(Request $request)
@@ -349,6 +443,15 @@ class StockController extends Controller
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
+
+    private function ensureAdmin(): void
+    {
+        abort_unless(
+            auth()->user()?->hasRole(['admin', 'super-admin']),
+            403,
+            'Seul un administrateur peut ajuster le stock.'
+        );
+    }
 
     private function applyMovementFilters($query, Request $request): void
     {
