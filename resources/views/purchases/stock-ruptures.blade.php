@@ -2,143 +2,97 @@
 @section('title', 'Ruptures de stock')
 
 @section('content')
+@php
+    use App\Support\Qty;
+    $ruptures = $alerts->where('level', 'rupture');
+    $below    = $alerts->where('level', 'below');
+@endphp
 
-<div class="flex items-center justify-between mb-6">
-    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-        <i class="fa-solid fa-triangle-exclamation text-red-500"></i> Alertes & Ruptures de stock
-    </h2>
-</div>
+<div class="max-w-5xl mx-auto space-y-5">
+    <div>
+        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-red-500"></i> Ruptures et stock sous le seuil
+        </h2>
+        <p class="text-sm text-slate-500">Stock du <strong>{{ $ref->name ?? 'magasin' }}</strong> comparé au seuil minimum de chaque produit.</p>
+    </div>
 
-{{-- Summary cards --}}
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-    <div class="bg-red-50 border border-red-100 rounded-2xl p-5 flex items-center gap-4">
-        <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
-            <i class="fa-solid fa-circle-xmark text-red-500 text-xl"></i>
+    {{-- ── La demande d'achat préparée automatiquement ─────────────── --}}
+    @can('purchases.requests.create')
+    <a href="{{ route('purchases.requests.auto') }}"
+       class="flex items-center gap-4 rounded-2xl p-4 border shadow-sm transition hover:shadow-md {{ $draft ? 'bg-orange-600 border-orange-600 text-white' : 'bg-white border-slate-200 text-slate-700' }}">
+        <i class="fa-solid fa-wand-magic-sparkles text-2xl"></i>
+        <div class="flex-1 min-w-0">
+            @if($draft)
+                <p class="font-bold text-lg">Demande d'achat prête : {{ $draft->items->count() }} produit(s) à commander</p>
+                <p class="text-sm text-orange-50">Préparée automatiquement · {{ $draft->reference }} · relisez-la et envoyez-la pour approbation</p>
+            @else
+                <p class="font-bold">Aucune demande à préparer</p>
+                <p class="text-sm text-slate-500">Les produits sous le seuil sont déjà en commande, ou rien ne manque.</p>
+            @endif
         </div>
-        <div>
-            <p class="text-xs font-semibold text-red-500 uppercase tracking-wide">En rupture totale</p>
-            <p class="text-3xl font-bold text-red-700">{{ $ruptures->count() }}</p>
-            <p class="text-xs text-red-400">produits à stock zéro</p>
-        </div>
-    </div>
-    <div class="bg-amber-50 border border-amber-100 rounded-2xl p-5 flex items-center gap-4">
-        <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
-            <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xl"></i>
-        </div>
-        <div>
-            <p class="text-xs font-semibold text-amber-600 uppercase tracking-wide">Stock critique</p>
-            <p class="text-3xl font-bold text-amber-700">{{ $lowStock->count() }}</p>
-            <p class="text-xs text-amber-400">produits ≤ 5 unités</p>
-        </div>
-    </div>
-</div>
-
-{{-- Ruptures totales --}}
-@if($ruptures->count() > 0)
-<div class="bg-white rounded-2xl shadow-sm overflow-hidden mb-6">
-    <div class="px-5 py-4 bg-red-50 border-b border-red-100 flex items-center gap-2">
-        <i class="fa-solid fa-circle-xmark text-red-500"></i>
-        <h3 class="font-semibold text-red-700">Rupture totale — quantité = 0</h3>
-    </div>
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="text-xs text-slate-400 uppercase border-b bg-slate-50">
-                <tr>
-                    <th class="px-5 py-3 text-left">Produit</th>
-                    <th class="px-5 py-3 text-left">Unité</th>
-                    <th class="px-5 py-3 text-left">Dépôt</th>
-                    <th class="px-5 py-3 text-right">Quantité</th>
-                    <th class="px-5 py-3 text-center">Action rapide</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($ruptures as $item)
-                <tr class="border-b border-slate-50 hover:bg-red-50/30 transition">
-                    <td class="px-5 py-3 font-medium text-slate-800">{{ $item->product->name ?? '—' }}</td>
-                    <td class="px-5 py-3 text-slate-500">{{ $item->product->unit->name ?? '—' }}</td>
-                    <td class="px-5 py-3 text-slate-500">{{ $item->stock->name ?? '—' }}</td>
-                    <td class="px-5 py-3 text-right">
-                        <span class="px-2 py-1 bg-red-100 text-red-700 font-bold rounded-lg">0 {{ $item->product->unit->symbol ?? '' }}</span>
-                    </td>
-                    <td class="px-5 py-3 text-center">
-                        @can('purchases.orders.create')
-                        <a href="{{ route('purchases.orders.create') }}"
-                           class="text-xs text-orange-600 hover:underline font-medium">
-                            <i class="fa-solid fa-plus mr-1"></i>Commander
-                        </a>
-                        @endcan
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
-</div>
-@else
-<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 mb-6 text-center">
-    <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2"></i>
-    <p class="text-emerald-700 font-medium">Aucune rupture totale</p>
-</div>
-@endif
-
-{{-- Stock critique --}}
-@if($lowStock->count() > 0)
-<div class="bg-white rounded-2xl shadow-sm overflow-hidden mb-6">
-    <div class="px-5 py-4 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
-        <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
-        <h3 class="font-semibold text-amber-700">Stock critique — quantité ≤ 5</h3>
-    </div>
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="text-xs text-slate-400 uppercase border-b bg-slate-50">
-                <tr>
-                    <th class="px-5 py-3 text-left">Produit</th>
-                    <th class="px-5 py-3 text-left">Unité</th>
-                    <th class="px-5 py-3 text-left">Dépôt</th>
-                    <th class="px-5 py-3 text-right">Quantité</th>
-                    <th class="px-5 py-3 text-center">Action rapide</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($lowStock as $item)
-                <tr class="border-b border-slate-50 hover:bg-amber-50/30 transition">
-                    <td class="px-5 py-3 font-medium text-slate-800">{{ $item->product->name ?? '—' }}</td>
-                    <td class="px-5 py-3 text-slate-500">{{ $item->product->unit->name ?? '—' }}</td>
-                    <td class="px-5 py-3 text-slate-500">{{ $item->stock->name ?? '—' }}</td>
-                    <td class="px-5 py-3 text-right">
-                        <span class="px-2 py-1 bg-amber-100 text-amber-700 font-bold rounded-lg">
-                            {{ $item->quantity }} {{ $item->product->unit->symbol ?? '' }}
-                        </span>
-                    </td>
-                    <td class="px-5 py-3 text-center">
-                        @can('purchases.orders.create')
-                        <a href="{{ route('purchases.orders.create') }}"
-                           class="text-xs text-orange-600 hover:underline font-medium">
-                            <i class="fa-solid fa-plus mr-1"></i>Commander
-                        </a>
-                        @endcan
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
-</div>
-@else
-<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 mb-6 text-center">
-    <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2"></i>
-    <p class="text-emerald-700 font-medium">Aucun produit en stock critique</p>
-</div>
-@endif
-
-{{-- CTA --}}
-@can('purchases.orders.create')
-<div class="text-center">
-    <a href="{{ route('purchases.orders.create') }}"
-       class="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-semibold text-sm transition shadow">
-        <i class="fa-solid fa-plus"></i> Créer une commande d'approvisionnement
+        <i class="fa-solid fa-arrow-right"></i>
     </a>
-</div>
-@endcan
+    @endcan
 
+    <div class="grid grid-cols-2 gap-3">
+        <div class="bg-red-50 border border-red-100 rounded-2xl p-4">
+            <p class="text-xs font-semibold text-red-600 uppercase tracking-wide">En rupture</p>
+            <p class="text-3xl font-bold text-red-700">{{ $ruptures->count() }}</p>
+            <p class="text-xs text-red-500">stock à zéro</p>
+        </div>
+        <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+            <p class="text-xs font-semibold text-amber-700 uppercase tracking-wide">Sous le seuil</p>
+            <p class="text-3xl font-bold text-amber-700">{{ $below->count() }}</p>
+            <p class="text-xs text-amber-600">à surveiller ou commander</p>
+        </div>
+    </div>
+
+    @if($noThreshold > 0)
+        <div class="bg-sky-50 border border-sky-100 text-sky-800 rounded-xl px-4 py-3 text-sm">
+            <i class="fa-solid fa-circle-info mr-1"></i>
+            {{ $noThreshold }} produit(s) utilisent le <strong>seuil par défaut : 3 emballages d'achat</strong> (3 sacs, 3 cartons…).
+            Pour un seuil précis : <a href="{{ route('purchases.products.index') }}" class="underline font-semibold">Produits › Modifier</a>.
+        </div>
+    @endif
+
+    @if($alerts->isEmpty())
+        <div class="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
+            <i class="fa-solid fa-circle-check text-emerald-500 text-3xl mb-2 block"></i>
+            Aucun produit en rupture ni sous son seuil.
+        </div>
+    @else
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-100">
+            @foreach($alerts as $a)
+                @php $p = $a['product']; $unit = $p->unit->symbol ?? ''; @endphp
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2 p-4">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-semibold text-slate-800">{{ $p->name }}</span>
+                            @if($a['level'] === 'rupture')
+                                <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Rupture</span>
+                            @else
+                                <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Sous le seuil</span>
+                            @endif
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Stock : <strong class="{{ $a['level'] === 'rupture' ? 'text-red-600' : 'text-amber-700' }}">{{ Qty::format($a['total'], $unit) }}</strong>
+                            · Seuil : {{ Qty::format($a['min'], $unit) }}@if($a['min_default']) <span class="text-slate-400">({{ $a['min_label'] }})</span>@endif
+                            @if($a['incoming'] > 0) · En commande : <strong>{{ Qty::format($a['incoming'], $unit) }}</strong> @endif
+                        </p>
+                    </div>
+                    <div class="sm:text-right shrink-0">
+                        @if($a['needs_order'])
+                            <p class="text-[11px] text-slate-400">Dans la demande automatique</p>
+                            <p class="text-sm font-semibold text-orange-700">{{ $a['suggested_label'] }}</p>
+                        @else
+                            <p class="text-sm font-semibold {{ $a['incoming'] > 0 ? 'text-emerald-700' : 'text-slate-400' }}">
+                                {{ $a['incoming'] > 0 ? '✓ Déjà en commande' : $a['suggested_label'] }}
+                            </p>
+                        @endif
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
+</div>
 @endsection

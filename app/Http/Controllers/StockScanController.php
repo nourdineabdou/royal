@@ -9,12 +9,14 @@ use App\Models\Stock;
 use App\Models\StockItem;
 use App\Models\StockMovement;
 use App\Support\Barcode;
+use App\Support\ScanCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Entrées / sorties de stock par scan de codes-barres.
+ * Sorties de stock par scan de codes-barres (les entrées passent par les réceptions BL,
+ * voir ReceptionController ; les corrections par l'ajustement admin).
  *
  * Un produit peut avoir plusieurs codes : un par niveau de conditionnement
  * (bouteille, pack, caisse…). Chaque code porte un coefficient vers l'unité de base
@@ -29,8 +31,7 @@ class StockScanController extends Controller
         $stocks = Stock::orderBy('name')->get(['id', 'name', 'module']);
         $stockId = (int) ($request->stock_id ?: $stocks->first()?->id);
 
-        $catalog = Product::with(['unit', 'productPackagings.packaging'])->orderBy('name')->get()
-            ->map(fn (Product $p) => $this->catalogEntry($p))->values();
+        $catalog = ScanCatalog::all();
 
         $availability = StockItem::where('quantity', '!=', 0)->get(['stock_id', 'product_id', 'quantity'])
             ->groupBy('stock_id')
@@ -45,7 +46,8 @@ class StockScanController extends Controller
     /** Recherche serveur d'un code (codes associés par un autre poste depuis l'ouverture de la page). */
     public function lookup(Request $request)
     {
-        $this->perm('stock.products.adjust');
+        // Utilisé par la page de sortie et par l'écran de réception BL.
+        abort_unless(auth()->user()?->canAny(['stock.products.adjust', 'purchases.orders.receipt']), 403);
         $request->validate(['code' => 'required|string|max:64']);
 
         $found = Barcode::resolve($request->code);
@@ -57,7 +59,7 @@ class StockScanController extends Controller
 
         return response()->json([
             'found'   => true,
-            'product' => $this->catalogEntry($product),
+            'product' => ScanCatalog::entry($product),
         ]);
     }
 
@@ -67,7 +69,6 @@ class StockScanController extends Controller
 
         $data = $request->validate([
             'stock_id'                     => 'required|exists:stocks,id',
-            'type'                         => 'required|in:in,out',
             'notes'                        => 'nullable|string|max:300',
             'lines'                        => 'required|array|min:1',
             'lines.*.product_id'           => 'required|integer|exists:products,id',
@@ -78,7 +79,7 @@ class StockScanController extends Controller
         ]);
 
         $stockId = (int) $data['stock_id'];
-        $type    = $data['type'];
+        $type    = 'out'; // les entrées passent par une réception fournisseur (BL)
 
         // Regroupe par produit ; les coefficients viennent de la base, jamais du navigateur.
         $perProduct = [];
@@ -226,31 +227,11 @@ class StockScanController extends Controller
 
         return response()->json([
             'message' => 'Code associé à ' . $product->name . '.',
-            'product' => $this->catalogEntry($product),
+            'product' => ScanCatalog::entry($product),
         ]);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
-
-    private function catalogEntry(Product $p): array
-    {
-        return [
-            'id'         => $p->id,
-            'name'       => $p->name,
-            'ref'        => $p->reference,
-            'unit'       => $p->unit->symbol ?? '',
-            'barcode'    => $p->barcode,
-            'packagings' => $p->productPackagings
-                ->sortByDesc('quantity')
-                ->map(fn (ProductPackaging $pp) => [
-                    'id'        => $pp->id,
-                    'name'      => $pp->packaging->name ?? 'Emballage',
-                    'qty'       => (float) $pp->quantity,
-                    'barcode'   => $pp->barcode,
-                    'breakdown' => $pp->breakdown($p->productPackagings), // ex : « 12 × Bouteille 1 L »
-                ])->values(),
-        ];
-    }
 
     private function fmt($n): string
     {

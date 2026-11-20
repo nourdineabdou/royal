@@ -45,21 +45,25 @@
                 <form method="POST" action="{{ route('login') }}" class="space-y-5">
                     @csrf
 
-                    {{-- Email --}}
+                    {{-- Nom d'utilisateur ou e-mail --}}
                     <div>
-                        <label for="email" class="block text-slate-700 font-semibold text-sm mb-2">
-                            <i class="fas fa-envelope mr-1.5 text-blue-500"></i>Adresse Email
+                        <label for="login" class="block text-slate-700 font-semibold text-sm mb-2">
+                            <i class="fas fa-user mr-1.5 text-blue-500"></i>Nom d'utilisateur ou e-mail
                         </label>
                         <input
-                            type="email"
-                            name="email"
-                            id="email"
-                            value="{{ old('email') }}"
-                            class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition @error('email') border-red-400 @enderror"
-                            placeholder="votre@email.com"
+                            type="text"
+                            name="login"
+                            id="login"
+                            value="{{ old('login') }}"
+                            class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition @error('login') border-red-400 @enderror"
+                            placeholder="ex : sambou"
                             required
-                            autocomplete="email">
-                        @error('email')
+                            autofocus
+                            autocapitalize="none"
+                            autocorrect="off"
+                            spellcheck="false"
+                            autocomplete="username">
+                        @error('login')
                             <p class="text-red-500 text-xs mt-1.5"><i class="fas fa-circle-exclamation mr-1"></i>{{ $message }}</p>
                         @enderror
                     </div>
@@ -100,8 +104,12 @@
                                 class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
                             <span class="text-sm text-slate-600">Se souvenir de moi</span>
                         </label>
-                        <a href="#" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Mot de passe oublié ?</a>
+                        <button type="button" onclick="document.getElementById('forgotHelp').classList.toggle('hidden')" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Mot de passe oublié ?</button>
                     </div>
+
+                    <p id="forgotHelp" class="hidden text-sm bg-blue-50 text-blue-800 rounded-xl px-4 py-3">
+                        <i class="fa-solid fa-circle-info mr-1"></i> Demandez à l'administrateur de réinitialiser votre mot de passe. Il vous donnera un mot de passe provisoire, que vous changerez à la connexion.
+                    </p>
 
                     {{-- Bouton --}}
                     <button

@@ -10,23 +10,51 @@
     </a>
 </div>
 
-@if(session('success'))
-<div class="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm">
-    {{ session('success') }}
-</div>
-@endif
 
-{{-- Filtre statut --}}
-<div class="bg-white rounded-2xl shadow-sm p-4 mb-5">
-    <form method="GET" class="flex gap-2 items-center">
-        <select name="status" onchange="this.form.submit()" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
-            <option value="">Tous les statuts</option>
-            @foreach(['pending' => 'En attente', 'partially_ordered' => 'Partiellement commandée', 'ordered' => 'Entièrement commandée', 'cancelled' => 'Annulée'] as $val => $label)
-                <option value="{{ $val }}" {{ request('status') === $val ? 'selected' : '' }}>{{ $label }}</option>
-            @endforeach
-        </select>
-    </form>
-</div>
+{{-- Filtres : ce qui reste à traiter (statut), période, n° de DA --}}
+@php
+    $status = $filters['status'] ?? null;
+    $keep = fn (array $x) => array_filter(array_merge(['from' => $filters['from'] ?? null, 'to' => $filters['to'] ?? null, 'q' => $filters['q'] ?? null, 'status' => $status], $x));
+    $mine = auth()->user()->can('purchases.requests.validate') ? 'to_validate' : (auth()->user()->can('purchases.requests.approve') ? 'pending' : null);
+@endphp
+@if($mine && ($counts[$mine] ?? 0) > 0 && $status !== $mine)
+<a href="{{ route('purchases.requests', $keep(['status' => $mine])) }}"
+   class="flex items-center gap-3 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl px-5 py-3 mb-4 shadow-sm">
+    <i class="fa-solid fa-hourglass-half"></i>
+    <span class="flex-1 font-semibold">{{ $counts[$mine] }} demande{{ $counts[$mine] > 1 ? 's' : '' }} d'achat attend{{ $counts[$mine] > 1 ? 'ent' : '' }} votre {{ $mine === 'to_validate' ? 'validation' : 'approbation' }}</span>
+    <i class="fa-solid fa-arrow-right"></i>
+</a>
+@endif
+<form method="GET" class="bg-white rounded-2xl shadow-sm p-4 mb-5 space-y-3">
+    @if($status)<input type="hidden" name="status" value="{{ $status }}">@endif
+    <div class="flex flex-wrap items-end gap-2">
+        <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">N° de DA</label>
+            <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="DA-…" class="w-40 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        </div>
+        <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Du</label>
+            <input type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        </div>
+        <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Au</label>
+            <input type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        </div>
+        <button class="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-medium"><i class="fa-solid fa-filter"></i> Filtrer</button>
+        @if(array_filter($filters))
+            <a href="{{ route('purchases.requests') }}" class="ml-auto text-sm text-red-600 hover:text-red-700 py-2"><i class="fa-solid fa-xmark mr-1"></i>Effacer les filtres</a>
+        @endif
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <a href="{{ route('purchases.requests', $keep(['status' => null])) }}"
+           class="px-3 py-1.5 rounded-full text-xs font-semibold border {{ !$status ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50' }}">Toutes · {{ $counts->sum() }}</a>
+        @foreach(\App\Models\PurchaseRequest::STATUSES as $val => $label)
+            @continue(!($counts[$val] ?? 0) && $status !== $val)
+            <a href="{{ route('purchases.requests', $keep(['status' => $val])) }}"
+               class="px-3 py-1.5 rounded-full text-xs font-semibold border {{ $status === $val ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50' }}">{{ $label }} · {{ $counts[$val] ?? 0 }}</a>
+        @endforeach
+    </div>
+</form>
 
 <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
     <table class="w-full text-sm">
@@ -64,15 +92,15 @@
                             'cancelled' => 'Annulée',
                         ];
                     @endphp
-                    <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $badges[$req->status] ?? 'bg-slate-100 text-slate-600' }}">
-                        {{ $labels[$req->status] ?? $req->status }}
+                    <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $req->status_badge }}">
+                        {{ $req->status_label }}
                     </span>
                 </td>
                 <td class="px-5 py-3 text-slate-500">{{ $req->created_at->format('d/m/Y H:i') }}</td>
             </tr>
             @empty
             <tr>
-                <td colspan="6" class="px-5 py-10 text-center text-slate-400">Aucune demande d'achat pour l'instant.</td>
+                <td colspan="6" class="px-5 py-10 text-center text-slate-400">{{ array_filter($filters) ? 'Aucune demande d’achat pour ces filtres.' : 'Aucune demande d’achat pour l’instant.' }}</td>
             </tr>
             @endforelse
         </tbody>

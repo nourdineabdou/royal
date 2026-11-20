@@ -109,7 +109,7 @@
             <tr>
                 <th>#</th>
                 <th>Produit</th>
-                <th>Conditionnement</th>
+                <th>Emballage</th>
                 <th class="right">Qté commandée</th>
                 <th class="right">Prix unitaire</th>
                 <th class="right">Total</th>
@@ -120,9 +120,19 @@
             <tr>
                 <td>{{ $i + 1 }}</td>
                 <td>{{ $item->product->name ?? '-' }}</td>
-                <td>{{ $item->packaging->name ?? '-' }}</td>
-                <td class="right">{{ number_format($item->quantity, 2, ',', ' ') }} {{ $item->product->unit->symbol ?? '' }}</td>
-                <td class="right">{{ number_format($item->price, 2, ',', ' ') }}</td>
+                <td>
+                    @if($item->packaging_id)
+                        <strong>{{ $item->packaging->name ?? 'Emballage' }}</strong>
+                        @if($item->perPack())<br><span style="color:#6b7280;">contient {{ \App\Support\Qty::format($item->perPack(), $item->product->unit->symbol ?? '') }}</span>@endif
+                    @else
+                        En vrac ({{ \App\Support\Qty::displayUnit($item->product->unit->symbol ?? '')['label'] ?: 'unité' }})
+                    @endif
+                </td>
+                <td class="right">
+                    <strong>{{ $item->qtyLabel() }}</strong>
+                    @if($item->baseLabel())<br><span style="color:#6b7280;">= {{ $item->baseLabel() }}</span>@endif
+                </td>
+                <td class="right">{{ number_format($item->price, 2, ',', ' ') }}<br><span style="color:#6b7280;">/ {{ $item->packaging->name ?? ($item->product->unit->symbol ?? 'unité') }}</span></td>
                 <td class="right">{{ number_format($item->total, 2, ',', ' ') }}</td>
             </tr>
             @endforeach
@@ -149,7 +159,14 @@
                     <td>{{ $receiptRow++ }}</td>
                     <td>{{ $receipt->received_at ? \Carbon\Carbon::parse($receipt->received_at)->format('d/m/Y') : $receipt->created_at->format('d/m/Y') }}</td>
                     <td>{{ $item->product->name ?? '-' }}</td>
-                    <td class="right">{{ number_format($item->quantity_received ?? $item->quantity, 2, ',', ' ') }}</td>
+                    <td class="right">
+                        @if($item->orderItem && $item->orderItem->packaging_id)
+                            <strong>{{ $item->orderItem->qtyLabel((float) $item->received_quantity) }}</strong><br>
+                            <span style="color:#6b7280;">= {{ \App\Support\Qty::format($item->quantity, $item->product->unit->symbol ?? '') }}</span>
+                        @else
+                            {{ \App\Support\Qty::format($item->quantity, $item->product->unit->symbol ?? '') }}
+                        @endif
+                    </td>
                 </tr>
                 @endforeach
             @endforeach

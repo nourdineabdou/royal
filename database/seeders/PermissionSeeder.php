@@ -128,6 +128,9 @@ class PermissionSeeder extends Seeder
             'purchases.dashboard',
             'purchases.requests.view',
             'purchases.requests.create',
+            'purchases.requests.approve',  // ① acheteur : approuve les DA du magasinier
+            'purchases.requests.validate', // ② responsable des achats : valide avant tout achat
+            'purchases.quotes.manage',     // acheteur : saisit les devis fournisseurs
             'purchases.suppliers.view',
             'purchases.suppliers.create',
             'purchases.suppliers.edit',
@@ -211,6 +214,11 @@ class PermissionSeeder extends Seeder
             'stock.assign-module',
             'stock.products.adjust',
 
+            // ── Demandes des cuisines au magasin ─────────────────────────────
+            'kitchen.requests.create',   // cuisinier : demander
+            'kitchen.requests.prepare',  // magasinier : préparer / remettre
+            'kitchen.requests.validate', // cuisinier : « je prends » (sortie de stock)
+
             // ── Résidence ─────────────────────────────────────────────────────
             'residence.dashboard',
             'residence.rooms.view',
@@ -243,7 +251,10 @@ class PermissionSeeder extends Seeder
         $serveur    = Role::firstOrCreate(['name' => 'serveur',     'guard_name' => 'web']);
         $rh         = Role::firstOrCreate(['name' => 'rh',          'guard_name' => 'web']);
         $achat      = Role::firstOrCreate(['name' => 'achat',       'guard_name' => 'web']);
+        $respAchat  = Role::firstOrCreate(['name' => 'responsable-achat', 'guard_name' => 'web']);
         $receptionniste = Role::firstOrCreate(['name' => 'receptionniste', 'guard_name' => 'web']);
+        $magasinier = Role::firstOrCreate(['name' => 'magasinier', 'guard_name' => 'web']);
+        $cuisinier  = Role::firstOrCreate(['name' => 'cuisinier', 'guard_name' => 'web']);
 
         // ── Super-admin : TOUTES les permissions ──────────────────────────────
         $superAdmin->syncPermissions(Permission::all());
@@ -330,21 +341,55 @@ class PermissionSeeder extends Seeder
             'pos.accounting.view', 'pos.accounting.traces.view', 'pos.accounting.traces.export',
             'pos.accounting.sessions.export', 'pos.accounting.register.open', 'pos.accounting.register.close',
             'pos.accounting.register.validate', 'pos.accounting.register.view-detail', 'pos.accounting.profitability',
+            // La RH n'intervient plus dans le circuit des achats.
         ]);
 
-        // ── Achat : module achats + stock ─────────────────────────────────────
+        // ── Achat (acheteur) : fait ou approuve les DA, va chez les fournisseurs, ramène les devis
+        // et prépare le BC (fournisseur, prix, devis joint). Le BC doit être confirmé par le
+        // responsable des achats avant d'être réceptionné : l'acheteur n'a pas « confirm ».
         $achat->syncPermissions([
             'dashboard.view',
             'purchases.dashboard',
-            'purchases.requests.view', 'purchases.requests.create',
+            'purchases.requests.view', 'purchases.requests.create', 'purchases.requests.approve',
+            'purchases.quotes.manage',
+            'purchases.suppliers.view', 'purchases.suppliers.create', 'purchases.suppliers.edit',
+            'purchases.orders.view', 'purchases.orders.create',
+            'purchases.stock-ruptures.view',
+            'stock.view',
+        ]);
+
+        // ── Responsable des achats : valide les DA, fixe les prix, crée et confirme les BC,
+        // contrôle la facture. Le paiement reste à la Direction (super-admin).
+        $respAchat->syncPermissions([
+            'dashboard.view',
+            'purchases.dashboard',
+            'purchases.requests.view', 'purchases.requests.create', 'purchases.requests.validate',
+            'purchases.quotes.manage',
             'purchases.suppliers.view', 'purchases.suppliers.create', 'purchases.suppliers.edit',
             'purchases.orders.view', 'purchases.orders.create', 'purchases.orders.confirm',
-            'purchases.orders.cancel', 'purchases.orders.receipt',
-            'purchases.orders.validate-invoice', 'purchases.orders.payment',
+            'purchases.orders.cancel', 'purchases.orders.validate-invoice',
             'purchases.stock-ruptures.view',
             'stock.view', 'stock.movements.view', 'stock.movements.all',
-            'stock.products.adjust', 'stock.transfer',
         ]);
+        // ── Magasinier : entrées (réceptions BL uniquement) et sorties de stock ─
+        // Pas de création de commande, ni facture, ni paiement.
+        // Le stock initial et les corrections restent à l'admin (page Ajustement).
+        $magasinier->syncPermissions([
+            'dashboard.view',
+            'purchases.orders.view', 'purchases.orders.receipt',
+            'stock.view', 'stock.movements.view', 'stock.movements.all',
+            'stock.products.adjust', 'stock.transfer',
+            'kitchen.requests.prepare',
+            // seuils et ruptures → demande d'achat (DA)
+            'purchases.stock-ruptures.view', 'purchases.requests.view', 'purchases.requests.create',
+        ]);
+
+        // ── Cuisinier : demande au magasin et valide ce qu'il prend ──────────
+        $cuisinier->syncPermissions([
+            'dashboard.view',
+            'kitchen.requests.create', 'kitchen.requests.validate',
+        ]);
+
         // ── Réceptionniste : module résidence complet ─────────────────────────
         $receptionniste->syncPermissions([
             'dashboard.view',

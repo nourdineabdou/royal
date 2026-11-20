@@ -34,6 +34,8 @@ use App\Http\Controllers\CateringController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockScanController;
+use App\Http\Controllers\ReceptionController;
+use App\Http\Controllers\KitchenRequestController;
 use App\Http\Controllers\ResidenceController;
 
 // Home page redirect
@@ -49,6 +51,13 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login')->m
 Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 
+// « Mon mot de passe » : chaque utilisateur connecté change le sien (obligatoire si provisoire)
+Route::middleware('auth')->group(function () {
+    Route::get('/mon-mot-de-passe', [\App\Http\Controllers\PasswordController::class, 'edit'])->name('password.edit');
+    Route::put('/mon-mot-de-passe', [\App\Http\Controllers\PasswordController::class, 'update'])->name('password.change');
+    Route::put('/mon-compte/identifiant', [\App\Http\Controllers\PasswordController::class, 'updateUsername'])->name('account.username');
+});
+
 Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register')->middleware('guest');
 Route::post('/register', [AuthController::class, 'register'])->middleware('guest');
 
@@ -56,6 +65,13 @@ Route::post('/register', [AuthController::class, 'register'])->middleware('guest
 Route::get('/guide-rh', function () {
     return view('hr.guide');
 })->name('hr.guide');
+
+// Guide par profil (magasinier, acheteur, responsable des achats, Direction, cuisinier) avec
+// les vraies captures de chaque écran. Réservé aux connectés : il montre identifiants et données réelles.
+Route::middleware('auth')->group(function () {
+    Route::get('/guide-utilisateurs', fn () => view('guide.profils'))->name('guide.profils');
+    Route::get('/purchases/guide', fn () => view('guide.profils'))->name('purchases.guide');
+});
 
 // Routes pour la gestion des utilisateurs, rôles et permissions (protégées)
 use App\Http\Controllers\ProductionWasteApiController;
@@ -138,8 +154,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/requests',                       [PurchaseRequestController::class, 'index'])->name('requests');
         Route::get('/requests/create',                [PurchaseRequestController::class, 'create'])->name('requests.create');
         Route::post('/requests',                      [PurchaseRequestController::class, 'store'])->name('requests.store');
+        // DA automatique : produits du Stock Catering sous leur seuil (brouillon relu puis envoyé)
+        Route::get('/requests/auto',                  [PurchaseRequestController::class, 'auto'])->name('requests.auto');
+        Route::post('/requests/auto',                 [PurchaseRequestController::class, 'saveAuto'])->name('requests.auto.save');
         Route::get('/requests/{purchaseRequest}',      [PurchaseRequestController::class, 'show'])->name('requests.show');
         Route::get('/requests/{purchaseRequest}/print', [PurchaseRequestController::class, 'print'])->name('requests.print');
+        // Approbations : ① responsable achat (DA du magasinier) → ② responsable RH
+        Route::post('/requests/{purchaseRequest}/approve',  [PurchaseRequestController::class, 'approve'])->name('requests.approve');
+        Route::post('/requests/{purchaseRequest}/validate', [PurchaseRequestController::class, 'validateRequest'])->name('requests.validate');
+        Route::post('/requests/{purchaseRequest}/reject',   [PurchaseRequestController::class, 'reject'])->name('requests.reject');
         Route::post('/requests/{purchaseRequest}/orders', [PurchaseRequestController::class, 'storeOrder'])->name('requests.orders.store');
         Route::post('/requests/{purchaseRequest}/quotes', [PurchaseRequestController::class, 'storeQuote'])->name('requests.quotes.store');
         Route::delete('/requests/quotes/{quote}', [PurchaseRequestController::class, 'destroyQuote'])->name('requests.quotes.destroy');
@@ -153,6 +176,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/orders',                [PurchaseController::class, 'storeOrder'])->name('orders.store');
         Route::get('/orders/{order}',         [PurchaseController::class, 'showOrder'])->name('orders.show');
         Route::post('/orders/{order}/confirm',[PurchaseController::class, 'confirmOrder'])->name('orders.confirm');
+        // Documents joints (devis, facture, BL en photo ou PDF) et prix saisis après coup
+        Route::post('/orders/{order}/attachments',      [\App\Http\Controllers\PurchaseOrderDocumentController::class, 'store'])->name('orders.attachments.store');
+        Route::get('/attachments/{attachment}',         [\App\Http\Controllers\PurchaseOrderDocumentController::class, 'show'])->name('orders.attachments.show');
+        Route::delete('/attachments/{attachment}',      [\App\Http\Controllers\PurchaseOrderDocumentController::class, 'destroy'])->name('orders.attachments.destroy');
+        Route::post('/orders/{order}/prices',           [\App\Http\Controllers\PurchaseOrderDocumentController::class, 'updatePrices'])->name('orders.prices.update');
         Route::post('/orders/{order}/cancel', [PurchaseController::class, 'cancelOrder'])->name('orders.cancel');
 
         // Contrôle comptable de la facture (avant paiement)
@@ -162,12 +190,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/orders/{order}/return',  [PurchaseController::class, 'createReturn'])->name('orders.return.create');
         Route::post('/orders/{order}/return', [PurchaseController::class, 'storeReturn'])->name('orders.return.store');
 
-        // Delivery Notes (Bon de Livraison) - can be different from order
-        Route::post('/orders/{order}/receipt',[PurchaseController::class, 'storeReceipt'])->name('orders.receipt');
-        Route::get('/deliveries',             [PurchaseController::class, 'deliveries'])->name('deliveries');
-        Route::get('/deliveries/{delivery}',  [PurchaseController::class, 'showDelivery'])->name('deliveries.show');
-        Route::put('/deliveries/{delivery}',  [PurchaseController::class, 'updateDelivery'])->name('deliveries.update');
-
+        // Réceptions fournisseurs (BL) — seule entrée normale en stock (scan ou saisie, vrac pesé)
+        Route::get('/deliveries',                [ReceptionController::class, 'index'])->name('deliveries');
+        Route::get('/receptions/direct',         [ReceptionController::class, 'createDirect'])->name('receptions.direct');
+        Route::get('/receptions/order/{order}',  [ReceptionController::class, 'createFromOrder'])->name('receptions.create');
+        Route::post('/receptions',               [ReceptionController::class, 'store'])->name('receptions.store');
         // Invoices (handled in accounting module)
         Route::post('/orders/{order}/payment',[PurchaseController::class, 'storePayment'])->name('orders.payment');
 
@@ -363,9 +390,26 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{event}',                         [EventController::class, 'destroy'])->name('destroy');
     });
 
+    // Cuisine : demandes au magasin, validées par le cuisinier quand il prend la marchandise
+    Route::prefix('cuisine/demandes')->name('kitchen.requests.')->group(function () {
+        Route::get('/',                          [KitchenRequestController::class, 'index'])->name('index');
+        Route::get('/nouvelle',                  [KitchenRequestController::class, 'create'])->name('create');
+        Route::post('/',                         [KitchenRequestController::class, 'store'])->name('store');
+        Route::get('/{kitchenRequest}',          [KitchenRequestController::class, 'show'])->name('show');
+        Route::post('/{kitchenRequest}/valider', [KitchenRequestController::class, 'take'])->name('take');
+        Route::post('/{kitchenRequest}/contester', [KitchenRequestController::class, 'contest'])->name('contest');
+        Route::post('/{kitchenRequest}/annuler', [KitchenRequestController::class, 'cancel'])->name('cancel');
+        Route::get('/{kitchenRequest}/bon-de-sortie', [KitchenRequestController::class, 'printBs'])->name('print');
+    });
+
     // Stock Routes
     Route::prefix('stock')->name('stock.')->group(function () {
         Route::get('/',                        [StockController::class, 'index'])->name('index');
+        Route::get('/demandes-cuisine',        [KitchenRequestController::class, 'queue'])->name('kitchen-requests.index');
+        Route::get('/demandes-cuisine/nouvelle',  [KitchenRequestController::class, 'createFromStore'])->name('kitchen-requests.create');
+        Route::post('/demandes-cuisine/nouvelle', [KitchenRequestController::class, 'storeFromStore'])->name('kitchen-requests.store');
+        Route::get('/demandes-cuisine/{kitchenRequest}/preparer',  [KitchenRequestController::class, 'prepare'])->name('kitchen-requests.prepare');
+        Route::post('/demandes-cuisine/{kitchenRequest}/preparer', [KitchenRequestController::class, 'storePrepare'])->name('kitchen-requests.prepare.store');
         Route::get('/all-movements',           [StockController::class, 'allMovements'])->name('all-movements');
         Route::get('/export/inventory',        [StockController::class, 'exportInventoryCsv'])->name('export.inventory');
         Route::get('/export/movements',        [StockController::class, 'exportMovementsCsv'])->name('export.movements');
@@ -373,6 +417,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/transfer',               [StockController::class, 'storeTransfer'])->name('storeTransfer');
         Route::post('/assign-module',          [StockController::class, 'assignModule'])->name('assign-module');
         Route::get('/adjustments',             [StockController::class, 'adjustments'])->name('adjustments');
+        Route::get('/stock-initial',           [StockController::class, 'initialStock'])->name('initial');
         Route::post('/adjustments',            [StockController::class, 'storeAdjustments'])->name('adjustments.store');
         Route::get('/scan',                    [StockScanController::class, 'index'])->name('scan');
         Route::get('/scan/lookup',             [StockScanController::class, 'lookup'])->name('scan.lookup');

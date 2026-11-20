@@ -32,6 +32,10 @@
                 });
             }
             $(function () { initSelect2(); });
+            // Select2 + jQuery 3.6 : le curseur ne va pas tout seul dans la recherche à l'ouverture
+            $(document).on('select2:open', function () {
+                setTimeout(function () { var s = document.querySelector('.select2-container--open .select2-search__field'); if (s) s.focus(); }, 0);
+            });
             if (window.MutationObserver) {
                 new MutationObserver(function (mutations) {
                     mutations.forEach(function (m) {
@@ -41,7 +45,7 @@
                             else if (node.querySelectorAll) initSelect2(node);
                         });
                     });
-                }).observe(document.body, { childList: true, subtree: true });
+                }).observe(document.documentElement, { childList: true, subtree: true });
             }
         })(jQuery);
     </script>
@@ -92,41 +96,77 @@
 
         {{-- Navigation --}}
         <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            @can('purchases.dashboard')
             <a href="{{ route('purchases.dashboard') }}"
                class="sidebar-link {{ request()->routeIs('purchases.dashboard') ? 'active' : 'text-orange-50' }}">
                 <i class="fa-solid fa-chart-pie w-4 text-center"></i> Tableau de bord
             </a>
+            @endcan
+            @can('purchases.requests.view')
             <a href="{{ route('purchases.requests') }}"
-               class="sidebar-link {{ request()->routeIs('purchases.requests*') ? 'active' : 'text-orange-50' }}">
+               class="sidebar-link {{ request()->routeIs('purchases.requests*') && !request()->routeIs('purchases.requests.auto*') ? 'active' : 'text-orange-50' }}">
                 <i class="fa-solid fa-clipboard-list w-4 text-center"></i> Demandes d'achat
             </a>
+            @endcan
+            @can('purchases.requests.create')
+            <a href="{{ route('purchases.requests.auto') }}"
+               class="sidebar-link {{ request()->routeIs('purchases.requests.auto') ? 'active' : 'text-orange-50' }}">
+                <i class="fa-solid fa-wand-magic-sparkles w-4 text-center"></i> Demande d'achat auto
+                @php $__autoDa = \App\Models\PurchaseRequest::where('auto_generated', true)->where('status', 'draft')->withCount('items')->latest('id')->first(); @endphp
+                @if($__autoDa && $__autoDa->items_count)<span class="ml-auto bg-white text-red-600 text-[11px] font-bold px-2 py-0.5 rounded-full">{{ $__autoDa->items_count }}</span>@endif
+            </a>
+            @endcan
+            @can('purchases.orders.view')
             <a href="{{ route('purchases.orders') }}"
                class="sidebar-link {{ request()->routeIs('purchases.orders*') ? 'active' : 'text-orange-50' }}">
                 <i class="fa-solid fa-file-invoice w-4 text-center"></i> Commandes
             </a>
+            @endcan
+            @can('purchases.orders.create')
             <a href="{{ route('purchases.orders.create') }}"
                class="sidebar-link {{ request()->routeIs('purchases.orders.create') ? 'active' : 'text-orange-50' }}">
                 <i class="fa-solid fa-plus-circle w-4 text-center"></i> Nouvelle commande
             </a>
+            @endcan
+            @can('purchases.orders.receipt')
+            <a href="{{ route('purchases.deliveries') }}"
+               class="sidebar-link {{ request()->routeIs('purchases.deliveries', 'purchases.receptions.*') ? 'active' : 'text-orange-50' }}">
+                <i class="fa-solid fa-truck-ramp-box w-4 text-center"></i> Réceptions (BL) @php $__pendingBl = \App\Models\PurchaseOrder::whereIn('status', ['ordered', 'partial'])->count(); @endphp
+                @if($__pendingBl)<span class="ml-auto bg-white text-emerald-700 text-[11px] font-bold px-2 py-0.5 rounded-full">{{ $__pendingBl }}</span>@endif
+            </a>
+            @endcan
+            @can('purchases.suppliers.view')
             <a href="{{ route('purchases.suppliers') }}"
                class="sidebar-link {{ request()->routeIs('purchases.suppliers*') ? 'active' : 'text-orange-50' }}">
                 <i class="fa-solid fa-truck w-4 text-center"></i> Fournisseurs
             </a>
+            @endcan
+            @can('products.view')
             <a href="{{ route('purchases.products.index') }}"
                class="sidebar-link {{ request()->routeIs('purchases.products.*') ? 'active' : 'text-orange-50' }}">
                 <i class="fa-solid fa-box w-4 text-center"></i> Produits
             </a>
+            @endcan
+            @can('units.view')
             <a href="{{ route('purchases.units.index') }}"
                class="sidebar-link {{ request()->routeIs('purchases.units.*') ? 'active' : 'text-orange-50' }}">
                 <i class="fa-solid fa-ruler w-4 text-center"></i> Unités
             </a>
+            @endcan
+            @can('packagings.view')
             <a href="{{ route('purchases.packagings.index') }}"
                class="sidebar-link {{ request()->routeIs('purchases.packagings.*') ? 'active' : 'text-orange-50' }}">
                 <i class="fa-solid fa-cube w-4 text-center"></i> Emballages
             </a>
+            @endcan
+            @can('purchases.stock-ruptures.view')
             <a href="{{ route('purchases.stock-ruptures') }}"
                class="sidebar-link {{ request()->routeIs('purchases.stock-ruptures') ? 'active' : 'text-orange-50' }}">
                 <i class="fa-solid fa-triangle-exclamation w-4 text-center"></i> Ruptures de stock
+            </a>
+            @endcan
+            <a href="{{ route('purchases.guide') }}" class="sidebar-link text-orange-50">
+                <i class="fa-solid fa-book-open w-4 text-center"></i> Guide d'utilisation
             </a>
         </nav>
 
@@ -143,22 +183,60 @@
     <div class="flex-1 flex flex-col min-w-0">
 
         {{-- Top bar (mobile + breadcrumb) --}}
-        <header class="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between shadow-sm">
-            <div class="flex items-center gap-3">
-                {{-- Mobile menu could go here --}}
-                <div class="flex items-center gap-2 text-sm text-slate-500">
+        <header class="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between gap-3 shadow-sm">
+            <div class="flex items-center gap-3 min-w-0">
+                <a href="{{ route('dashboard-modern') }}"
+                   class="shrink-0 inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition"
+                   title="Retour à l'accueil">
+                    <i class="fa-solid fa-house"></i> <span class="hidden sm:inline">Accueil</span>
+                </a>
+                <div class="flex items-center gap-2 text-sm text-slate-500 min-w-0 truncate">
                     <i class="fa-solid fa-cart-shopping text-orange-500"></i>
                     <span class="hidden sm:inline">Achats /</span>
                     <span class="font-semibold text-slate-700">@yield('title', 'Tableau de bord')</span>
                 </div>
             </div>
-            <div class="flex items-center gap-3">
-                <span class="text-xs text-slate-400">{{ now()->translatedFormat('d M Y') }}</span>
-                <div class="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                    <i class="fa-solid fa-user text-orange-500 text-xs"></i>
-                </div>
+            <div class="flex items-center gap-3 shrink-0">
+                <span class="hidden sm:inline text-xs text-slate-400">{{ now()->translatedFormat('d M Y') }}</span>
+                <a href="{{ route('password.edit') }}" title="Mon compte — {{ auth()->user()->name ?? '' }}" class="h-8 px-2 bg-orange-100 hover:bg-orange-200 rounded-full flex items-center gap-1.5 text-orange-600">
+                    <i class="fa-solid fa-user text-xs"></i><i class="fa-solid fa-key text-[10px]"></i>
+                </a>
             </div>
         </header>
+
+        {{-- Navigation mobile / tablette (la barre latérale est masquée sous md) --}}
+        @php $__menuPerms = array (
+  'purchases.dashboard' => 'purchases.dashboard',
+  'purchases.requests' => 'purchases.requests.view',
+  'purchases.orders' => 'purchases.orders.view',
+  'purchases.orders.create' => 'purchases.orders.create',
+  'purchases.suppliers' => 'purchases.suppliers.view',
+  'purchases.products.index' => 'products.view',
+  'purchases.units.index' => 'units.view',
+  'purchases.packagings.index' => 'packagings.view',
+  'purchases.stock-ruptures' => 'purchases.stock-ruptures.view',
+  'purchases.deliveries' => 'purchases.orders.receipt',
+); @endphp
+        <nav class="md:hidden bg-orange-600 text-white flex gap-1 overflow-x-auto px-2 py-2 text-xs font-medium whitespace-nowrap">
+            @foreach([
+                ['purchases.dashboard',      'purchases.dashboard',        'fa-chart-pie',             'Tableau de bord'],
+                ['purchases.requests',       'purchases.requests*',        'fa-clipboard-list',        'Demandes'],
+                ['purchases.orders',         'purchases.orders*',          'fa-file-invoice',          'Commandes'],
+                ['purchases.deliveries',     'purchases.deliveries',       'fa-truck-ramp-box',        'Réceptions'],
+                ['purchases.suppliers',      'purchases.suppliers*',       'fa-truck',                 'Fournisseurs'],
+                ['purchases.products.index', 'purchases.products.*',       'fa-box',                   'Produits'],
+                ['purchases.units.index',    'purchases.units.*',          'fa-ruler',                 'Unités'],
+                ['purchases.packagings.index','purchases.packagings.*',    'fa-cube',                  'Emballages'],
+                ['purchases.stock-ruptures', 'purchases.stock-ruptures',   'fa-triangle-exclamation',  'Ruptures'],
+                ['purchases.guide',          'purchases.guide',            'fa-book-open',             'Guide'],
+            ] as [$r, $pattern, $icon, $label])
+                @continue(isset($__menuPerms[$r]) && !auth()->user()?->can($__menuPerms[$r]))
+                <a href="{{ route($r) }}"
+                   class="flex items-center gap-1.5 px-3 py-2 rounded-lg {{ request()->routeIs($pattern) ? 'bg-white text-orange-600' : 'hover:bg-white/20' }}">
+                    <i class="fa-solid {{ $icon }}"></i> {{ $label }}
+                </a>
+            @endforeach
+        </nav>
 
         {{-- Flash messages --}}
         @if(session('success'))

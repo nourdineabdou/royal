@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class PurchaseRequestItem extends Model
 {
-    protected $fillable = ['purchase_request_id', 'product_id', 'quantity', 'ordered_quantity', 'notes'];
+    protected $fillable = ['purchase_request_id', 'product_id', 'quantity', 'ordered_quantity', 'notes', 'added_manually'];
 
     protected $casts = [
+        'added_manually'   => 'boolean',
         'quantity'         => 'decimal:2',
         'ordered_quantity' => 'decimal:2',
     ];

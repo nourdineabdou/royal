@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Bon de Livraison — {{ $order->reference }}</title>
+    <title>Bon d'entrée {{ $receipt->reference }} — {{ $order->reference }}</title>
     <style>
         * { box-sizing: border-box; }
         @page { size: A4; margin: 15mm; }
@@ -62,8 +62,9 @@
             </div>
         </div>
         <div class="doc-title">
-            <h2>BON DE LIVRAISON</h2>
-            <div class="doc-ref">Commande: {{ $order->reference }}</div>
+            <h2>BON D'ENTRÉE (BE)</h2>
+            <div class="doc-ref">{{ $receipt->reference }} — Commande: {{ $order->reference }}</div>
+            @if($receipt->supplier_delivery_note)<div class="doc-ref">BL fournisseur: {{ $receipt->supplier_delivery_note }}</div>@endif
             <div class="doc-date">
                 Date livraison: {{ $receipt->received_at
                     ? \Carbon\Carbon::parse($receipt->received_at)->format('d/m/Y')
@@ -76,12 +77,13 @@
     <div class="info-grid">
         <div class="info-box">
             <h4>Fournisseur</h4>
-            <div class="val">{{ $order->supplier->name }}</div>
-            @if($order->supplier->phone)<div class="sub">Tél: {{ $order->supplier->phone }}</div>@endif
+            <div class="val">{{ $order->supplier->name ?? '—' }}</div>
+            @if($order->supplier?->phone)<div class="sub">Tél: {{ $order->supplier->phone }}</div>@endif
         </div>
         <div class="info-box">
             <h4>Stock destinataire</h4>
             <div class="val">{{ $receipt->stock->name ?? '-' }}</div>
+            @if($receipt->receivedBy)<div class="sub">Reçu par: {{ $receipt->receivedBy->name }}</div>@endif
         </div>
         <div class="info-box">
             <h4>Date de réception</h4>
@@ -100,7 +102,7 @@
             <tr>
                 <th>#</th>
                 <th>Produit</th>
-                <th>Unité</th>
+                <th>Emballage</th>
                 <th class="right">Qté commandée</th>
                 <th class="right">Qté reçue</th>
                 <th>Observations</th>
@@ -109,14 +111,35 @@
         <tbody>
             @foreach($receipt->items as $i => $item)
             @php
-                $ordered = $order->items->firstWhere('product_id', $item->product_id);
+                $ordered = $order->items->firstWhere('id', $item->order_item_id)
+                    ?? $order->items->firstWhere('product_id', $item->product_id);
+                $sym = $item->product->unit->symbol ?? '';
             @endphp
             <tr>
                 <td>{{ $i + 1 }}</td>
                 <td>{{ $item->product->name ?? '-' }}</td>
-                <td>{{ $item->product->unit->symbol ?? '-' }}</td>
-                <td class="right">{{ $ordered ? number_format($ordered->quantity, 2, ',', ' ') : '-' }}</td>
-                <td class="right">{{ number_format($item->quantity, 2, ',', ' ') }}</td>
+                <td>
+                    @if($ordered && $ordered->packaging_id)
+                        <strong>{{ $ordered->packaging->name ?? 'Emballage' }}</strong>
+                        @if($ordered->perPack())<br><span style="color:#6b7280;">contient {{ \App\Support\Qty::format($ordered->perPack(), $sym) }}</span>@endif
+                    @else
+                        En vrac ({{ \App\Support\Qty::displayUnit($sym)['label'] ?: 'unité' }})
+                    @endif
+                </td>
+                <td class="right">
+                    @if($ordered)
+                        <strong>{{ $ordered->qtyLabel() }}</strong>
+                        @if($ordered->baseLabel())<br><span style="color:#6b7280;">= {{ $ordered->baseLabel() }}</span>@endif
+                    @else - @endif
+                </td>
+                <td class="right">
+                    @if($ordered && $ordered->packaging_id)
+                        <strong>{{ $ordered->qtyLabel((float) $item->received_quantity) }}</strong><br>
+                        <span style="color:#6b7280;">= {{ \App\Support\Qty::format($item->quantity, $sym) }}</span>
+                    @else
+                        {{ \App\Support\Qty::format($item->quantity, $sym) }}
+                    @endif
+                </td>
                 <td>&nbsp;</td>
             </tr>
             @endforeach
@@ -129,8 +152,8 @@
 
     <!-- Signatures -->
     <div class="signatures">
-        <div class="sig">Signature Réceptionneur</div>
-        <div class="sig">Cachet &amp; Signature Livreur</div>
+        <div class="sig">Signature du magasinier (réceptionnaire)</div>
+        <div class="sig">Cachet &amp; signature du livreur</div>
     </div>
 
     <div class="footer">Document généré le {{ now()->format('d/m/Y à H:i') }} · {{ $company['name'] ?? '' }}</div>

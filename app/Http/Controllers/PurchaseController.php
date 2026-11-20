@@ -149,7 +149,34 @@ class PurchaseController extends Controller
     public function orders(Request $request)
     {
         $this->perm('purchases.orders.view');
-        $query = PurchaseOrder::with('supplier', 'purchaseRequest', 'items');
+        $request->validate([
+            'todo'    => 'nullable|in:to_confirm,to_receive,to_check,to_pay',
+            'invoice' => 'nullable|in:to_check,validated',
+            'from'    => 'nullable|date',
+            'to'      => 'nullable|date|after_or_equal:from',
+        ], ['to.after_or_equal' => 'La date de fin doit être après la date de début.']);
+
+        // « À traiter » : ce qui attend une action, avec le nombre pour chaque pastille
+        $todo = [
+            'to_confirm' => fn ($q) => $q->where('status', 'pending'),
+            'to_receive' => fn ($q) => $q->whereIn('status', ['ordered', 'partial']),
+            'to_check'   => fn ($q) => $q->whereIn('status', ['partial', 'received'])->whereNull('invoice_validated_at'),
+            'to_pay'     => fn ($q) => $q->whereNotNull('invoice_validated_at')->where('payment_status', '!=', 'paid')->where('status', '!=', 'cancelled'),
+        ];
+        $period = fn ($q) => $q
+            ->when($request->from, fn ($x, $d) => $x->whereDate('created_at', '>=', $d))
+            ->when($request->to, fn ($x, $d) => $x->whereDate('created_at', '<=', $d));
+        $todoCounts = collect($todo)->map(fn ($f) => $f($period(PurchaseOrder::query()))->count());
+
+        $query = $period(PurchaseOrder::with('supplier', 'purchaseRequest', 'items'));
+        if ($request->todo) {
+            $todo[$request->todo]($query);
+        }
+        if ($request->invoice === 'to_check') {
+            $query->whereIn('status', ['partial', 'received'])->whereNull('invoice_validated_at');
+        } elseif ($request->invoice === 'validated') {
+            $query->whereNotNull('invoice_validated_at');
+        }
 
         if ($request->status) {
             $query->where('status', $request->status);
@@ -171,10 +198,10 @@ class PurchaseController extends Controller
             });
         }
 
-        $orders    = $query->latest()->paginate(20);
+        $orders    = $query->latest()->paginate(20)->withQueryString();
         $suppliers = Supplier::orderBy('name')->get();
 
-        return view('purchases.orders', compact('orders', 'suppliers'));
+        return view('purchases.orders', compact('orders', 'suppliers', 'todoCounts'));
     }
 
     public function createOrder()
@@ -210,7 +237,8 @@ class PurchaseController extends Controller
             'paid_amount'      => 0,
             'remaining_amount' => $totalAmount,
             'payment_status'   => 'unpaid',
-            'status'           => 'pending',
+            // Créé par le responsable des achats : déjà confirmé. Créé par l'acheteur : à confirmer.
+            'status'           => auth()->user()->can('purchases.orders.confirm') ? 'ordered' : 'pending',
         ]);
 
         foreach ($request->items as $item) {
@@ -226,13 +254,15 @@ class PurchaseController extends Controller
         }
 
         return redirect()->route('purchases.orders.show', $order)
-                         ->with('success', 'Commande créée avec succès.');
+                         ->with('success', "Commande {$order->reference} créée" . ($order->status === 'ordered'
+                             ? ' et confirmée : elle part au magasinier pour la réception.'
+                             : ' : en attente de la confirmation du responsable des achats.'));
     }
 
     public function showOrder(PurchaseOrder $order)
     {
         $this->perm('purchases.orders.view');
-        $order->load('supplier', 'purchaseRequest', 'invoiceValidatedBy', 'items.product.unit', 'items.packaging', 'goodsReceipts.items.product', 'goodsReceipts.stock', 'supplierPayments.paymentType', 'supplierReturns.items.product');
+        $order->load('supplier', 'purchaseRequest', 'invoiceValidatedBy', 'items.product.unit', 'items.packaging', 'goodsReceipts.items.product.unit', 'goodsReceipts.stock', 'goodsReceipts.receivedBy', 'attachments.uploader', 'items.product.productPackagings', 'supplierPayments.paymentType', 'supplierReturns.items.product');
         $stocks       = Stock::all();
         $paymentTypes = PaymentType::all();
         $suppliers    = Supplier::orderBy('name')->get();
@@ -248,92 +278,6 @@ class PurchaseController extends Controller
         return back()->with('success', 'Commande confirmée et envoyée au fournisseur.');
     }
 
-    public function storeReceipt(Request $request, PurchaseOrder $order)
-    {
-        $this->perm('purchases.orders.receipt');
-        $request->validate([
-            'supplier_id'            => 'required|exists:suppliers,id',
-            'items'                  => 'required|array',
-            'items.*.product_id'     => 'required|exists:products,id',
-            'items.*.order_item_id'  => 'required|integer',
-            'items.*.quantity'       => 'required|numeric|min:0.01',
-        ]);
-
-        // Le fournisseur n'est connu qu'au moment de la livraison — on le fixe (ou corrige) ici.
-        $order->update(['supplier_id' => $request->supplier_id]);
-
-        // Validate against ordered quantities before writing any receipt row.
-        // Keyed by order_item_id (not product_id) — the same product can appear on several
-        // order lines with different packagings (ex: 3 Bouteilles + 0,5 Caisse d'Eau).
-        $orderItemsById = $order->items()->with('packaging', 'product')->get()->keyBy('id');
-        foreach ($request->items as $item) {
-            $orderItem = $orderItemsById[$item['order_item_id']] ?? null;
-            if (!$orderItem || $orderItem->product_id != $item['product_id']) {
-                return back()->withErrors(['items' => 'Un produit reçu ne fait pas partie de cette commande.'])->withInput();
-            }
-
-            $receivedInput = (float)$item['quantity'];
-            $remaining     = $orderItem->remaining_quantity;
-            if ($receivedInput > $remaining + 0.001) {
-                return back()->withErrors([
-                    'items' => "La quantité reçue pour {$orderItem->product->name} dépasse le restant à recevoir ({$remaining})."
-                ])->withInput();
-            }
-        }
-
-        $receipt = GoodsReceipt::create([
-            'purchase_order_id' => $order->id,
-            'stock_id'          => $request->stock_id,
-            'received_at'       => now(),
-        ]);
-
-        $receiptTotal = 0;
-
-        foreach ($request->items as $item) {
-            $orderItem   = $orderItemsById[$item['order_item_id']] ?? null;
-            $receivedQty = (float)$item['quantity'];
-            // Le prix est fixé sur le BC (négocié à la commande) — pas ressaisi à la livraison.
-            $unitPrice   = (float)($orderItem->price ?? 0);
-            $receiptTotal += $receivedQty * $unitPrice;
-
-            // If the order was placed with a packaging, convert packagings → actual units for stock
-            $stockQty = $receivedQty;
-            if ($orderItem && $orderItem->packaging_id) {
-                $pkgQtyPerUnit = \App\Models\ProductPackaging::where('product_id', $orderItem->product_id)
-                                    ->where('packaging_id', $orderItem->packaging_id)
-                                    ->value('quantity');
-                if ($pkgQtyPerUnit) {
-                    $stockQty = $receivedQty * (float)$pkgQtyPerUnit;
-                }
-            }
-
-            GoodsReceiptItem::create([
-                'goods_receipt_id'  => $receipt->id,
-                'order_item_id'     => $orderItem->id,
-                'product_id'        => $item['product_id'],
-                'quantity'          => $stockQty,
-                'received_quantity' => $receivedQty,
-            ]);
-
-            // Update stock
-            StockItem::updateOrCreate(
-                ['stock_id' => $request->stock_id, 'product_id' => $item['product_id']],
-                ['quantity' => \DB::raw('quantity + ' . $stockQty)]
-            );
-        }
-
-        // Statut : "reçue" seulement si TOUTES les lignes sont entièrement livrées, sinon "partielle"
-        // (le montant/paiement dus restent ceux fixés sur le BC — recevoir la marchandise ne change pas ce qui est dû).
-        $order->load('items');
-        $allReceived = $order->items->every(fn ($i) => $i->remaining_quantity <= 0.001);
-        $order->update(['status' => $allReceived ? 'received' : 'partial']);
-
-        $stockModule = Stock::find($request->stock_id)?->module ?? 'default';
-        app(AccountingEntryService::class)->postPurchaseReceipt($receipt, $receiptTotal, $stockModule);
-
-        return back()->with('success', 'Réception enregistrée et stock mis à jour.');
-    }
-
     /**
      * Contrôle comptable de la facture fournisseur — doit être fait avant d'autoriser le paiement.
      */
@@ -343,6 +287,12 @@ class PurchaseController extends Controller
 
         if (!in_array($order->status, ['received', 'partial'])) {
             return back()->with('error', 'La commande doit être au moins partiellement reçue avant de valider la facture.');
+        }
+
+        // Sans prix, le montant à payer serait faux : le responsable achat doit d'abord les saisir
+        $order->loadMissing('items');
+        if ($order->hasMissingPrices()) {
+            return back()->with('error', 'Des prix manquent sur ce bon de commande : le responsable achat doit les saisir (devis ou facture) avant la validation de la facture.');
         }
 
         if ($order->invoice_validated_at) {
@@ -578,19 +528,15 @@ class PurchaseController extends Controller
     public function stockRuptures()
     {
         $this->perm('purchases.stock-ruptures.view');
-        $ruptures = StockItem::with('product.unit', 'stock')
-                        ->where('quantity', '<=', 0)
-                        ->get();
 
-        $lowStock = StockItem::with('product.unit', 'stock')
-                        ->where('quantity', '>', 0)
-                        ->where('quantity', '<=', 5)
-                        ->get();
+        // Seuil minimum propre à chaque produit, comparé au Stock Catering ; la DA automatique est remise à jour
+        $service = app(\App\Services\StockAlertService::class);
+        $draft = app(\App\Services\AutoPurchaseRequestService::class)->sync();
+        $alerts = $service->alerts();
+        $ref = $service->referenceStock();
+        $noThreshold = Product::whereNull('min_stock')->count();
 
-        $allProducts = Product::with('unit')->orderBy('name')->get();
-        $suppliers   = Supplier::orderBy('name')->get();
-
-        return view('purchases.stock-ruptures', compact('ruptures', 'lowStock', 'allProducts', 'suppliers'));
+        return view('purchases.stock-ruptures', compact('alerts', 'noThreshold', 'draft', 'ref'));
     }
 
     // ─── Print / PDF A4 ───────────────────────────────────────────────────────
@@ -598,7 +544,7 @@ class PurchaseController extends Controller
     public function printCommande(PurchaseOrder $order)
     {
         $this->perm('purchases.orders.view');
-        $order->load('supplier', 'items.product.unit', 'items.packaging');
+        $order->load('supplier', 'items.product.unit', 'items.product.productPackagings', 'items.packaging');
         $company = config('app.company');
         return view('purchases.print.commande', compact('order', 'company'));
     }
@@ -606,7 +552,7 @@ class PurchaseController extends Controller
     public function printFacture(PurchaseOrder $order)
     {
         $this->perm('purchases.orders.view');
-        $order->load('supplier', 'items.product.unit', 'items.packaging', 'goodsReceipts.items.product', 'supplierPayments.paymentType');
+        $order->load('supplier', 'items.product.unit', 'items.product.productPackagings', 'items.packaging', 'goodsReceipts.items.product.unit', 'goodsReceipts.items.orderItem.packaging', 'supplierPayments.paymentType');
         $company = config('app.company');
         return view('purchases.print.facture', compact('order', 'company'));
     }
@@ -614,8 +560,8 @@ class PurchaseController extends Controller
     public function printLivraison(PurchaseOrder $order, GoodsReceipt $receipt)
     {
         $this->perm('purchases.orders.view');
-        $order->load('supplier', 'items.product.unit', 'items.packaging');
-        $receipt->load('items.product.unit', 'stock');
+        $order->load('supplier', 'items.product.unit', 'items.product.productPackagings', 'items.packaging');
+        $receipt->load('items.product.unit', 'items.product.productPackagings', 'items.orderItem.packaging', 'stock');
         $company = config('app.company');
         return view('purchases.print.livraison', compact('order', 'receipt', 'company'));
     }

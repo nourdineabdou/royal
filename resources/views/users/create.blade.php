@@ -26,6 +26,13 @@
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 required>
         </div>
+        <div class="mb-4">
+            <label for="username" class="block text-gray-700 font-bold mb-2">Nom d'utilisateur (connexion)</label>
+            <input type="text" name="username" id="username" value="{{ old('username') }}" maxlength="30" autocapitalize="none"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            <p class="text-sm text-gray-500 mt-1">Laisser vide : créé à partir du nom (ex : « Abdel Rahim » → abdel.rahim). Un numéro est possible (ex : 0042).</p>
+            @error('username')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+        </div>
 
         <div class="mb-4">
             <label for="email" class="block text-gray-700 font-bold mb-2">Email</label>

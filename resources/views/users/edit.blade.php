@@ -27,6 +27,13 @@
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 required>
         </div>
+        <div class="mb-4">
+            <label for="username" class="block text-gray-700 font-bold mb-2">Nom d'utilisateur (connexion)</label>
+            <input type="text" name="username" id="username" value="{{ old('username', $user->username) }}" maxlength="30" autocapitalize="none"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            <p class="text-sm text-gray-500 mt-1">L'utilisateur se connecte avec ce nom ou son e-mail. Il peut aussi le changer lui-même dans « Mon compte ».</p>
+            @error('username')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+        </div>
 
         <div class="mb-4">
             <label for="email" class="block text-gray-700 font-bold mb-2">Email</label>
@@ -36,7 +43,8 @@
         </div>
 
         <div class="mb-4">
-            <label for="password" class="block text-gray-700 font-bold mb-2">Nouveau mot de passe (laisser vide pour ne pas changer)</label>
+            <label for="password" class="block text-gray-700 font-bold mb-2">Réinitialiser le mot de passe (laisser vide pour ne pas changer)</label>
+            <p class="text-sm text-gray-500 mb-2">Le mot de passe donné ici est provisoire : l'utilisateur devra le changer à sa prochaine connexion.</p>
             <input type="password" name="password" id="password"
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
         </div>

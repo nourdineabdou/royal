@@ -94,6 +94,7 @@
             <tr>
                 <th>#</th>
                 <th>Produit</th>
+                <th>Emballage</th>
                 <th class="right">Quantité demandée</th>
                 <th>Notes</th>
             </tr>
@@ -103,7 +104,26 @@
             <tr>
                 <td>{{ $i + 1 }}</td>
                 <td>{{ $item->product->name ?? '-' }}</td>
-                <td class="right">{{ rtrim(rtrim(number_format($item->quantity, 2), '0'), '.') }} {{ $item->product->unit->symbol ?? '' }}</td>
+                @php
+                    $sym  = $item->product->unit->symbol ?? '';
+                    $pack = $item->product?->mainPackaging();
+                @endphp
+                <td>
+                    @if($pack)
+                        <strong>{{ $pack->packaging->name ?? 'Emballage' }}</strong><br>
+                        <span style="color:#6b7280;">contient {{ \App\Support\Qty::format($pack->quantity, $sym) }}</span>
+                    @else
+                        En vrac ({{ \App\Support\Qty::displayUnit($sym)['label'] ?: 'unité' }})
+                    @endif
+                </td>
+                <td class="right">
+                    @if($pack)
+                        <strong>{{ $item->product->inMainPackaging((float) $item->quantity) }}</strong><br>
+                        <span style="color:#6b7280;">= {{ \App\Support\Qty::format($item->quantity, $sym) }}</span>
+                    @else
+                        {{ \App\Support\Qty::format($item->quantity, $sym) }}
+                    @endif
+                </td>
                 <td>{{ $item->notes ?? '' }}</td>
             </tr>
             @endforeach

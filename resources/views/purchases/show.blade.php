@@ -9,6 +9,18 @@
         <i class="fa-solid fa-arrow-left"></i>
     </a>
     <h2 class="text-xl font-bold text-slate-800 grow">Commande {{ $order->reference }}</h2>
+    @if($order->status === 'pending')
+    <p class="w-full order-last text-sm bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-2">
+        <i class="fa-solid fa-circle-info mr-1"></i>
+        @can('purchases.orders.confirm')
+            Étape suivante : vérifiez le fournisseur et les prix, puis cliquez sur <strong>« Confirmer & envoyer »</strong> quand la commande est passée au fournisseur.
+        @else
+            <strong>En attente de la confirmation du responsable des achats.</strong> Vous pouvez encore corriger les prix et joindre le devis ;
+            une fois confirmée, la commande passe au magasinier pour la réception.
+        @endcan
+        Le bouton <strong>« Réceptionner (BL) »</strong> apparaîtra ensuite ici et dans le menu <strong>Réceptions (BL)</strong>.
+    </p>
+    @endif
 
     <div class="flex items-center gap-2 flex-wrap">
         @if($order->status === 'pending')
@@ -30,10 +42,10 @@
         @endcan
         @elseif(in_array($order->status, ['ordered', 'partial']))
         @can('purchases.orders.receipt')
-        <button onclick="document.getElementById('receiptModal').classList.remove('hidden')"
-                class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
-            <i class="fa-solid fa-boxes-stacked"></i> Enregistrer réception
-        </button>
+        <a href="{{ route('purchases.receptions.create', $order) }}"
+           class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
+            <i class="fa-solid fa-truck-ramp-box"></i> Réceptionner (BL)
+        </a>
         @endcan
         @endif
 
@@ -176,8 +188,71 @@
             </div>
         </div>
 
-        {{-- Réceptions --}}
+        {{-- Prix et documents ──────────────────────────────────────────── --}}
+        @php $canPrice = auth()->user()->can('purchases.orders.create') && !$order->invoice_validated_at; @endphp
+        @if($order->hasMissingPrices())
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <p class="flex-1 text-sm text-amber-800"><i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                <strong>Prix à saisir</strong> pour {{ $order->items->whereNull('price')->count() }} produit(s). Saisissez-les quand vous avez le devis ou la facture : le total et le reste à payer se mettront à jour.</p>
+            @if($canPrice)
+            <button type="button" onclick="document.getElementById('pricesModal').classList.remove('hidden')" class="shrink-0 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold">
+                <i class="fa-solid fa-tags mr-1"></i> Saisir les prix
+            </button>
+            @endif
+        </div>
+        @elseif($canPrice)
+        <div class="text-right -mt-2">
+            <button type="button" onclick="document.getElementById('pricesModal').classList.remove('hidden')" class="text-xs text-slate-500 hover:text-orange-600 font-semibold"><i class="fa-solid fa-pen mr-1"></i>Modifier les prix</button>
+        </div>
+        @endif
+
         <div class="bg-white rounded-2xl shadow-sm p-5">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <h3 class="font-semibold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-paperclip text-slate-500"></i> Documents <span class="text-xs font-normal text-slate-400">devis, facture, BL…</span></h3>
+            </div>
+            @if($order->attachments->isNotEmpty())
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                @foreach($order->attachments as $doc)
+                <div class="border border-slate-200 rounded-xl overflow-hidden flex flex-col">
+                    <a href="{{ route('purchases.orders.attachments.show', $doc) }}" target="_blank" class="block bg-slate-50 h-28 flex items-center justify-center overflow-hidden">
+                        @if($doc->isImage())
+                            <img src="{{ route('purchases.orders.attachments.show', $doc) }}" alt="{{ $doc->original_name }}" class="w-full h-full object-cover" loading="lazy">
+                        @else
+                            <i class="fa-solid fa-file-pdf text-4xl text-red-500"></i>
+                        @endif
+                    </a>
+                    <div class="p-2 text-xs">
+                        <span class="inline-block px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-semibold">{{ $doc->type_label }}</span>
+                        <p class="text-slate-600 truncate mt-1" title="{{ $doc->original_name }}">{{ $doc->original_name }}</p>
+                        <p class="text-slate-400">{{ $doc->created_at->format('d/m/Y H:i') }} · {{ $doc->uploader->name ?? '—' }}</p>
+                        @if($doc->uploaded_by === auth()->id() || auth()->user()->can('purchases.orders.create'))
+                        <form method="POST" action="{{ route('purchases.orders.attachments.destroy', $doc) }}" onsubmit="return confirm('Supprimer ce document ?')" class="mt-1">
+                            @csrf @method('DELETE')
+                            <button class="text-red-500 hover:text-red-700">Supprimer</button>
+                        </form>
+                        @endif
+                    </div>
+                </div>
+                @endforeach
+            </div>
+            @else
+            <p class="text-sm text-slate-400 mb-4">Aucun document joint.</p>
+            @endif
+
+            @if(auth()->user()->canAny(['purchases.orders.create', 'purchases.orders.receipt', 'purchases.orders.validate-invoice']))
+            <form method="POST" action="{{ route('purchases.orders.attachments.store', $order) }}" enctype="multipart/form-data" class="flex flex-col sm:flex-row gap-2 sm:items-center rounded-xl border border-dashed border-slate-300 p-3 bg-slate-50">
+                @csrf
+                <select name="type" class="border border-slate-200 rounded-xl px-3 py-2 text-sm sm:w-40">
+                    @foreach(\App\Models\PurchaseOrderAttachment::TYPES as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach
+                </select>
+                <input type="file" name="files[]" multiple required accept="image/*,application/pdf" class="flex-1 text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-orange-100 file:text-orange-700 file:font-semibold">
+                <button class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-semibold"><i class="fa-solid fa-upload mr-1"></i> Joindre</button>
+            </form>
+            <p class="text-[11px] text-slate-400 mt-1">Sur téléphone : « Choisir un fichier » propose l'appareil photo. Photo (JPG, PNG, HEIC) ou PDF, 15 Mo maximum.</p>
+            @endif
+        </div>
+
+        {{-- Réceptions --}}        <div class="bg-white rounded-2xl shadow-sm p-5">
             <h3 class="font-semibold text-slate-700 mb-4 flex items-center gap-2">
                 <i class="fa-solid fa-boxes-stacked text-emerald-500"></i> Réceptions
             </h3>
@@ -187,6 +262,9 @@
                     <span class="text-xs text-slate-500 font-medium">
                         <i class="fa-solid fa-calendar-day mr-1"></i>
                         {{ \Carbon\Carbon::parse($receipt->received_at ?? $receipt->created_at)->format('d/m/Y H:i') }}
+                        · <strong>{{ $receipt->reference }}</strong>
+                        @if($receipt->supplier_delivery_note) · BL {{ $receipt->supplier_delivery_note }} @endif
+                        @if($receipt->receivedBy) · {{ $receipt->receivedBy->name }} @endif
                     </span>
                     <div class="flex items-center gap-2">
                         <span class="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full font-medium">
@@ -210,7 +288,7 @@
                         <tr class="border-t border-slate-50">
                             <td class="py-1 text-slate-700">{{ $ri->product->name ?? '—' }}</td>
                             <td class="py-1 text-right font-semibold text-emerald-700">
-                                {{ $ri->quantity }} {{ $ri->product->unit->symbol ?? '' }}
+                                {{ rtrim(rtrim(number_format($ri->quantity, 2, ',', ' '), '0'), ',') }} {{ $ri->product->unit->symbol ?? '' }}
                             </td>
                         </tr>
                         @endforeach
@@ -377,119 +455,54 @@
     </div>
 </div>
 
-{{-- RECEIPT MODAL --}}
-@php $remainingItems = $order->items->filter(fn($i) => $i->remaining_quantity > 0.001)->values(); @endphp
-@if(in_array($order->status, ['ordered', 'partial']) && $remainingItems->count())
-<div id="receiptModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+{{-- MODAL : saisie des prix (par emballage commandé) --}}
+@if(auth()->user()->can('purchases.orders.create') && !$order->invoice_validated_at)
+<div id="pricesModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white">
-            <h3 class="font-bold text-slate-800">Enregistrer une réception</h3>
-            <button onclick="document.getElementById('receiptModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
+            <h3 class="font-bold text-slate-800">Prix du bon de commande</h3>
+            <button type="button" onclick="document.getElementById('pricesModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
         </div>
-        <form method="POST" action="{{ route('purchases.orders.receipt', $order) }}" class="p-6">
+        <form method="POST" action="{{ route('purchases.orders.prices.update', $order) }}" class="p-6 space-y-3" id="pricesForm">
             @csrf
-            <div class="mb-4">
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Fournisseur <span class="text-red-500">*</span></label>
-                <select name="supplier_id" required class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
-                    <option value="">— Choisir un fournisseur —</option>
-                    @foreach($suppliers as $s)
-                    <option value="{{ $s->id }}" {{ $order->supplier_id == $s->id ? 'selected' : '' }}>{{ $s->name }}</option>
-                    @endforeach
-                </select>
-                @if(!$order->supplier_id)
-                <p class="text-xs text-slate-400 mt-1">Obligatoire à la réception : c'est le fournisseur qui a effectivement livré cette commande.</p>
-                @endif
+            <p class="text-xs text-slate-500">Prix donné par le devis ou la facture, <strong>par emballage commandé</strong>. Laissez vide un prix encore inconnu.</p>
+            @foreach($order->items as $item)
+            <div class="flex items-center gap-3 border-b border-slate-50 pb-3 price-row" data-qty="{{ (float) $item->quantity }}">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-slate-700 truncate">{{ $item->product->name ?? '—' }}</p>
+                    <p class="text-xs text-slate-400">{{ rtrim(rtrim(number_format((float) $item->quantity, 2, ',', ' '), '0'), ',') }} × {{ $item->packaging->name ?? ($item->product->unit->symbol ?? 'unité') }}</p>
+                </div>
+                <div class="text-right">
+                    <div class="flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-orange-500">
+                        <input type="number" step="0.01" min="0" name="prices[{{ $item->id }}]" value="{{ $item->price !== null ? (float) $item->price : '' }}" placeholder="Prix"
+                               class="w-28 text-right px-2 py-1.5 text-sm focus:outline-none" oninput="recalcPrices()">
+                        <span class="px-2 text-[11px] text-slate-500 bg-slate-50 self-stretch flex items-center whitespace-nowrap">MRU / {{ $item->packaging->name ?? ($item->product->unit->symbol ?? 'unité') }}</span>
+                    </div>
+                    <p class="line-total text-[11px] text-slate-500 mt-1"></p>
+                </div>
             </div>
-
-            <div class="mb-4">
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Dépôt de stock <span class="text-red-500">*</span></label>
-                <select name="stock_id" required class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
-                    <option value="">— Choisir un stock —</option>
-                    @foreach($stocks as $stock)
-                    <option value="{{ $stock->id }}">{{ $stock->name }}</option>
-                    @endforeach
-                </select>
+            @endforeach
+            <div class="flex items-center justify-between pt-1">
+                <span class="text-sm font-semibold text-slate-600">Total</span>
+                <span id="pricesTotal" class="text-xl font-bold text-orange-600"></span>
             </div>
-
-            <p class="text-xs text-slate-500 mb-3">Le prix a déjà été fixé sur le Bon de Commande. Cette étape ne sert qu'à confirmer ce qui est physiquement arrivé — vous pouvez recevoir en plusieurs fois si le fournisseur livre partiellement.</p>
-                <table class="w-full text-sm mb-4" id="receiptTable">
-                <thead class="text-xs text-slate-400 uppercase border-b">
-                    <tr>
-                        <th class="pb-2 text-left">Produit</th>
-                        <th class="pb-2 text-left">Emballage</th>
-                        <th class="pb-2 text-right">Qté commandée</th>
-                        <th class="pb-2 text-right">Qté restante</th>
-                        <th class="pb-2 text-right">Qté reçue</th>
-                        <th class="pb-2 text-right">Valeur</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($remainingItems as $i => $item)
-                    @php
-                        $ppReceipt = null;
-                        if ($item->packaging_id) {
-                            $ppReceipt = \App\Models\ProductPackaging::where('product_id', $item->product_id)
-                                            ->where('packaging_id', $item->packaging_id)
-                                            ->value('quantity');
-                        }
-                    @endphp
-                    <input type="hidden" name="items[{{ $i }}][product_id]" value="{{ $item->product_id }}">
-                    <input type="hidden" name="items[{{ $i }}][order_item_id]" value="{{ $item->id }}">
-                    <tr class="border-b border-slate-50 receipt-row" data-price="{{ $item->price ?? 0 }}">
-                        <td class="py-2 font-medium text-slate-700">{{ $item->product->name ?? '—' }}</td>
-                        <td class="py-2 text-xs">
-                            @if($item->packaging)
-                                <span class="inline-flex items-center gap-1 bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full">
-                                    <i class="fa-solid fa-box text-xs"></i> {{ $item->packaging->name }}
-                                </span>
-                                @if($ppReceipt)
-                                <span class="block text-slate-400 mt-0.5">1 colis = {{ $ppReceipt }} {{ $item->product->unit->symbol ?? '' }}</span>
-                                @endif
-                            @else
-                                <span class="text-slate-400">Vrac</span>
-                            @endif
-                        </td>
-                        <td class="py-2 text-right text-slate-500">
-                            {{ $item->quantity }}
-                            {{ $item->packaging ? 'colis' : ($item->product->unit->symbol ?? '') }}
-                        </td>
-                        <td class="py-2 text-right text-amber-600 font-semibold">
-                            {{ rtrim(rtrim(number_format($item->remaining_quantity,2),'0'),'.') }}
-                            {{ $item->packaging ? 'colis' : ($item->product->unit->symbol ?? '') }}
-                        </td>
-                        <td class="py-2 text-right">
-                            <input type="number" name="items[{{ $i }}][quantity]" value="{{ $item->remaining_quantity }}"
-                                   step="0.01" min="0.01" max="{{ $item->remaining_quantity }}"
-                                   oninput="recalcReceipt()"
-                                   class="w-24 text-right border border-slate-200 rounded-xl px-2 py-1.5 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none receipt-qty">
-                            @if($item->packaging)
-                            <span class="block text-xs text-slate-400 mt-0.5">nb de colis</span>
-                            @endif
-                        </td>
-                        <td class="py-2 text-right font-semibold text-slate-700 receipt-line-total">0 MRU</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-                <tfoot>
-                    <tr class="border-t border-slate-200">
-                        <td colspan="5" class="pt-3 text-right font-bold text-slate-700 text-sm">Valeur de cette livraison :</td>
-                        <td class="pt-3 text-right font-bold text-orange-600" id="receiptGrandTotal">0 MRU</td>
-                    </tr>
-                </tfoot>
-                </table>
-
-            <div class="flex justify-end gap-3">
-                <button type="button" onclick="document.getElementById('receiptModal').classList.add('hidden')"
-                        class="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100 transition">Annuler</button>
-                <button type="submit" class="px-4 py-2 rounded-xl text-sm bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition">
-                    Valider la réception
-                </button>
-            </div>
+            <button class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold text-sm"><i class="fa-solid fa-save mr-1"></i> Enregistrer les prix</button>
         </form>
     </div>
 </div>
+<script>
+function recalcPrices() {
+    let total = 0;
+    document.querySelectorAll('#pricesForm .price-row').forEach(r => {
+        const p = parseFloat(r.querySelector('input').value);
+        const t = isNaN(p) ? null : p * parseFloat(r.dataset.qty);
+        r.querySelector('.line-total').textContent = t === null ? 'prix inconnu' : '= ' + t.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' MRU';
+        total += t || 0;
+    });
+    document.getElementById('pricesTotal').textContent = total.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' MRU';
+}
+recalcPrices();
+</script>
 @endif
 
 {{-- PAYMENT MODAL --}}
@@ -533,21 +546,6 @@
 </div>
 @endif
 
-<script>
-function recalcReceipt() {
-    let grand = 0;
-    document.querySelectorAll('#receiptTable .receipt-row').forEach(row => {
-        const qty   = parseFloat(row.querySelector('.receipt-qty')?.value) || 0;
-        const price = parseFloat(row.dataset.price) || 0;
-        const total = qty * price;
-        const totalEl = row.querySelector('.receipt-line-total');
-        if (totalEl) totalEl.textContent = total.toLocaleString('fr-FR') + ' MRU';
-        grand += total;
-    });
-    const grandEl = document.getElementById('receiptGrandTotal');
-    if (grandEl) grandEl.textContent = grand.toLocaleString('fr-FR') + ' MRU';
-}
-document.addEventListener('DOMContentLoaded', recalcReceipt);
-</script>
+
 
 @endsection

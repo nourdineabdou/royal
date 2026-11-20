@@ -31,6 +31,10 @@
                 });
             }
             $(function () { initSelect2(); });
+            // Select2 + jQuery 3.6 : le curseur ne va pas tout seul dans la recherche à l'ouverture
+            $(document).on('select2:open', function () {
+                setTimeout(function () { var s = document.querySelector('.select2-container--open .select2-search__field'); if (s) s.focus(); }, 0);
+            });
             if (window.MutationObserver) {
                 new MutationObserver(function (mutations) {
                     mutations.forEach(function (m) {
@@ -40,7 +44,7 @@
                             else if (node.querySelectorAll) initSelect2(node);
                         });
                     });
-                }).observe(document.body, { childList: true, subtree: true });
+                }).observe(document.documentElement, { childList: true, subtree: true });
             }
         })(jQuery);
     </script>
@@ -92,35 +96,72 @@
                class="sidebar-link {{ request()->routeIs('stock.index') ? 'active' : '' }}">
                 <i class="fa-solid fa-warehouse"></i> Tous les stocks
             </a>
+            @can('stock.movements.all')
             <a href="{{ route('stock.all-movements') }}"
                class="sidebar-link {{ request()->routeIs('stock.all-movements') ? 'active' : '' }}">
                 <i class="fa-solid fa-arrows-rotate"></i> Tous les mouvements
             </a>
+            @endcan
             <a href="{{ route('stock.transfer') }}"
                class="sidebar-link {{ request()->routeIs('stock.transfer') ? 'active' : '' }}">
                 <i class="fa-solid fa-right-left"></i> Transfert de stock
             </a>
             @can('stock.products.adjust')
+            @can('kitchen.requests.prepare')
+            <a href="{{ route('stock.kitchen-requests.index') }}"
+               class="sidebar-link {{ request()->routeIs('stock.kitchen-requests.*') ? 'active' : '' }}">
+                <i class="fa-solid fa-utensils"></i> Demandes des cuisines
+                @php $__pendingKr = \App\Models\KitchenRequest::where('status', 'pending')->count(); @endphp
+                @if($__pendingKr)<span class="ml-auto bg-white text-emerald-700 text-[11px] font-bold px-2 py-0.5 rounded-full">{{ $__pendingKr }}</span>@endif
+            </a>
+            @endcan
             <a href="{{ route('stock.scan') }}"
                class="sidebar-link {{ request()->routeIs('stock.scan') ? 'active' : '' }}">
-                <i class="fa-solid fa-barcode"></i> Scanner entrée / sortie
+                <i class="fa-solid fa-barcode"></i> Scanner une sortie
+            </a>
+            @endcan
+            @can('purchases.requests.create')
+            <a href="{{ route('purchases.requests.auto') }}" class="sidebar-link">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Demande d'achat auto
+                @php $__autoDa = \App\Models\PurchaseRequest::where('auto_generated', true)->where('status', 'draft')->withCount('items')->latest('id')->first(); @endphp
+                @if($__autoDa && $__autoDa->items_count)<span class="ml-auto bg-white text-red-600 text-[11px] font-bold px-2 py-0.5 rounded-full">{{ $__autoDa->items_count }}</span>@endif
+            </a>
+            @endcan
+            @can('purchases.stock-ruptures.view')
+            <a href="{{ route('purchases.stock-ruptures') }}" class="sidebar-link">
+                <i class="fa-solid fa-triangle-exclamation"></i> Ruptures de stock
+            </a>
+            @endcan
+            @can('purchases.orders.receipt')
+            <a href="{{ route('purchases.deliveries') }}" class="sidebar-link">
+                <i class="fa-solid fa-truck-ramp-box"></i> Réceptions (BL) @php $__pendingBl = \App\Models\PurchaseOrder::whereIn('status', ['ordered', 'partial'])->count(); @endphp
+                @if($__pendingBl)<span class="ml-auto bg-white text-emerald-700 text-[11px] font-bold px-2 py-0.5 rounded-full">{{ $__pendingBl }}</span>@endif
             </a>
             @endcan
             @if(auth()->user()?->hasRole(['admin', 'super-admin']))
+            <a href="{{ route('stock.initial') }}"
+               class="sidebar-link {{ request()->routeIs('stock.initial') ? 'active' : '' }}">
+                <i class="fa-solid fa-boxes-packing"></i> Stock initial
+            </a>
             <a href="{{ route('stock.adjustments') }}"
                class="sidebar-link {{ request()->routeIs('stock.adjustments') ? 'active' : '' }}">
-                <i class="fa-solid fa-sliders"></i> Ajustement / Stock initial
+                <i class="fa-solid fa-sliders"></i> Ajustement (inventaire)
             </a>
             @endif
             <div class="pt-3 pb-1 px-2">
                 <p class="text-xs font-semibold text-emerald-200 uppercase tracking-widest">Navigation</p>
             </div>
+            <a href="{{ route('purchases.guide') }}" class="sidebar-link">
+                <i class="fa-solid fa-book-open"></i> Guide d'utilisation
+            </a>
             <a href="{{ url('/dashboard-modern') }}" class="sidebar-link">
                 <i class="fa-solid fa-gauge-high"></i> Dashboard
             </a>
+            @can('purchases.dashboard')
             <a href="{{ url('/modules/purchases') }}" class="sidebar-link">
                 <i class="fa-solid fa-cart-shopping"></i> Achats
             </a>
+            @endcan
         </nav>
 
         <div class="p-4 border-t border-white/20 text-xs text-emerald-200 flex items-center gap-2">
@@ -140,6 +181,7 @@
             </div>
             <div class="flex flex-wrap items-center gap-2 md:gap-3">
                 @yield('header-actions')
+                <a href="{{ route('password.edit') }}" class="text-xs text-slate-500 hover:text-emerald-700 flex items-center gap-1" title="Mon compte"><i class="fa-solid fa-circle-user"></i> <span class="hidden sm:inline">Mon compte</span></a>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button class="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1" title="Déconnexion">
@@ -157,14 +199,20 @@
                     ['stock.all-movements', 'fa-arrows-rotate', 'Mouvements'],
                     ['stock.transfer', 'fa-right-left', 'Transfert'],
                 ];
+                $guideLink = ['purchases.guide', 'fa-book-open', 'Guide'];
                 if (auth()->user()?->can('stock.products.adjust')) {
-                    array_splice($mobileLinks, 1, 0, [['stock.scan', 'fa-barcode', 'Scanner']]);
+                    array_splice($mobileLinks, 1, 0, [['stock.scan', 'fa-barcode', 'Sortie']]);
+                }
+                if (auth()->user()?->can('kitchen.requests.prepare')) {
+                    array_splice($mobileLinks, 1, 0, [['stock.kitchen-requests.index', 'fa-utensils', 'Cuisines']]);
                 }
                 if (auth()->user()?->hasRole(['admin', 'super-admin'])) {
                     $mobileLinks[] = ['stock.adjustments', 'fa-sliders', 'Ajustement'];
                 }
+                $mobileLinks[] = $guideLink;
             @endphp
             @foreach($mobileLinks as [$r, $icon, $label])
+                @continue($r === 'stock.all-movements' && !auth()->user()?->can('stock.movements.all'))
                 <a href="{{ route($r) }}"
                    class="flex items-center gap-1.5 px-3 py-2 rounded-lg {{ request()->routeIs($r) ? 'bg-white text-emerald-700' : 'hover:bg-white/20' }}">
                     <i class="fa-solid {{ $icon }}"></i> {{ $label }}

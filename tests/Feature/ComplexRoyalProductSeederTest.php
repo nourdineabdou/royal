@@ -83,7 +83,7 @@ class ComplexRoyalProductSeederTest extends TestCase
         });
     }
 
-    public function test_it_seeds_the_catalog_categories_units_and_known_packaging_conversions_idempotently(): void
+    public function test_it_adds_missing_catalog_data_without_removing_or_overwriting_existing_data(): void
     {
         $oldUnit = Unit::create(['name' => 'Kilogramme', 'symbol' => 'old']);
         $oldCategory = ProductCategory::create(['name' => 'Ancienne catégorie']);
@@ -93,6 +93,21 @@ class ComplexRoyalProductSeederTest extends TestCase
             'unit_id' => $oldUnit->id,
             'product_category_id' => $oldCategory->id,
             'packaging_id' => $oldPackaging->id,
+        ]);
+        $existingCatalogProduct = Product::create([
+            'name' => 'Riz cassé personnalisé',
+            'reference' => 'CR-001',
+            'is_bulk' => true,
+            'unit_id' => $oldUnit->id,
+            'product_category_id' => $oldCategory->id,
+            'packaging_id' => $oldPackaging->id,
+        ]);
+        DB::table('product_packagings')->insert([
+            'product_id' => $existingCatalogProduct->id,
+            'packaging_id' => $oldPackaging->id,
+            'quantity' => 123,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
         $defaultStockId = DB::table('stocks')->insertGetId([
             'name' => 'Stock par défaut',
@@ -124,36 +139,36 @@ class ComplexRoyalProductSeederTest extends TestCase
         $packagingCount = ProductPackaging::count();
         $this->seed(ComplexRoyalProductSeeder::class);
 
-        $this->assertSame(53, Product::count());
-        $this->assertSame(11, ProductCategory::count());
+        $this->assertSame(96, Product::count());
+        $this->assertSame(95, Product::whereNotNull('reference')->count());
         $this->assertSame($packagingCount, ProductPackaging::count());
-        $this->assertDatabaseMissing('products', ['id' => $oldProduct->id]);
-        $this->assertDatabaseMissing('packagings', ['id' => $oldPackaging->id]);
+        $this->assertDatabaseHas('products', ['id' => $oldProduct->id]);
+        $this->assertDatabaseHas('packagings', ['id' => $oldPackaging->id]);
+        $this->assertDatabaseHas('product_categories', ['id' => $oldCategory->id]);
         $this->assertSame(2, DB::table('stocks')->count());
-        $this->assertSame(0, DB::table('stock_items')->count());
-        $this->assertSame(0, DB::table('stock_movements')->count());
+        $this->assertSame(1, DB::table('stock_items')->count());
+        $this->assertSame(1, DB::table('stock_movements')->count());
+        $this->assertSame(12.0, (float) DB::table('stock_items')->value('quantity'));
+        $this->assertSame(12.0, (float) DB::table('stock_movements')->value('quantity'));
 
-        $rice = Product::where('reference', 'CR-001')->firstOrFail();
-        $this->assertSame('Céréales & féculents', $rice->productCategory->name);
-        $this->assertSame('g', $rice->unit->symbol);
-        $this->assertSame('Sac de 25 kg', $rice->packaging->name);
-        $this->assertSame('25000.00', $rice->productPackagings()->firstOrFail()->quantity);
-
-        $pastaCarton = Product::where('reference', 'CR-005')->firstOrFail();
-        $this->assertSame(6000.0, (float) ProductPackaging::where('product_id', $pastaCarton->id)
-            ->where('packaging_id', $pastaCarton->packaging_id)
-            ->value('quantity'));
-        $this->assertSame(500.0, (float) ProductPackaging::where('product_id', $pastaCarton->id)
-            ->whereHas('packaging', fn ($query) => $query->where('name', 'Paquet de 500 g'))
+        $existingCatalogProduct->refresh();
+        $this->assertSame('Riz cassé personnalisé', $existingCatalogProduct->name);
+        $this->assertTrue($existingCatalogProduct->is_bulk);
+        $this->assertSame($oldUnit->id, $existingCatalogProduct->unit_id);
+        $this->assertSame($oldCategory->id, $existingCatalogProduct->product_category_id);
+        $this->assertSame($oldPackaging->id, $existingCatalogProduct->packaging_id);
+        $this->assertSame(123.0, (float) ProductPackaging::where('product_id', $existingCatalogProduct->id)
+            ->where('packaging_id', $oldPackaging->id)
             ->value('quantity'));
 
-        $sauce = Product::where('reference', 'CR-040')->firstOrFail();
-        $this->assertSame(950.0, (float) ProductPackaging::where('product_id', $sauce->id)
-            ->where('packaging_id', $sauce->packaging_id)
+        $forks = Product::where('reference', 'CR-095')->firstOrFail();
+        $this->assertSame('pcs', $forks->unit->symbol);
+        $this->assertSame('Paquet de 50 pièces', $forks->packaging->name);
+        $this->assertSame(50.0, (float) ProductPackaging::where('product_id', $forks->id)
+            ->where('packaging_id', $forks->packaging_id)
             ->value('quantity'));
-
-        $uncertainPackage = Product::where('reference', 'CR-021')->firstOrFail();
-        $this->assertSame('Carton de 2 sachets', $uncertainPackage->packaging->name);
-        $this->assertSame(0, $uncertainPackage->productPackagings()->count());
+        $this->assertSame(1.0, (float) ProductPackaging::where('product_id', $forks->id)
+            ->whereHas('packaging', fn ($query) => $query->where('name', 'Pièce'))
+            ->value('quantity'));
     }
 }

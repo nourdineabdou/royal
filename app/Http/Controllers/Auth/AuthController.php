@@ -24,12 +24,18 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string|min:6',
+        // Identifiant : nom d'utilisateur (ex : « sambou », « 0042 ») ou adresse e-mail
+        $data = $request->validate([
+            'login'    => 'required|string|max:255',
+            'password' => 'required|string',
+        ], [
+            'login.required'    => 'Tapez votre nom d\'utilisateur ou votre e-mail.',
+            'password.required' => 'Tapez votre mot de passe.',
         ]);
 
-        if (Auth::attempt($credentials, $request->filled('remember'))) {
+        $found = User::findForLogin($data['login']);
+
+        if ($found && Auth::attempt(['id' => $found->id, 'password' => $data['password']], $request->filled('remember'))) {
             $request->session()->regenerate();
 
             $user = Auth::user();
@@ -47,12 +53,22 @@ class AuthController extends Controller
                 return redirect()->intended(route('cashier.open'))->with('success', 'Bienvenue!');
             }
 
+            // Cuisinier : arrive sur ses demandes au magasin (à confirmer en premier)
+            if ($user->hasRole('cuisinier')) {
+                return redirect()->intended(route('kitchen.requests.index'))->with('success', 'Bienvenue!');
+            }
+
+            // Magasinier : arrive directement sur les livraisons à réceptionner
+            if ($user->hasRole('magasinier')) {
+                return redirect()->intended(route('purchases.deliveries'))->with('success', 'Bienvenue!');
+            }
+
             return redirect()->intended('dashboard-modern')->with('success', 'Bienvenue!');
         }
 
         return back()->withErrors([
-            'email' => 'Les identifiants fournis ne correspondent pas à nos enregistrements.',
-        ])->onlyInput('email');
+            'login' => 'Nom d\'utilisateur (ou e-mail) ou mot de passe incorrect.',
+        ])->onlyInput('login');
     }
 
     /**

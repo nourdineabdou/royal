@@ -47,7 +47,7 @@
                             else if (node.querySelectorAll) initSelect2(node);
                         });
                     });
-                }).observe(document.body, { childList: true, subtree: true });
+                }).observe(document.documentElement, { childList: true, subtree: true });
             }
         })(jQuery);
     </script>

@@ -25,9 +25,18 @@ class UserSeeder extends Seeder
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         $superAdmin->assignRole('super-admin');
 
+        // Changement de domaine : les comptes existants en @royalhotel.mr passent en @complexroyal.com
+        // (même compte : mot de passe, nom d'utilisateur et rôles inchangés), au lieu d'en créer de nouveaux.
+        foreach (User::where('email', 'like', '%@royalhotel.mr')->get() as $old) {
+            $new = str_replace('@royalhotel.mr', '@complexroyal.com', $old->email);
+            if (!User::where('email', $new)->exists()) {
+                $old->update(['email' => $new]);
+            }
+        }
+
         // Deuxième super-admin
         $saydou = User::firstOrCreate(
-            ['email' => 'saydou@royalhotel.mr'],
+            ['email' => 'saydou@complexroyal.com'],
             [
                 'name' => 'Saydou',
                 'password' => Hash::make('royal2026'),
@@ -38,7 +47,7 @@ class UserSeeder extends Seeder
         // Responsable RH
         Role::firstOrCreate(['name' => 'rh', 'guard_name' => 'web']);
         $salamata = User::firstOrCreate(
-            ['email' => 'salamata.ball@royalhotel.mr'],
+            ['email' => 'salamata.ball@complexroyal.com'],
             [
                 'name' => 'Salamata Ball',
                 'password' => Hash::make('RhRoyal#2026'),
@@ -46,9 +55,27 @@ class UserSeeder extends Seeder
         );
         $salamata->assignRole('rh');
 
+        // Circuit stock / achats (les rôles viennent de PermissionSeeder).
+        // Mot de passe provisoire « password » : chacun le change à sa première connexion.
+        // firstOrCreate : un compte existant garde le mot de passe que son titulaire a choisi.
+        $staff = [
+            ['email' => 'sambou@complexroyal.com',      'name' => 'Sambou',      'role' => 'magasinier'],
+            ['email' => 'youba@complexroyal.com',       'name' => 'Youba',       'role' => 'achat'],
+            ['email' => 'tandia@complexroyal.com',      'name' => 'Tandia',      'role' => 'responsable-achat'],
+            ['email' => 'abdelrahim@complexroyal.com',  'name' => 'Abdel Rahim', 'role' => 'super-admin'],
+            ['email' => 'fatimatou@complexroyal.com',   'name' => 'Fatimatou',   'role' => 'cuisinier'],
+            ['email' => 'boris@complexroyal.com',       'name' => 'Boris',       'role' => 'cuisinier'],
+        ];
+        foreach ($staff as $s) {
+            Role::firstOrCreate(['name' => $s['role'], 'guard_name' => 'web']);
+            User::firstOrCreate(['email' => $s['email']], [
+                'name' => $s['name'], 'password' => Hash::make('password'), 'must_change_password' => true,
+            ])->syncRoles([$s['role']]);
+        }
+
         echo "✅ Utilisateurs créés avec succès!\n";
         echo "   - Super Admin: nourdine@gmail.com / password123\n";
-        echo "   - Super Admin: saydou@royalhotel.mr / royal2026\n";
-        echo "   - RH: salamata.ball@royalhotel.mr / RhRoyal#2026\n";
+        echo "   - Super Admin: saydou@complexroyal.com / royal2026\n";
+        echo "   - RH: salamata.ball@complexroyal.com / RhRoyal#2026\n";
     }
 }

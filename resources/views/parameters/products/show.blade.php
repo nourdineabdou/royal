@@ -32,6 +32,12 @@
                     </p>
                 </div>
 
+                <!-- Seuil minimum -->
+                <div class="border-l-4 border-amber-500 pl-4">
+                    <p class="text-gray-600 text-sm mb-1">Seuil minimum</p>
+                    <p class="text-lg font-semibold text-gray-900">{{ \App\Support\Qty::format($product->effectiveMinStock(), $product->unit->symbol ?? '') }}@if($product->usesDefaultMinStock()) <span class="text-sm font-normal text-gray-500">(par défaut : {{ $product->defaultMinLabel() }})</span>@endif</p>
+                </div>
+
                 <!-- Emballages -->
                 <div class="border-l-4 border-purple-600 pl-4 col-span-2">
                     <p class="text-gray-600 text-sm mb-1">Emballages (achat / vente)</p>

@@ -38,7 +38,7 @@ class StockController extends Controller
     public function show(Stock $stock, Request $request)
     {
         $this->perm('stock.view');
-        $query = StockItem::with(['product.unit'])
+        $query = StockItem::with(['product.unit', 'product.productPackagings.packaging'])
             ->where('stock_id', $stock->id);
 
         if ($request->filled('search')) {
@@ -218,7 +218,7 @@ class StockController extends Controller
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'quantity'   => 'required|numeric',
-            'type'       => 'required|in:in,out',
+            'type'       => 'required|in:out', // entrées : réception BL ; corrections : ajustement admin
             'notes'      => 'nullable|string|max:500',
         ]);
 
@@ -295,6 +295,34 @@ class StockController extends Controller
         return view('stock.adjustments', compact('stocks', 'stock', 'products', 'recent'));
     }
 
+    /**
+     * Stock initial, sans commande ni réception : le super-admin cherche un produit, saisit ce qu'il y a
+     * dans le magasin (en sacs, cartons… ou en vrac) et enregistre. Magasin proposé : le Stock Catering.
+     * L'enregistrement passe par storeAdjustments (mouvement « Stock initial » tracé).
+     */
+    public function initialStock(Request $request)
+    {
+        $this->ensureAdmin();
+
+        $stocks = Stock::orderBy('name')->get(['id', 'name', 'module']);
+        $ref    = app(\App\Services\StockAlertService::class)->referenceStock();
+        $stock  = $request->filled('stock_id') ? $stocks->firstWhere('id', (int) $request->stock_id) : ($ref ?? $stocks->first());
+        abort_unless($stock, 404, 'Aucun magasin.');
+
+        $current = StockItem::where('stock_id', $stock->id)->pluck('quantity', 'product_id')->map(fn ($q) => (float) $q);
+        $recent  = StockMovement::with(['product.unit', 'user'])
+            ->where('stock_id', $stock->id)->where('origin_module', 'adjustment')
+            ->latest()->limit(15)->get();
+
+        return view('stock.initial', [
+            'stocks'  => $stocks,
+            'stock'   => $stock,
+            'catalog' => \App\Support\ScanCatalog::all(),
+            'current' => $current,
+            'recent'  => $recent,
+        ]);
+    }
+
     public function storeAdjustments(Request $request)
     {
         $this->ensureAdmin();
@@ -348,7 +376,7 @@ class StockController extends Controller
         });
 
         return redirect()
-            ->route('stock.adjustments', ['stock_id' => $stockId])
+            ->route($request->input('back') === 'initial' ? 'stock.initial' : 'stock.adjustments', ['stock_id' => $stockId])
             ->with($count ? 'success' : 'error', $count
                 ? "{$count} produit(s) ajusté(s) avec succès."
                 : 'Aucune différence avec le stock actuel : rien n\'a été modifié.');

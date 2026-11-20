@@ -68,6 +68,42 @@ class PurchaseOrderItem extends Model
                     ->where('packaging_id', $this->packaging_id);
     }
 
+    /** Contenance d'un emballage de la ligne, en unité de base (null si commande en vrac). */
+    public function perPack(): ?float
+    {
+        if (!$this->packaging_id) {
+            return null;
+        }
+        $pp = $this->product && $this->product->relationLoaded('productPackagings')
+            ? $this->product->productPackagings->firstWhere('packaging_id', $this->packaging_id)
+            : null;
+        $q = $pp ? $pp->quantity : $this->packaging_qty_per_unit;
+
+        return (float) $q > 0 ? (float) $q : null;
+    }
+
+    /** Quantité de la ligne en emballages, ex : « 10 × Sac de 25 kg » (ou « 15 kg » en vrac). */
+    public function qtyLabel(?float $qty = null): string
+    {
+        $qty ??= (float) $this->quantity;
+        if ($this->packaging_id) {
+            return \App\Support\Qty::num($qty) . ' × ' . ($this->packaging->name ?? 'emballage');
+        }
+
+        return \App\Support\Qty::format($qty, $this->product->unit->symbol ?? '');
+    }
+
+    /** Équivalent en unité de base, ex : « 250 kg » (null si commande en vrac ou contenance inconnue). */
+    public function baseLabel(?float $qty = null): ?string
+    {
+        $per = $this->perPack();
+        if (!$per) {
+            return null;
+        }
+
+        return \App\Support\Qty::format(($qty ?? (float) $this->quantity) * $per, $this->product->unit->symbol ?? '');
+    }
+
     public function getPackagingQtyPerUnitAttribute()
     {
         if (!$this->packaging_id) return null;

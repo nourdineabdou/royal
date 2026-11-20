@@ -9,7 +9,6 @@ use App\Models\ProductPackaging;
 use App\Models\Unit;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class ComplexRoyalProductSeeder extends Seeder
 {
@@ -69,9 +68,64 @@ class ComplexRoyalProductSeeder extends Seeder
             ['CR-051', 'Essence banane', 'Arômes & pâtisserie', 'mL', 'Paquet de 12 bouteilles de 30 mL', 360, 'Bouteille de 30 mL', 30],
             ['CR-052', 'Essence coco', 'Arômes & pâtisserie', 'mL', 'Paquet de 12 bouteilles de 30 mL', 360, 'Bouteille de 30 mL', 30],
             ['CR-053', 'Thé 2020', 'Boissons & petit déjeuner', 'g', 'Carton de 200 paquets de 25 g', 5000, 'Paquet de 25 g', 25],
+            ['CR-054', 'Champignons en conserve', 'Conserves & sauces', 'g', 'Boîte (contenance à vérifier)', null],
+            ['CR-055', 'ADJA (assaisonnement liquide)', 'Épices & assaisonnements', 'mL', 'Carton de 12 bouteilles de 1 L', 12000, 'Bouteille de 1 L', 1000],
+            ['CR-056', 'Mayonnaise Cheffin', 'Conserves & sauces', 'g', 'Carton de 4 sacs de 5 kg', 20000, 'Sac de 5 kg', 5000],
+            ['CR-057', 'Tayba (produit à identifier)', 'Autres / à identifier', 'g', 'Sac de 5 kg', 5000],
+            ['CR-058', 'Mini thon (petit format)', 'Conserves & sauces', 'pcs', 'Carton (contenu à vérifier)', null],
+            ['CR-059', 'Café (dosettes / sachets)', 'Boissons & petit déjeuner', 'g', 'Carton (contenu à vérifier)', null],
+            ['CR-060', 'Equal (nom à vérifier)', 'Autres / à identifier', 'pcs', 'Carton de 1000 sachets', 1000],
+            ['CR-061', 'Lait (désignation incomplète)', 'Boissons & petit déjeuner', 'pcs', 'Pièce (contenu à vérifier)', null],
+            ['CR-062', 'Tiges à brochettes en bois', 'Emballages & jetables', 'pcs', 'Paquet (contenu à vérifier)', null],
+            ['CR-063', 'Fleur d’oranger', 'Arômes & pâtisserie', 'mL', 'Flacon de 100 mL', 100],
+            ['CR-064', 'Papier cuisson (feuilles 38 × 42 cm)', 'Emballages & jetables', 'pcs', 'Tube (contenu à vérifier)', null],
+            ['CR-065', 'Nutella chocolat (pot 750 g)', 'Conserves & sauces', 'g', 'Carton (contenu à vérifier)', null, 'Pot de 750 g', 750],
+            ['CR-066', 'Confiture (pot 500 g)', 'Conserves & sauces', 'g', 'Carton (contenu à vérifier)', null, 'Pot de 500 g', 500],
+            ['CR-067', 'Madar liquide (850 g)', 'Entretien & hygiène', 'g', 'Bouteille de 850 g', 850],
+            ['CR-068', 'Savon liquide mains', 'Entretien & hygiène', 'mL', 'Carton de 12 bouteilles de 400 mL', 4800, 'Bouteille de 400 mL', 400],
+            ['CR-069', 'OVI (produit à identifier)', 'Entretien & hygiène', 'g', 'Carton (contenu à vérifier)', null, 'Bouteille de 300 g', 300],
+            ['CR-070', 'Glow (boisson ou produit liquide)', 'Autres / à identifier', 'mL', 'Bouteille de 1,5 L', 1500],
+            ['CR-071', 'Petit lait (boisson)', 'Boissons & petit déjeuner', 'mL', 'Carton de 24 pièces de 200 mL', 4800, 'Pièce de 200 mL', 200],
+            ['CR-072', 'Frites surgelées (Damaco)', 'Surgelés', 'g', 'Carton de 4 sachets de 2,5 kg', 10000, 'Sachet de 2,5 kg', 2500],
+            ['CR-073', 'Produit en sac (nom à vérifier)', 'Autres / à identifier', 'g', 'Sac de 25 kg', 25000],
+            ['CR-074', 'Pommes de terre', 'Fruits & légumes frais', 'g', 'Sac de 25 kg', 25000],
+            ['CR-075', 'Cuisses de poulet (CaseFarms USA, 10 kg)', 'Viandes & volailles', 'g', 'Carton de 10 kg', 10000],
+            ['CR-076', 'Viande avec os', 'Viandes & volailles', 'g', 'Kilogramme', 1000],
+            ['CR-077', 'Viande sans os', 'Viandes & volailles', 'g', 'Kilogramme', 1000],
+            ['CR-078', 'Pommes (fruit)', 'Fruits & légumes frais', 'pcs', 'Pièce', 1],
+            ['CR-079', 'Yaourts', 'Produits laitiers & œufs', 'pcs', 'Pièce', 1],
+            ['CR-080', 'Raïb / rayeb', 'Produits laitiers & œufs', 'pcs', 'Pièce', 1],
+            ['CR-081', 'Beurre (marque non précisée)', 'Produits laitiers & œufs', 'pcs', 'Carton (contenu à vérifier)', null],
+            ['CR-082', 'Fromage cheddar', 'Produits laitiers & œufs', 'pcs', 'Carton de 36 pièces', 36, 'Pièce', 1],
+            ['CR-083', 'Beurre Président (200 g)', 'Produits laitiers & œufs', 'pcs', 'Carton (contenu à vérifier)', null, 'Pièce de 200 g', 1],
+            ['CR-084', 'Jus de goyave (YESSI, 1 L)', 'Boissons & petit déjeuner', 'mL', 'Carton de 12 bouteilles de 1 L', 12000, 'Bouteille de 1 L', 1000],
+            ['CR-085', 'Jus d’orange (Juper, 1 L)', 'Boissons & petit déjeuner', 'mL', 'Carton (nombre de bouteilles à vérifier)', null, 'Bouteille de 1 L', 1000],
+            ['CR-086', 'Eau embouteillée', 'Boissons & petit déjeuner', 'mL', 'Carton (contenance à vérifier)', null],
+            ['CR-087', 'ORO (boisson)', 'Boissons & petit déjeuner', 'mL', 'Carton de 12 bouteilles de 750 mL', 9000, 'Bouteille de 750 mL', 750],
+            ['CR-088', 'Œufs frais (cartons de plateaux)', 'Produits laitiers & œufs', 'pcs', 'Carton (contenu à vérifier)', null],
+            ['CR-089', 'Carottes', 'Fruits & légumes frais', 'g', 'Kilogramme', 1000],
+            ['CR-090', 'Poivrons assortis (rouges / jaunes / verts)', 'Fruits & légumes frais', 'g', 'Kilogramme', 1000],
+            ['CR-091', 'Fromage gouda', 'Produits laitiers & œufs', 'g', 'Carton (poids à vérifier)', null],
+            ['CR-092', 'Crème liquide de cuisine (1 L)', 'Produits laitiers & œufs', 'mL', 'Carton de 12 briques de 1 L', 12000, 'Brique de 1 L', 1000],
+            ['CR-093', 'Filet de poulet (Lezita, 1 kg)', 'Viandes & volailles', 'g', 'Carton de 12 pièces de 1 kg', 12000, 'Pièce de 1 kg', 1000],
+            ['CR-094', 'Bouillon Jumbo (tablettes)', 'Épices & assaisonnements', 'pcs', 'Tablette (conditionnement à vérifier)', null],
+            ['CR-095', 'Fourchettes jetables', 'Emballages & jetables', 'pcs', 'Paquet de 50 pièces', 50, 'Pièce', 1],
         ];
 
-        DB::transaction(function () use ($products): void {
+        /*
+         * Produits « consommables » = vendus tels quels au POS catering (is_consumable + sale_price).
+         * Tout le catalogue ci-dessus est de la matière première, du jetable ou de l'entretien :
+         * rien n'est vendu directement au client, donc aucun produit n'est consommable par défaut.
+         * Pour en rendre un vendable, ajoutez sa référence et son prix de vente (MRU, par unité de base).
+         * Exemple : 'CR-053' => 10.00,
+         */
+        $consumables = [
+        ];
+
+        $createdProductCount = 0;
+        $existingProductCount = 0;
+
+        DB::transaction(function () use ($products, $consumables, &$createdProductCount, &$existingProductCount): void {
             $units = [
                 'g' => ['name' => 'Gramme', 'symbol' => 'g'],
                 'mL' => ['name' => 'Millilitre', 'symbol' => 'mL'],
@@ -86,49 +140,50 @@ class ComplexRoyalProductSeeder extends Seeder
                 )->id;
             }
 
-            $retainedProductIds = [];
-            $categoryNames = [];
-            $packagingNames = [];
-
             foreach ($products as $row) {
                 [$reference, $name, $categoryName, $unitSymbol, $mainPackagingName, $mainQuantity] = $row;
-                $categoryNames[] = $categoryName;
-                $packagingNames[] = $mainPackagingName;
-
-                $category = ProductCategory::firstOrCreate(['name' => $categoryName]);
-                $mainPackaging = Packaging::firstOrCreate(['name' => $mainPackagingName]);
                 $unitId = $unitIds[$unitSymbol];
 
-                $product = Product::where('reference', $reference)->first()
-                    ?? Product::where('name', $name)->first()
-                    ?? new Product;
+                $product = Product::where('reference', $reference)->first();
+                if ($product === null) {
+                    $product = Product::where('name', $name)->first();
+                }
 
-                $product->fill([
-                    'name' => $name,
-                    'reference' => $reference,
-                    'unit_id' => $unitId,
-                    'product_category_id' => $category->id,
-                    'packaging_id' => $mainPackaging->id,
-                    'is_bulk' => false,
-                ]);
-                $product->save();
-                $retainedProductIds[] = $product->id;
+                if ($product === null) {
+                    $category = ProductCategory::firstOrCreate(['name' => $categoryName]);
+                    $mainPackaging = Packaging::firstOrCreate(['name' => $mainPackagingName]);
+
+                    $product = new Product;
+                    $product->fill([
+                        'name' => $name,
+                        'reference' => $reference,
+                        'unit_id' => $unitId,
+                        'product_category_id' => $category->id,
+                        'packaging_id' => $mainPackaging->id,
+                        'is_bulk' => false,
+                        'is_consumable' => array_key_exists($reference, $consumables),
+                        'sale_price' => $consumables[$reference] ?? null,
+                    ]);
+                    $product->save();
+                    $createdProductCount++;
+                } else {
+                    $existingProductCount++;
+                    $mainPackaging = Packaging::firstOrCreate(['name' => $mainPackagingName]);
+                }
 
                 $this->saveProductPackaging($product->id, $mainPackaging->id, $mainQuantity);
 
                 if (isset($row[6], $row[7])) {
-                    $packagingNames[] = $row[6];
                     $innerPackaging = Packaging::firstOrCreate(['name' => $row[6]]);
                     $this->saveProductPackaging($product->id, $innerPackaging->id, $row[7]);
                 }
             }
-
-            $this->deleteObsoleteProducts($retainedProductIds);
-            $this->deleteObsoletePackagings(array_unique($packagingNames));
-            ProductCategory::whereNotIn('name', array_unique($categoryNames))->delete();
         });
 
-        $this->command?->info('Catalogue Complex Royal : '.count($products).' produits importés.');
+        $this->command?->info(
+            'Catalogue Complex Royal : '.$createdProductCount.' produits ajoutés, '
+            .$existingProductCount.' déjà présents conservés.'
+        );
     }
 
     private function saveProductPackaging(int $productId, int $packagingId, ?int $quantity): void
@@ -137,70 +192,9 @@ class ComplexRoyalProductSeeder extends Seeder
             return;
         }
 
-        ProductPackaging::updateOrCreate(
+        ProductPackaging::firstOrCreate(
             ['product_id' => $productId, 'packaging_id' => $packagingId],
             ['quantity' => $quantity]
         );
-    }
-
-    private function deleteObsoleteProducts(array $retainedProductIds): void
-    {
-        $obsoleteProductIds = Product::whereNotIn('id', $retainedProductIds)->pluck('id')->all();
-        if ($obsoleteProductIds === []) {
-            return;
-        }
-
-        $transferItemIds = Schema::hasTable('pos_transfer_items')
-            ? DB::table('pos_transfer_items')->whereIn('product_id', $obsoleteProductIds)->pluck('id')->all()
-            : [];
-        $terminalStockItemIds = Schema::hasTable('pos_terminal_stock_items')
-            ? DB::table('pos_terminal_stock_items')->whereIn('product_id', $obsoleteProductIds)->pluck('id')->all()
-            : [];
-
-        if (Schema::hasTable('pos_return_items')) {
-            if ($transferItemIds !== []) {
-                DB::table('pos_return_items')->whereIn('pos_transfer_item_id', $transferItemIds)->delete();
-            }
-
-            if ($terminalStockItemIds !== []) {
-                DB::table('pos_return_items')->whereIn('pos_terminal_stock_item_id', $terminalStockItemIds)->delete();
-            }
-        }
-
-        foreach ([
-            'supplier_return_items',
-            'goods_receipt_items',
-            'purchase_order_items',
-            'purchase_request_items',
-            'event_stock_usages',
-            'recipe_items',
-            'wastes',
-            'stock_movements',
-            'stock_items',
-            'order_items',
-            'pos_transfer_items',
-            'pos_terminal_stock_items',
-            'product_packagings',
-        ] as $table) {
-            if (Schema::hasTable($table) && Schema::hasColumn($table, 'product_id')) {
-                DB::table($table)->whereIn('product_id', $obsoleteProductIds)->delete();
-            }
-        }
-
-        Product::whereIn('id', $obsoleteProductIds)->delete();
-    }
-
-    private function deleteObsoletePackagings(array $retainedPackagingNames): void
-    {
-        $retainedPackagingIds = Packaging::whereIn('name', $retainedPackagingNames)->pluck('id')->all();
-        ProductPackaging::whereNotIn('packaging_id', $retainedPackagingIds)->delete();
-
-        if ($retainedPackagingIds === []) {
-            Packaging::query()->delete();
-
-            return;
-        }
-
-        Packaging::whereNotIn('id', $retainedPackagingIds)->delete();
     }
 }

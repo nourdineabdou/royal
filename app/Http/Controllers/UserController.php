@@ -35,18 +35,27 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $this->perm('users.create');
+        if ($request->filled('username')) {
+            $request->merge(['username' => User::normalizeUsername($request->input('username'))]);
+        }
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'username' => ['nullable', User::USERNAME_RULE, 'unique:users,username'],
             'email' => 'required|string|email|unique:users,email|max:255',
             'password' => 'required|string|min:8|confirmed',
             'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,id',
+        ], [
+            'username.regex'  => 'Nom d’utilisateur : 3 à 30 caractères, lettres sans accent, chiffres, point, tiret ou souligné.',
+            'username.unique' => 'Ce nom d’utilisateur est déjà pris.',
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
+            'username' => $validated['username'] ?? null, // vide : tiré du nom
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
+            'must_change_password' => true, // provisoire : à changer à la première connexion
         ]);
 
         if (!empty($validated['roles'])) {
@@ -54,7 +63,7 @@ class UserController extends Controller
         }
 
         return redirect()->route('users.index')
-            ->with('success', 'Utilisateur créé avec succès.');
+            ->with('success', 'Utilisateur créé. Il devra changer son mot de passe à sa première connexion.');
     }
 
     /**
@@ -84,21 +93,33 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $this->perm('users.edit');
+        $request->merge(['username' => $request->filled('username')
+            ? User::normalizeUsername($request->input('username'))
+            : User::uniqueUsernameFrom($request->input('name'), $user->id)]);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'username' => ['required', User::USERNAME_RULE, 'unique:users,username,' . $user->id],
             'email' => 'required|string|email|unique:users,email,' . $user->id . '|max:255',
             'password' => 'nullable|string|min:8|confirmed',
             'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,id',
+        ], [
+            'username.regex'  => 'Nom d’utilisateur : 3 à 30 caractères, lettres sans accent, chiffres, point, tiret ou souligné.',
+            'username.unique' => 'Ce nom d’utilisateur est déjà pris.',
         ]);
 
         $user->update([
             'name' => $validated['name'],
+            'username' => $validated['username'],
             'email' => $validated['email'],
         ]);
 
+        // Mot de passe réinitialisé par l'administrateur : provisoire, à changer à la prochaine connexion
         if (!empty($validated['password'])) {
-            $user->update(['password' => Hash::make($validated['password'])]);
+            $user->update([
+                'password' => Hash::make($validated['password']),
+                'must_change_password' => $user->id !== auth()->id(),
+            ]);
         }
 
         if (!empty($validated['roles'])) {

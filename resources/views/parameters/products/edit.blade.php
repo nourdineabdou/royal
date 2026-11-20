@@ -73,6 +73,23 @@
                 @enderror
             </div>
 
+            <!-- Seuil minimum -->
+            <div class="mb-4">
+                <label for="min_stock_display" class="block text-sm font-bold text-gray-700 mb-2">
+                    <i class="fas fa-triangle-exclamation mr-2"></i>Seuil minimum (alerte de réapprovisionnement)
+                </label>
+                <div class="flex items-center gap-2 max-w-xs">
+                    <input type="number" step="any" min="0" id="min_stock_display" name="min_stock_display"
+                           value="{{ old('min_stock_display', $product->min_stock !== null ? round($product->min_stock / \App\Support\Qty::displayUnit($product->unit->symbol ?? '')['factor'], 3) : '') }}" placeholder="vide = {{ $product->defaultMinLabel() }}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('min_stock_display') border-red-500 @enderror">
+                    <span id="min_stock_unit" class="text-sm font-semibold text-gray-600 whitespace-nowrap"></span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Comparé au <strong>Stock Catering</strong>. Dès qu'il est atteint, le produit est ajouté à la demande d'achat automatique. <strong>Laissez vide pour le seuil par défaut : 3 emballages d'achat</strong> (3 sacs, 3 cartons…). Saisi en kg pour les produits en grammes, en L pour les produits en mL.</p>
+                @error('min_stock_display')
+                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+
             <!-- Emballages (achat/vente) -->
             <div class="mb-4">
                 <label class="block text-sm font-bold text-gray-700 mb-2">
@@ -192,6 +209,20 @@
 </template>
 
 <script>
+    // Unité d'affichage du seuil : kg pour g, L pour mL, sinon l'unité du produit
+    (function () {
+        const sel = document.getElementById('unit_id'), out = document.getElementById('min_stock_unit');
+        if (!sel || !out) return;
+        const show = () => {
+            const m = (sel.options[sel.selectedIndex]?.text || '').match(/\(([^)]+)\)\s*$/);
+            const sym = m ? m[1].trim() : '';
+            out.textContent = ({ g: 'kg', ml: 'L' })[sym.toLowerCase()] || sym;
+        };
+        sel.addEventListener('change', show);
+        if (window.jQuery) jQuery(sel).on('change', show);
+        show();
+    })();
+
     // Les douchettes envoient "Entrée" après le code : ne pas soumettre le formulaire
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' && e.target.matches('input[name="barcode"], input[name="packaging_barcode[]"]')) {

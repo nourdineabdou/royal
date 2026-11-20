@@ -10,8 +10,27 @@ class StockMovement extends Model
         'product_id', 'stock_id', 'type', 'quantity',
         'source_stock_id', 'destination_stock_id',
         'origin_module', 'origin_type', 'origin_id',
-        'user_id', 'notes',
+        'user_id', 'notes', 'purchase_order_id',
     ];
+
+    /** Une seule mise à jour de la DA automatique par opération, même si elle crée plusieurs mouvements. */
+    private static bool $autoDaQueued = false;
+
+    protected static function booted(): void
+    {
+        // Après chaque mouvement (sortie cuisine, POS, catering, pertes, réception…), la DA automatique
+        // est remise à jour avec les produits du Stock Catering passés sous leur seuil.
+        static::created(function () {
+            if (self::$autoDaQueued) {
+                return;
+            }
+            self::$autoDaQueued = true;
+            \Illuminate\Support\Facades\DB::afterCommit(function () {
+                self::$autoDaQueued = false;
+                app(\App\Services\AutoPurchaseRequestService::class)->syncQuietly();
+            });
+        });
+    }
 
     public function product()
     {
@@ -59,6 +78,7 @@ class StockMovement extends Model
             'manual'     => 'Manuel',
             'adjustment' => $this->origin_type === 'initial' ? 'Stock initial' : 'Ajustement',
             'scan'       => 'Scan',
+            'kitchen'    => 'Cuisine (BS)',
             default      => $this->origin_module ?? '—',
         };
     }

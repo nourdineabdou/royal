@@ -10,8 +10,8 @@
 </div>
 
 <p class="text-sm text-slate-500 mb-5 max-w-2xl">
-    Exprimez ici le besoin (produits + quantités), sans vous soucier du fournisseur ni de l'emballage —
-    ça se décide ensuite, ligne par ligne, quand vous créerez un ou plusieurs Bons de Commande à partir de cette demande.
+    Exprimez ici le besoin. Pour chaque produit, l'<strong>emballage principal</strong> (sac, carton…) est proposé :
+    tapez le nombre d'emballages (les moitiés sont possibles : 10,5). Le fournisseur se choisit ensuite, au moment des bons de commande.
 </p>
 
 @if($errors->any())
@@ -41,7 +41,8 @@
         <thead class="text-xs text-slate-400 uppercase border-b">
             <tr>
                 <th class="pb-2 text-left">Produit</th>
-                <th class="pb-2 text-right w-32">Quantité</th>
+                <th class="pb-2 text-left w-56">Emballage</th>
+                <th class="pb-2 text-right w-36">Quantité</th>
                 <th class="pb-2 text-left">Note</th>
                 <th class="pb-2 w-10"></th>
             </tr>
@@ -58,28 +59,39 @@
 </form>
 
 <script>
-@php
-    $productsForJs = $products->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'unit' => $p->unit->symbol ?? ''])->values();
-@endphp
-const PRODUCTS = @json($productsForJs);
+const PRODUCTS = @json($catalog);
+const REF_NAME = @json($refName);
+const byId = new Map(PRODUCTS.map(p => [String(p.id), p]));
 let lineCount = 0;
+
+// Unité d'affichage : kg pour g, L pour mL
+const disp = sym => ({ g: { l: 'kg', f: 1000 }, ml: { l: 'L', f: 1000 } })[(sym || '').toLowerCase()] || { l: sym || '', f: 1 };
+const nice = (q, sym) => { const d = disp(sym); return (q / d.f).toLocaleString('fr-FR', { maximumFractionDigits: 3 }) + ' ' + d.l; };
 
 function addLine() {
     lineCount++;
     document.getElementById('noLinesMsg').style.display = 'none';
     const i = lineCount - 1;
-    const options = PRODUCTS.map(p => `<option value="${p.id}">${p.name} (${p.unit})</option>`).join('');
+    const options = PRODUCTS.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
     const row = document.createElement('tr');
-    row.className = 'border-b border-slate-50 line-row';
+    row.className = 'border-b border-slate-50 line-row align-top';
     row.innerHTML = `
         <td class="py-2 pr-2">
-            <select name="items[${i}][product_id]" required class="w-full border border-slate-200 rounded-xl px-2 py-1.5 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none">
+            <select name="items[${i}][product_id]" required onchange="productChanged(this)" class="product-select w-full border border-slate-200 rounded-xl px-2 py-1.5 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none">
                 <option value="">— Produit —</option>${options}
             </select>
+            <p class="stock-hint text-[11px] text-slate-400 mt-1"></p>
         </td>
         <td class="py-2 px-2">
-            <input type="number" name="items[${i}][quantity]" step="0.01" min="0.01" required placeholder="0"
-                   class="w-full text-right border border-slate-200 rounded-xl px-2 py-1.5 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none">
+            <select class="pack-select w-full border border-slate-200 rounded-xl px-2 py-1.5 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none" onchange="recalcQty(this)" disabled>
+                <option value="">— choisir un produit —</option>
+            </select>
+        </td>
+        <td class="py-2 px-2 text-right">
+            <input type="number" step="any" min="0.01" required placeholder="0" oninput="recalcQty(this)"
+                   class="pack-qty w-full text-right border border-slate-200 rounded-xl px-2 py-1.5 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none">
+            <input type="hidden" name="items[${i}][quantity]" class="base-qty">
+            <p class="qty-hint text-[11px] text-emerald-700 mt-1"></p>
         </td>
         <td class="py-2 px-2">
             <input type="text" name="items[${i}][notes]" placeholder="optionnel"
@@ -94,6 +106,42 @@ function addLine() {
     document.getElementById('linesBody').appendChild(row);
 }
 
+// Produit choisi : emballages du produit (le principal sélectionné), plus « vrac » en kg / L / pièces
+function productChanged(sel) {
+    const row = sel.closest('tr'), p = byId.get(sel.value);
+    const packSel = row.querySelector('.pack-select');
+    if (!p) { packSel.innerHTML = '<option value="">— choisir un produit —</option>'; packSel.disabled = true; row.querySelector('.stock-hint').textContent = ''; recalcQty(sel); return; }
+    const d = disp(p.unit);
+    packSel.innerHTML = p.packs.map((pk, k) => `<option value="${pk.qty}"${k === 0 ? ' selected' : ''}>${pk.name} (${nice(pk.qty, p.unit)})</option>`).join('')
+        + `<option value="${d.f}"${p.packs.length ? '' : ' selected'}>En vrac (${d.l})</option>`;
+    packSel.disabled = false;
+    if (window.jQuery && jQuery(packSel).hasClass('select2-hidden-accessible')) jQuery(packSel).trigger('change.select2');
+    row.querySelector('.stock-hint').textContent = `${REF_NAME} : ${nice(p.stock, p.unit)} · seuil ${nice(p.min, p.unit)}`;
+    row.querySelector('.stock-hint').className = 'stock-hint text-[11px] mt-1 ' + (p.stock <= p.min ? 'text-amber-600 font-semibold' : 'text-slate-400');
+    recalcQty(sel);
+}
+
+// Quantité saisie en emballages → quantité enregistrée en unité de base
+function recalcQty(el) {
+    const row = el.closest('tr'), p = byId.get(row.querySelector('.product-select').value);
+    const n = parseFloat(String(row.querySelector('.pack-qty').value).replace(',', '.')) || 0;
+    const factor = parseFloat(row.querySelector('.pack-select').value) || 1;
+    const base = Math.round(n * factor * 100) / 100;
+    row.querySelector('.base-qty').value = base > 0 ? base : '';
+    row.querySelector('.qty-hint').textContent = p && base > 0 ? '= ' + nice(base, p.unit) : '';
+}
+
+/** Ligne pré-remplie (depuis Ruptures) : quantité de base convertie dans l'emballage principal. */
+function fillLine(i, pid, baseQty) {
+    const row = document.querySelectorAll('.line-row')[i];
+    const sel = row.querySelector('.product-select');
+    sel.value = pid;
+    productChanged(sel);
+    const factor = parseFloat(row.querySelector('.pack-select').value) || 1;
+    row.querySelector('.pack-qty').value = Math.round(baseQty / factor * 100) / 100;
+    recalcQty(sel);
+}
+
 function removeLine(btn) {
     btn.closest('tr').remove();
     if (!document.querySelectorAll('.line-row').length) {
@@ -101,6 +149,17 @@ function removeLine(btn) {
     }
 }
 
-addLine();
+const PREFILL = @json($prefill ?? []);
+if (Object.keys(PREFILL).length) {
+    // Lignes proposées depuis la page Ruptures (quantités en unité de base, modifiables)
+    Object.entries(PREFILL).forEach(([pid, qty]) => {
+        addLine();
+        fillLine(document.querySelectorAll('.line-row').length - 1, pid, parseFloat(qty));
+    });
+    const notes = document.querySelector('[name="notes"]');
+    if (notes && !notes.value) notes.value = 'Réapprovisionnement : produits sous le seuil minimum';
+} else {
+    addLine();
+}
 </script>
 @endsection

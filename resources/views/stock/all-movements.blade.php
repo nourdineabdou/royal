@@ -41,6 +41,7 @@
                     <option value="manual"     {{ ($filters['origin_module'] ?? '') === 'manual'     ? 'selected' : '' }}>Manuel</option>
                     <option value="adjustment" {{ ($filters['origin_module'] ?? '') === 'adjustment' ? 'selected' : '' }}>Ajustement / Stock initial</option>
                     <option value="scan"       {{ ($filters['origin_module'] ?? '') === 'scan'       ? 'selected' : '' }}>Scan</option>
+                    <option value="kitchen"    {{ ($filters['origin_module'] ?? '') === 'kitchen'    ? 'selected' : '' }}>Cuisine (BS)</option>
                 </select>
             </div>
             <div>

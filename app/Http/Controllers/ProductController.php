@@ -51,6 +51,7 @@ class ProductController extends Controller
             'packaging_quantity'    => 'nullable|array',
             'packaging_quantity.*'  => 'nullable|numeric|min:0.01',
             'barcode'               => 'nullable|string|max:64',
+            'min_stock_display'     => 'nullable|numeric|min:0|max:99999999',
             'packaging_barcode'     => 'nullable|array',
             'packaging_barcode.*'   => 'nullable|string|max:64',
         ]);
@@ -67,6 +68,8 @@ class ProductController extends Controller
         unset($validated['packaging_id'], $validated['packaging_quantity'], $validated['packaging_barcode']);
         $validated['packaging_id'] = $packagingIds[0] ?? null;
         $validated['barcode'] = Barcode::normalize($validated['barcode'] ?? '') ?: null;
+        $validated['min_stock'] = $this->minStockFromDisplay($validated['min_stock_display'] ?? null, (int) $validated['unit_id']);
+        unset($validated['min_stock_display']);
 
         $this->checkBarcodes(null, $validated['barcode'], $packagingIds, $packagingBarcodes);
 
@@ -102,6 +105,7 @@ class ProductController extends Controller
             'packaging_quantity'    => 'nullable|array',
             'packaging_quantity.*'  => 'nullable|numeric|min:0.01',
             'barcode'               => 'nullable|string|max:64',
+            'min_stock_display'     => 'nullable|numeric|min:0|max:99999999',
             'packaging_barcode'     => 'nullable|array',
             'packaging_barcode.*'   => 'nullable|string|max:64',
         ]);
@@ -118,6 +122,8 @@ class ProductController extends Controller
         unset($validated['packaging_id'], $validated['packaging_quantity'], $validated['packaging_barcode']);
         $validated['packaging_id'] = $packagingIds[0] ?? null;
         $validated['barcode'] = Barcode::normalize($validated['barcode'] ?? '') ?: null;
+        $validated['min_stock'] = $this->minStockFromDisplay($validated['min_stock_display'] ?? null, (int) $validated['unit_id']);
+        unset($validated['min_stock_display']);
 
         $this->checkBarcodes($product, $validated['barcode'], $packagingIds, $packagingBarcodes);
 
@@ -141,6 +147,17 @@ class ProductController extends Controller
         $this->perm('products.view');
         $product->load('unit', 'productPackagings.packaging');
         return view('parameters.products.show', compact('product'));
+    }
+
+    /** Seuil saisi en kg / L (produits en g / mL) ou dans l'unité du produit → unité de base. */
+    private function minStockFromDisplay($value, int $unitId): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $factor = \App\Support\Qty::displayUnit(Unit::find($unitId)?->symbol)['factor'];
+
+        return round((float) $value * $factor, 2);
     }
 
     /**

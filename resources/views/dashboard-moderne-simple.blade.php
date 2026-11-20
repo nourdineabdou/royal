@@ -74,6 +74,9 @@
                             <p class="text-xs text-gray-500">{{ auth()->user()->getRoleNames()->first() ?? 'Utilisateur' }}</p>
                         </div>
                     </div>
+                    <a href="{{ route('password.edit') }}" title="Mon mot de passe" class="border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm sm:text-base whitespace-nowrap shadow-sm">
+                        <i class="fas fa-circle-user sm:mr-2"></i><span class="hidden sm:inline">Mon compte</span>
+                    </a>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base whitespace-nowrap shadow-sm">
@@ -84,6 +87,9 @@
             </div>
 
             {{-- Bandeau de bienvenue --}}
+            @if(session('success'))
+            <div class="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 text-sm"><i class="fas fa-check-circle mr-1"></i>{{ session('success') }}</div>
+            @endif
             <div class="relative overflow-hidden bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-5 sm:p-6 md:p-8 shadow-lg">
                 <div class="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
                 <div class="absolute -bottom-16 -left-10 w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
@@ -103,12 +109,146 @@
                 ['permission' => 'pos.accounting.view',    'route' => 'modules.accounting',   'icon' => 'fa-calculator',    'title' => 'Comptabilité',    'desc' => 'Gestion comptable',               'color' => 'red'],
                 ['permission' => 'stock.view',             'route' => 'modules.stock',        'icon' => 'fa-warehouse',     'title' => 'Stock',          'desc' => 'Gestion des stocks',              'color' => 'indigo'],
                 ['permission' => 'purchases.dashboard',    'route' => 'modules.purchases',    'icon' => 'fa-shopping-cart', 'title' => 'Achats',         'desc' => 'Gestion des achats',              'color' => 'cyan'],
+                ['permission' => 'kitchen.requests.create', 'route' => 'kitchen.requests.index', 'icon' => 'fa-utensils', 'title' => 'Demandes au magasin', 'desc' => 'Cuisine : demander et valider', 'color' => 'amber'],
+                ['permission' => 'kitchen.requests.prepare', 'route' => 'stock.kitchen-requests.index', 'icon' => 'fa-utensils', 'title' => 'Demandes des cuisines', 'desc' => 'Préparer et remettre aux cuisines', 'color' => 'lime'],
+                ['permission' => 'purchases.orders.receipt', 'route' => 'purchases.deliveries', 'icon' => 'fa-truck-ramp-box', 'title' => 'Réceptions (BL)', 'desc' => 'Marchandise qui arrive → stock', 'color' => 'emerald'],
                 ['permission' => 'hr.dashboard',           'route' => 'modules.hr',           'icon' => 'fa-users-cog',     'title' => 'RH',             'desc' => 'Ressources Humaines',             'color' => 'pink'],
                 ['permission' => 'catering.dashboard',     'route' => 'modules.catering',     'icon' => 'fa-utensils',      'title' => 'Catering',       'desc' => 'Contrats repas & codes',          'color' => 'teal'],
                 ['permission' => 'events.dashboard',       'route' => 'modules.event',        'icon' => 'fa-calendar-star', 'title' => 'Événements',     'desc' => 'Réceptions & banquets',           'color' => 'violet'],
                 ['permission' => 'users.view',             'route' => 'modules.settings',     'icon' => 'fa-sliders-h',     'title' => 'Paramètres',     'desc' => 'Configuration',                   'color' => 'gray'],
             ];
         @endphp
+
+        {{-- ── Circuit d'achat : ce que j'ai à approuver, valider ou payer ─── --}}
+        @php
+            $u = auth()->user();
+            $toApprove  = $u->can('purchases.requests.approve')  ? \App\Models\PurchaseRequest::where('status', 'pending')->count() : 0;
+            $toValidate = $u->can('purchases.requests.validate') ? \App\Models\PurchaseRequest::where('status', 'to_validate')->count() : 0;
+            $toPay      = $u->can('purchases.orders.payment')
+                ? \App\Models\PurchaseOrder::whereNotNull('invoice_validated_at')->where('remaining_amount', '>', 0)->count() : 0;
+            $toCheck    = $u->can('purchases.orders.validate-invoice')
+                ? \App\Models\PurchaseOrder::whereIn('status', ['received', 'partial'])->whereNull('invoice_validated_at')->count() : 0;
+            // BC préparés (par l'acheteur) qui attendent la confirmation du responsable des achats
+            $toConfirmBc = $u->can('purchases.orders.confirm') ? \App\Models\PurchaseOrder::where('status', 'pending')->count() : 0;
+        @endphp
+        @if($toApprove || $toValidate || $toPay || $toCheck || $toConfirmBc)
+        <div class="mb-4 grid sm:grid-cols-2 gap-3">
+            @if($toConfirmBc)
+            <a href="{{ route('purchases.orders', ['todo' => 'to_confirm']) }}" class="flex items-center gap-4 rounded-2xl p-4 bg-blue-600 text-white shadow-sm hover:shadow-md transition">
+                <i class="fas fa-paper-plane text-2xl"></i>
+                <div class="flex-1"><p class="font-bold text-lg">{{ $toConfirmBc }} bon{{ $toConfirmBc > 1 ? 's' : '' }} de commande à confirmer</p><p class="text-sm text-blue-100">fournisseur et prix à vérifier avant l’envoi</p></div>
+                <i class="fas fa-arrow-right"></i>
+            </a>
+            @endif
+            @if($toApprove)
+            <a href="{{ route('purchases.requests', ['status' => 'pending']) }}" class="flex items-center gap-4 rounded-2xl p-4 bg-amber-500 text-white shadow-sm hover:shadow-md transition">
+                <i class="fas fa-clipboard-check text-2xl"></i>
+                <div class="flex-1"><p class="font-bold text-lg">{{ $toApprove }} demande{{ $toApprove > 1 ? 's' : '' }} d'achat à approuver</p><p class="text-sm text-amber-50">envoyées par le magasinier</p></div>
+                <i class="fas fa-arrow-right"></i>
+            </a>
+            @endif
+            @if($toValidate)
+            <a href="{{ route('purchases.requests', ['status' => 'to_validate']) }}" class="flex items-center gap-4 rounded-2xl p-4 bg-violet-600 text-white shadow-sm hover:shadow-md transition">
+                <i class="fas fa-stamp text-2xl"></i>
+                <div class="flex-1"><p class="font-bold text-lg">{{ $toValidate }} demande{{ $toValidate > 1 ? 's' : '' }} d'achat à valider</p><p class="text-sm text-violet-100">approuvées par l'acheteur, avant le bon de commande</p></div>
+                <i class="fas fa-arrow-right"></i>
+            </a>
+            @endif
+            @if($toCheck)
+            <a href="{{ route('purchases.orders', ['todo' => 'to_check']) }}" class="flex items-center gap-4 rounded-2xl p-4 bg-sky-600 text-white shadow-sm hover:shadow-md transition">
+                <i class="fas fa-file-invoice text-2xl"></i>
+                <div class="flex-1"><p class="font-bold text-lg">{{ $toCheck }} facture{{ $toCheck > 1 ? 's' : '' }} à contrôler</p><p class="text-sm text-sky-100">commandes reçues, facture non validée</p></div>
+                <i class="fas fa-arrow-right"></i>
+            </a>
+            @endif
+            @if($toPay)
+            <a href="{{ route('purchases.orders', ['todo' => 'to_pay']) }}" class="flex items-center gap-4 rounded-2xl p-4 bg-emerald-700 text-white shadow-sm hover:shadow-md transition">
+                <i class="fas fa-money-bill-wave text-2xl"></i>
+                <div class="flex-1"><p class="font-bold text-lg">{{ $toPay }} commande{{ $toPay > 1 ? 's' : '' }} à payer</p><p class="text-sm text-emerald-100">facture validée, reste à payer</p></div>
+                <i class="fas fa-arrow-right"></i>
+            </a>
+            @endif
+        </div>
+        @endif
+
+        {{-- ── Magasin : demandes des cuisines et produits sous le seuil ───── --}}
+        {{-- C'est le travail du magasinier : les autres (Direction…) ne le voient qu'en lien de remplacement plus bas --}}
+        @php $isStorekeeper = auth()->user()->hasRole('magasinier'); @endphp
+        @if($isStorekeeper && auth()->user()->can('kitchen.requests.prepare'))
+            @php
+                $krPending = \App\Models\KitchenRequest::where('status', 'pending')->count();
+                $belowMin  = auth()->user()->can('purchases.stock-ruptures.view') ? app(\App\Services\StockAlertService::class)->count() : 0;
+                // DA préparée automatiquement avec les produits du Stock Catering sous le seuil
+                $autoDa    = auth()->user()->can('purchases.requests.create') ? app(\App\Services\AutoPurchaseRequestService::class)->sync() : null;
+                $autoCount = $autoDa ? $autoDa->items->count() : 0;
+            @endphp
+            @if($krPending || $belowMin)
+            <div class="mb-4 grid sm:grid-cols-2 gap-3">
+                @if($krPending)
+                <a href="{{ route('stock.kitchen-requests.index') }}" class="flex items-center gap-4 rounded-2xl p-4 bg-amber-500 text-white shadow-sm hover:shadow-md transition">
+                    <i class="fas fa-utensils text-2xl"></i>
+                    <div class="flex-1"><p class="font-bold text-lg">{{ $krPending }} demande{{ $krPending > 1 ? 's' : '' }} des cuisines</p><p class="text-sm text-amber-50">à préparer et remettre</p></div>
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+                @endif
+                @if($autoCount)
+                <a href="{{ route('purchases.requests.auto') }}" class="flex items-center gap-4 rounded-2xl p-4 bg-red-600 text-white shadow-sm hover:shadow-md transition">
+                    <i class="fas fa-wand-magic-sparkles text-2xl"></i>
+                    <div class="flex-1"><p class="font-bold text-lg">Demande d'achat prête : {{ $autoCount }} produit{{ $autoCount > 1 ? 's' : '' }}</p><p class="text-sm text-red-50">sous le seuil · à relire et envoyer</p></div>
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+                @elseif($belowMin)
+                <a href="{{ route('purchases.stock-ruptures') }}" class="flex items-center gap-4 rounded-2xl p-4 bg-red-600 text-white shadow-sm hover:shadow-md transition">
+                    <i class="fas fa-triangle-exclamation text-2xl"></i>
+                    <div class="flex-1"><p class="font-bold text-lg">{{ $belowMin }} produit{{ $belowMin > 1 ? 's' : '' }} sous le seuil</p><p class="text-sm text-red-50">déjà en commande ou seuil à vérifier</p></div>
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+                @endif
+            </div>
+            @endif
+        @endif
+
+        {{-- ── Livraisons attendues : grand bandeau pour le magasinier ───── --}}
+        @if($isStorekeeper && auth()->user()->can('purchases.orders.receipt'))
+            @php
+                $pendingReceptions = \App\Models\PurchaseOrder::with('supplier')
+                    ->whereIn('status', ['ordered', 'partial'])->latest()->get();
+            @endphp
+            <a href="{{ route('purchases.deliveries') }}"
+               class="mb-5 sm:mb-6 flex items-center gap-4 rounded-2xl p-4 sm:p-5 border shadow-sm transition hover:shadow-md
+                      {{ $pendingReceptions->count() ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-gray-100 text-gray-700' }}">
+                <div class="w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-xl flex items-center justify-center
+                            {{ $pendingReceptions->count() ? 'bg-white/20' : 'bg-emerald-50 text-emerald-600' }}">
+                    <i class="fas fa-truck-ramp-box text-2xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    @if($pendingReceptions->count())
+                        <p class="text-lg sm:text-xl font-bold">
+                            {{ $pendingReceptions->count() }} commande{{ $pendingReceptions->count() > 1 ? 's' : '' }} à réceptionner
+                        </p>
+                        <p class="text-sm text-emerald-50 truncate">
+                            {{ $pendingReceptions->take(3)->map(fn ($o) => $o->reference . ($o->supplier ? ' · ' . $o->supplier->name : ''))->implode('  —  ') }}{{ $pendingReceptions->count() > 3 ? '  …' : '' }}
+                        </p>
+                    @else
+                        <p class="font-bold">Aucune livraison attendue</p>
+                        <p class="text-sm text-gray-500">Achat du jour sans commande ? Faites une réception directe.</p>
+                    @endif
+                </div>
+                <i class="fas fa-arrow-right text-xl shrink-0"></i>
+            </a>
+        @endif
+
+        {{-- Remplacement du magasinier (ex : la Direction quand il est absent) : simple lien --}}
+        @if(!$isStorekeeper && auth()->user()->can('purchases.orders.receipt'))
+            @php $waitingBl = \App\Models\PurchaseOrder::whereIn('status', ['ordered', 'partial'])->count(); @endphp
+            @if($waitingBl)
+            <a href="{{ route('purchases.deliveries') }}" class="mb-5 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-emerald-700">
+                <i class="fas fa-truck-ramp-box"></i>
+                Remplacer le magasinier : {{ $waitingBl }} commande{{ $waitingBl > 1 ? 's' : '' }} attend{{ $waitingBl > 1 ? 'ent' : '' }} la réception
+                <i class="fas fa-arrow-right text-xs"></i>
+            </a>
+            @endif
+        @endif
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5 md:gap-6">
             @foreach ($modules as $i => $m)

@@ -13,8 +13,31 @@
     @endcan
 </div>
 
+{{-- À traiter : ce qui attend une action --}}
+@php
+    $todoLabels = [
+        'to_confirm' => ['À confirmer', 'fa-paper-plane', 'Créés, pas encore envoyés au fournisseur'],
+        'to_receive' => ['À réceptionner', 'fa-truck', 'Envoyés, livraison attendue'],
+        'to_check'   => ['Facture à contrôler', 'fa-clipboard-check', 'Reçus, facture pas encore validée'],
+        'to_pay'     => ['À payer', 'fa-money-bill', 'Facture validée, pas encore payée'],
+    ];
+    $keepQ = fn (array $x) => array_filter(array_merge(request()->only('supplier_id', 'status', 'payment_status', 'packaging_type', 'invoice', 'from', 'to', 'todo'), $x));
+@endphp
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+    @foreach($todoLabels as $key => [$label, $icon, $hint])
+        @php $active = request('todo') === $key; @endphp
+        <a href="{{ route('purchases.orders', $keepQ(['todo' => $active ? null : $key])) }}"
+           class="rounded-2xl border p-3 transition {{ $active ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 hover:border-orange-400' }}">
+            <p class="text-xs font-semibold {{ $active ? 'text-slate-200' : 'text-slate-500' }}"><i class="fa-solid {{ $icon }} mr-1"></i>{{ $label }}</p>
+            <p class="text-2xl font-bold {{ $active ? 'text-white' : ($todoCounts[$key] ? 'text-orange-600' : 'text-slate-300') }}">{{ $todoCounts[$key] }}</p>
+            <p class="text-[11px] {{ $active ? 'text-slate-300' : 'text-slate-400' }}">{{ $hint }}</p>
+        </a>
+    @endforeach
+</div>
+
 {{-- Filters --}}
 <form method="GET" class="bg-white rounded-2xl shadow-sm p-4 mb-5 flex flex-wrap gap-3 items-end">
+    @if(request('todo'))<input type="hidden" name="todo" value="{{ request('todo') }}">@endif
     <div>
         <label class="block text-xs font-semibold text-slate-500 mb-1">Fournisseur</label>
         <select name="supplier_id" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
@@ -51,6 +74,22 @@
             <option value="packaged" {{ request('packaging_type') == 'packaged' ? 'selected' : '' }}>Avec emballage</option>
             <option value="bulk" {{ request('packaging_type') == 'bulk' ? 'selected' : '' }}>Vrac uniquement</option>
         </select>
+    </div>
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Facture</label>
+        <select name="invoice" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+            <option value="">Toutes</option>
+            <option value="to_check"  {{ request('invoice') == 'to_check'  ? 'selected' : '' }}>Non validée</option>
+            <option value="validated" {{ request('invoice') == 'validated' ? 'selected' : '' }}>Validée</option>
+        </select>
+    </div>
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Du</label>
+        <input type="date" name="from" value="{{ request('from') }}" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+    </div>
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Au</label>
+        <input type="date" name="to" value="{{ request('to') }}" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
     </div>
     <button type="submit" class="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition hover:bg-slate-800">
         <i class="fa-solid fa-magnifying-glass"></i> Filtrer
