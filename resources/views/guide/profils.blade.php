@@ -322,7 +322,7 @@ function render(key) {
     <section class="phead">
       <h2>${p.who} — ${p.role}</h2>
       <p class="sub">${p.sub}</p>
-      <p class="login">Nom d'utilisateur : <b>${p.login}</b> (ou votre e-mail) · première fois : mot de passe <b>password</b>, puis le système vous demande d'en choisir un nouveau. Dans <b>Mon compte</b> (en haut de l'écran), vous pouvez changer votre mot de passe et votre nom d'utilisateur, par exemple un numéro.</p>
+      <p class="login">Nom d'utilisateur : <b>${p.login}</b> (ou votre e-mail) · première fois : le <b>mot de passe provisoire</b> donné par l'administrateur, puis le système vous demande d'en choisir un nouveau. Dans <b>Mon compte</b> (en haut de l'écran), vous pouvez changer votre mot de passe et votre nom d'utilisateur, par exemple un numéro.</p>
       <div class="cando">
         <div class="yes"><h3>Vous pouvez</h3><ul>${p.yes.map(x => `<li>${x}</li>`).join('')}</ul></div>
         ${p.no.length ? `<div class="no"><h3>Vous ne pouvez pas</h3><ul>${p.no.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}

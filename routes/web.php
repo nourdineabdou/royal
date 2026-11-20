@@ -66,12 +66,10 @@ Route::get('/guide-rh', function () {
     return view('hr.guide');
 })->name('hr.guide');
 
-// Guide par profil (magasinier, acheteur, responsable des achats, Direction, cuisinier) avec
-// les vraies captures de chaque écran. Réservé aux connectés : il montre identifiants et données réelles.
-Route::middleware('auth')->group(function () {
-    Route::get('/guide-utilisateurs', fn () => view('guide.profils'))->name('guide.profils');
-    Route::get('/purchases/guide', fn () => view('guide.profils'))->name('purchases.guide');
-});
+// Guide stock et achats (processus complet + un onglet par profil) avec les vraies captures.
+// Public — consultable sans connexion, comme le guide RH. Il ne montre aucun mot de passe.
+Route::get('/guide-utilisateurs', fn () => view('guide.profils'))->name('guide.profils');
+Route::get('/purchases/guide', fn () => view('guide.profils'))->name('purchases.guide');
 
 // Routes pour la gestion des utilisateurs, rôles et permissions (protégées)
 use App\Http\Controllers\ProductionWasteApiController;
