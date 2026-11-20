@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 {{-- Guide par profil : ce que chaque utilisateur peut faire dans le système, avec les vraies captures de ses écrans. --}}
-<title>Guide par profil — Complex Royal</title>
+<title>Guide stock et achats — Complex Royal</title>
 <link rel="icon" href="{{ asset('royal_complex_groupe.png') }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600;700&display=swap">
@@ -16,6 +16,7 @@
   --resp: #5b4bc4; --resp-soft: #e9e6fb;
   --dg: #1f6fb2; --dg-soft: #e0edf8;
   --cui: #b7791f; --cui-soft: #fbf0d9;
+  --proc: #c8561f; --proc-soft: #fbeadf;
   --no: #c03535; --no-soft: #fbe3e3;
   --focus: #1f6fb2;
   --shadow: 0 1px 2px rgba(23,32,44,.06), 0 8px 24px rgba(23,32,44,.06);
@@ -26,14 +27,14 @@
   :root:not([data-theme="light"]) {
     --bg: #11161d; --surface: #18202a; --surface-2: #202a36; --ink: #e8edf3; --ink-2: #b2bccb; --ink-3: #8592a4; --line: #2c3746;
     --mag: #3fc893; --mag-soft: #15342a; --ach: #f08a52; --ach-soft: #3a2519; --resp: #a79cf5; --resp-soft: #2a2550;
-    --dg: #6cb2ec; --dg-soft: #172d42; --cui: #e8b04f; --cui-soft: #3a2f17; --no: #f07a7a; --no-soft: #3d1d1d; --focus: #6cb2ec;
+    --dg: #6cb2ec; --dg-soft: #172d42; --cui: #e8b04f; --cui-soft: #3a2f17; --proc: #f08a52; --proc-soft: #3a2519; --no: #f07a7a; --no-soft: #3d1d1d; --focus: #6cb2ec;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #11161d; --surface: #18202a; --surface-2: #202a36; --ink: #e8edf3; --ink-2: #b2bccb; --ink-3: #8592a4; --line: #2c3746;
   --mag: #3fc893; --mag-soft: #15342a; --ach: #f08a52; --ach-soft: #3a2519; --resp: #a79cf5; --resp-soft: #2a2550;
-  --dg: #6cb2ec; --dg-soft: #172d42; --cui: #e8b04f; --cui-soft: #3a2f17; --no: #f07a7a; --no-soft: #3d1d1d; --focus: #6cb2ec;
+  --dg: #6cb2ec; --dg-soft: #172d42; --cui: #e8b04f; --cui-soft: #3a2f17; --proc: #f08a52; --proc-soft: #3a2519; --no: #f07a7a; --no-soft: #3d1d1d; --focus: #6cb2ec;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25); color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -103,6 +104,13 @@ header.top p { color: var(--ink-2); font-size: .95rem; }
 #zoom img { max-width: min(100%, 1366px); border-radius: 10px; }
 #zoom p { color: #fff; text-align: center; margin-top: 8px; }
 
+.rules { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: .92rem; }
+.rules th, .rules td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.rules th { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.rules-wrap { overflow-x: auto; }
+.who-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+.chip { font-size: .78rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--k-soft); color: var(--k); border: 1px solid var(--k); }
+.pcard.proc .who { font-size: 1.1rem; }
 footer { margin-top: 30px; color: var(--ink-3); font-size: .85rem; text-align: center; }
 
 @media (max-width: 820px) {
@@ -121,13 +129,13 @@ footer { margin-top: 30px; color: var(--ink-3); font-size: .85rem; text-align: c
   <header class="top">
     <img src="{{ asset('royal_complex_groupe.png') }}" alt="Royal Complex Group">
     <div>
-      <h1>Guide par profil</h1>
-      <p>Stock et achats : ce que chacun fait dans le système</p>
+      <h1>Guide stock et achats</h1>
+      <p>Le processus d’achat complet, et ce que chacun fait dans le système</p>
     </div>
     <button class="theme" id="themeBtn" type="button" aria-label="Changer le thème">◐ Thème</button>
   </header>
 
-  <p class="intro">Choisissez votre profil. Vous verrez ce que vous pouvez faire, où cliquer et à quoi ressemble votre écran. Les images sont de vraies captures du système, prises en étant connecté avec chaque utilisateur. Cliquez sur une image pour l'agrandir.</p>
+  <p class="intro">Commencez par <b>Processus complet</b> pour voir tout le circuit, puis choisissez votre profil. Vous verrez ce que vous pouvez faire, où cliquer et à quoi ressemble votre écran. Les images sont de vraies captures du système, prises en étant connecté avec chaque utilisateur. Cliquez sur une image pour l'agrandir.</p>
 
   <nav class="profiles" id="profiles" aria-label="Profils"></nav>
   <div class="circuit" id="circuit" aria-label="Circuit"></div>
@@ -144,14 +152,46 @@ const IMG = @json(asset('guide/profils')) + '/';
 // Le circuit complet, dans l'ordre : chaque étape appartient à un profil.
 const CIRCUIT = [
   ['cuisinier', 'Demande de la cuisine'],
-  ['magasinier', 'Sortie de stock'],
+  ['magasinier', 'Sortie + bon de sortie'],
   ['magasinier', "Demande d'achat"],
   ['acheteur', 'Approbation + devis'],
-  ['responsable', 'Validation + prix + BC'],
+  ['responsable', 'Validation de la DA'],
+  ['acheteur', 'Bon de commande'],
+  ['responsable', 'Confirmation du BC'],
   ['magasinier', 'Réception BL'],
   ['responsable', 'Contrôle facture'],
   ['direction', 'Paiement'],
 ];
+
+// ── Le processus d'achat complet, de bout en bout (qui fait quoi, dans l'ordre) ──
+const PROCESS = {
+  title: "Le processus d'achat complet",
+  sub: "De la demande de la cuisine jusqu'au paiement du fournisseur : chaque étape, qui la fait, où cliquer, et ce qui se passe ensuite. Le stock ne bouge qu'à deux moments : quand le cuisinier confirme une sortie (il baisse) et quand le magasinier réceptionne une livraison (il monte).",
+  rules: [
+    ["Demande d'achat (DA)", "Sambou (magasinier) ou Youba (acheteur) — page « Demande d'achat auto »", "DA de Sambou : Youba approuve, puis Tandia valide. DA de Youba : Tandia valide. DA de Tandia : validée d'office."],
+    ['Devis', 'Youba : il va chez les fournisseurs et saisit les prix', '—'],
+    ['Bon de commande (BC)', 'Youba (fournisseur, prix, devis joint) ou Tandia', 'BC de Youba : Tandia le confirme. BC de Tandia : confirmé d\'office.'],
+    ['Réception (BL)', 'Sambou. En son absence : Abdel Rahim (noté « en remplacement »)', '— (la réception fait monter le stock)'],
+    ['Sortie vers la cuisine', 'Sambou prépare et choisit le cuisinier qui reçoit', 'Seul ce cuisinier confirme (« Je prends ») : le stock baisse.'],
+    ['Facture', '—', 'Tandia la contrôle (BC + réception + facture).'],
+    ['Paiement', 'Abdel Rahim (Direction)', '—'],
+    ['Stock initial', 'Un super-admin (Abdel Rahim…) : Stock › Stock initial', 'Sans commande ni réception, tracé à son nom.'],
+  ],
+  steps: [
+    { who: ['direction'], t: 'Au démarrage : le stock initial', where: '<b>Stock</b> › <b>Stock initial</b> (super-admin)', pts: ['Une seule fois, ou après un inventaire : cherchez le produit, tapez ce qu\'il y a dans le magasin en sacs, cartons… ou en vrac, ajoutez à la liste, <b>Enregistrer</b>.', 'Le Stock Catering est proposé par défaut. La quantité saisie <b>devient</b> le stock.'], res: 'Pas de commande ni de réception : le mouvement « Stock initial » est tracé au nom du super-admin.', shots: [['proc-stock-initial', 'Stock initial : 3 sacs + 10 kg en vrac = 85 kg']] },
+    { who: ['cuisinier'], t: 'La cuisine demande au magasin', where: 'Téléphone du cuisinier › <b>Demandes au magasin</b> › <b>Nouvelle demande</b>', pts: ['Fatimatou ou Boris choisit les produits et les quantités, puis <b>Envoyer au magasin</b>.', 'Le cuisinier peut aussi venir au comptoir : c\'est alors Sambou qui crée la sortie (étape suivante).'], res: 'La demande arrive chez Sambou, « À préparer ». Le stock ne bouge pas.', shots: [['cui-nouvelle', 'Nouvelle demande', 'p']] },
+    { who: ['magasinier'], t: 'Le magasinier prépare la sortie', where: '<b>Stock</b> › <b>Demandes des cuisines</b> › Préparer · ou <b>Nouvelle sortie vers une cuisine</b>', pts: ['Il choisit le magasin et le <b>cuisinier qui reçoit</b> (obligatoire).', 'Produits : par <b>scan</b> (caméra, douchette) ou ligne par ligne, en emballages.', '<b>Remettre à la cuisine</b>.'], res: 'Les quantités sont réservées. Seul le cuisinier choisi voit la sortie à confirmer.', shots: [['mag-preparer', 'Préparation : cuisinier qui reçoit + quantités'], ['mag-sortie', 'Sortie saisie au magasin : scan et lignes']] },
+    { who: ['cuisinier', 'magasinier'], t: 'Le cuisinier confirme, le bon de sortie est signé', where: 'Cuisinier : demande « À confirmer » › <b>Je confirme, je prends</b> · Magasinier : 🖨 bon de sortie', pts: ['Le cuisinier vérifie ce qu\'il reçoit et confirme. Sinon il conteste : la sortie revient au magasinier.', 'Sambou imprime le bon de sortie : les deux noms sont déjà sous les signatures.'], res: '<b>Le stock baisse.</b> Si un produit passe sous son seuil, il est ajouté tout seul à la demande d\'achat automatique.', shots: [['cui-confirmer', 'Je confirme, je prends', 'p'], ['mag-bs', 'Bon de sortie signé par les deux']] },
+    { who: ['magasinier', 'acheteur'], t: "La demande d'achat (DA)", where: '<b>Achats</b> › <b>Demande d\'achat auto</b>', pts: ['Le système y met les produits sous le seuil, en emballages (ex. 4 × Sac de 25 kg).', 'Sambou ou Youba peuvent <b>ajouter d\'autres produits</b> en bas de la page ; sans brouillon, le premier ajout le crée.', 'Si rien n\'est préparé, un bandeau dit pourquoi (ex. produits déjà dans une DA validée, en attente du bon de commande).', '<b>Envoyer pour approbation</b>.'], res: 'Envoyée par Sambou : Youba l\'approuve. Envoyée par Youba : elle part directement chez Tandia.', shots: [['ach-da-auto', 'Demande d\'achat : produits proposés et ajoutés à la main']] },
+    { who: ['acheteur'], t: 'Approbation et devis', where: 'Page de la DA › <b>Approuver (acheteur)</b> · <b>Imprimer</b> · <b>Ajouter un devis</b>', pts: ['Youba approuve (ou refuse avec un motif) la DA de Sambou.', 'Il imprime la DA (emballages, sans prix) et va chez les fournisseurs.', 'Il saisit un devis par fournisseur, prix <b>par emballage</b> : le moins cher est mis en évidence.'], shots: [['ach-da-approuver', 'DA à approuver'], ['ach-devis-compare', 'Devis comparés']] },
+    { who: ['responsable'], t: 'Tandia valide la DA', where: 'Accueil › bandeau « demandes d\'achat à valider » › <b>Valider la demande</b>', pts: ['Rien ne peut être commandé avant cette validation.', 'Une DA créée par Tandia lui-même est validée d\'office.'], shots: [['resp-da-valider', 'DA à valider']] },
+    { who: ['acheteur', 'responsable'], t: 'Le bon de commande (BC)', where: 'Page de la DA validée › <b>Créer un Bon de Commande</b>', pts: ['Fournisseur (le moins cher des devis est proposé), emballages, quantités, prix, photo du devis.', 'Créé par <b>Youba</b> : le BC attend la <b>confirmation de Tandia</b> (bandeau « bons de commande à confirmer » sur son accueil).', 'Créé par <b>Tandia</b> : il est <b>confirmé d\'office</b>.', 'Le BC s\'imprime pour le fournisseur : quantité en emballages (ex. 4 × Sac de 25 kg) et prix par emballage.'], res: 'Une fois confirmé, le BC passe chez le magasinier dans « Commandes à réceptionner ».', shots: [['resp-bc-creer', 'Créer le bon de commande'], ['resp-bc-imprime', 'BC imprimé pour le fournisseur']] },
+    { who: ['magasinier'], t: 'La réception de la livraison (BL)', where: '<b>Réceptions (BL)</b> › la commande', pts: ['Sambou compare le BC, le bon de livraison du fournisseur et la marchandise.', 'Il saisit les quantités reçues en emballages (ou <b>Tout reçu</b>), le n° du BL, puis <b>Valider la réception</b>.', 'S\'il manque quelque chose, le reliquat reste attendu.', 'Sambou absent : Abdel Rahim réceptionne sur le même écran (la liste l\'indique « en remplacement du magasinier »).'], res: '<b>Le stock monte.</b> La liste des réceptions indique si la livraison est <b>conforme à la DA</b>, en reliquat, ou en <b>écart</b> (manque, surplus).', shots: [['mag-reception', 'Saisie des quantités reçues'], ['proc-ecart', 'Comparaison avec la demande : écart signalé']] },
+    { who: ['responsable'], t: 'Contrôle de la facture', where: 'Page du BC reçu › <b>Valider la facture</b>', pts: ['Tandia compare BC, réception et facture du fournisseur, puis valide.'], res: 'Le BC passe « à payer ».', shots: [['resp-facture', 'Facture à contrôler']] },
+    { who: ['direction'], t: 'Paiement du fournisseur', where: 'Page du BC › <b>Enregistrer paiement</b>', pts: ['Abdel Rahim choisit le mode de paiement et le montant ; on peut payer en plusieurs fois.', 'Le reçu s\'imprime.'], res: 'Le BC passe « Payé ».', shots: [['dg-paiement', 'Enregistrer un paiement']] },
+    { who: ['responsable', 'magasinier'], t: 'Suivre ce qui reste à faire', where: '<b>Achats</b> › <b>Commandes</b> · <b>Demandes d\'achat</b> · <b>Réceptions (BL)</b>', pts: ['Commandes : cases <b>À confirmer</b>, <b>À réceptionner</b>, <b>Facture à contrôler</b>, <b>À payer</b>, avec leur nombre ; filtres par facture et par période.', 'Demandes d\'achat : une pastille par statut (dont « À valider »), recherche par n°, période.', 'Réceptions : filtres par date et par origine (sur DA, directe, BC sans DA).'], shots: [['proc-a-traiter', 'Commandes : ce qui reste à traiter'], ['proc-filtres-bl', 'Réceptions filtrées par date et par origine']] },
+  ],
+};
 
 // shots : [fichier, légende, 'p' pour une capture téléphone]
 const PROFILES = {
@@ -238,7 +278,41 @@ function shotHtml([file, cap, kind]) {
   return `<figure class="shot ${kind === 'p' ? 'phone' : ''}"><button type="button" data-src="${IMG + file}.jpg" data-cap="${cap}"><img loading="lazy" src="${IMG + file}.jpg" alt="${cap}"></button><figcaption>${cap}</figcaption></figure>`;
 }
 
+function stepHtml(s, i) {
+  const chips = s.who ? `<div class="who-chips">${s.who.map(k => `<span class="chip" style="--k:var(--${PROFILES[k].c});--k-soft:var(--${PROFILES[k].c}-soft)">${PROFILES[k].who}</span>`).join('')}</div>` : '';
+  return `
+      <article class="step">
+        <div>
+          <span class="num">${i + 1}</span>
+          <h3>${s.t}</h3>
+          ${chips}
+          <p class="where">Où : ${s.where}</p>
+          <ol>${s.pts.map(x => `<li>${x}</li>`).join('')}</ol>
+          ${s.res ? `<p class="result">${s.res}</p>` : ''}
+        </div>
+        <div class="shots ${s.shots.length > 1 && s.shots.every(x => x[2] === 'p') ? 'two' : ''}">${s.shots.map(shotHtml).join('')}</div>
+      </article>`;
+}
+
+function renderProcess() {
+  document.body.style.setProperty('--c', 'var(--proc)');
+  document.body.style.setProperty('--c-soft', 'var(--proc-soft)');
+  nav.querySelectorAll('.pcard').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === 'processus'));
+  circuit.innerHTML = CIRCUIT.map(([k, t], i) => `${i ? '<span class="arr">→</span>' : ''}<span class="st me" style="--c:var(--${PROFILES[k].c})" title="${PROFILES[k].who}">${t}</span>`).join('');
+  content.innerHTML = `
+    <section class="phead">
+      <h2>${PROCESS.title}</h2>
+      <p class="sub">${PROCESS.sub}</p>
+      <div class="rules-wrap"><table class="rules">
+        <thead><tr><th>Étape</th><th>Qui la fait</th><th>Qui valide / ce qui se passe</th></tr></thead>
+        <tbody>${PROCESS.rules.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </section>
+    ${PROCESS.steps.map(stepHtml).join('')}`;
+}
+
 function render(key) {
+  if (key === 'processus') return renderProcess();
   const p = PROFILES[key];
   document.body.style.setProperty('--c', `var(--${p.c})`);
   document.body.style.setProperty('--c-soft', `var(--${p.c}-soft)`);
@@ -267,7 +341,8 @@ function render(key) {
       </article>`).join('')}`;
 }
 
-nav.innerHTML = ORDER.map(k => {
+nav.innerHTML = `<button type="button" class="pcard proc" data-k="processus" style="--c:var(--proc);--c-soft:var(--proc-soft)" aria-pressed="false">
+    <span class="who"><span class="dot"></span>Processus complet</span><span class="role">Tout le circuit d'achat, de A à Z</span></button>` + ORDER.map(k => {
   const p = PROFILES[k];
   return `<button type="button" class="pcard" data-k="${k}" style="--c:var(--${p.c});--c-soft:var(--${p.c}-soft)" aria-pressed="false">
     <span class="who"><span class="dot"></span>${p.who}</span><span class="role">${p.role}</span></button>`;
@@ -298,9 +373,9 @@ $('#themeBtn').addEventListener('click', () => {
 });
 try { const t = localStorage.getItem('guide-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 
-window.addEventListener('hashchange', () => { const k = location.hash.slice(1); if (PROFILES[k]) render(k); });
+window.addEventListener('hashchange', () => { const k = location.hash.slice(1); if (PROFILES[k] || k === 'processus') render(k); });
 const start = location.hash.slice(1);
-render(PROFILES[start] ? start : 'magasinier');
+render(PROFILES[start] || start === 'processus' ? start : 'processus');
 </script>
 </body>
 </html>

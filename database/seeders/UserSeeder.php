@@ -21,9 +21,9 @@ class UserSeeder extends Seeder
                 'password' => Hash::make('password123'),
             ]
         );
-        // si role n'existe pas, il sera créé automatiquement grâce à la méthode assignRole
+        // Le rôle est créé s'il n'existe pas encore
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
-        $superAdmin->assignRole('super-admin');
+        $superAdmin->syncRoles(['super-admin']); // rôle exact : synchronisé à chaque passage
 
         // Changement de domaine : les comptes existants en @royalhotel.mr passent en @complexroyal.com
         // (même compte : mot de passe, nom d'utilisateur et rôles inchangés), au lieu d'en créer de nouveaux.
@@ -42,7 +42,7 @@ class UserSeeder extends Seeder
                 'password' => Hash::make('royal2026'),
             ]
         );
-        $saydou->assignRole('super-admin');
+        $saydou->syncRoles(['super-admin']);
 
         // Responsable RH
         Role::firstOrCreate(['name' => 'rh', 'guard_name' => 'web']);
@@ -53,7 +53,7 @@ class UserSeeder extends Seeder
                 'password' => Hash::make('RhRoyal#2026'),
             ]
         );
-        $salamata->assignRole('rh');
+        $salamata->syncRoles(['rh']);
 
         // Circuit stock / achats (les rôles viennent de PermissionSeeder).
         // Mot de passe provisoire « password » : chacun le change à sa première connexion.
