@@ -67,7 +67,7 @@ Route::get('/guide-rh', function () {
 })->name('hr.guide');
 
 // Guide stock et achats (processus complet + un onglet par profil) avec les vraies captures.
-// Public — consultable sans connexion, comme le guide RH. Il ne montre aucun mot de passe.
+// Public — consultable sans connexion, comme le guide RH.
 Route::get('/guide-utilisateurs', fn () => view('guide.profils'))->name('guide.profils');
 Route::get('/purchases/guide', fn () => view('guide.profils'))->name('purchases.guide');
 
