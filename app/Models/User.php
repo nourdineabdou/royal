@@ -52,6 +52,18 @@ class User extends Authenticatable
         ];
     }
 
+    /** Cuisinier (et pas admin/super-admin) : son espace est la page de ses demandes de sortie. */
+    public function isCookOnly(): bool
+    {
+        return $this->hasRole('cuisinier') && !$this->hasRole(['admin', 'super-admin']);
+    }
+
+    /** Sites auxquels l'utilisateur est rattaché (un cuisinier peut servir plusieurs sites). */
+    public function sites()
+    {
+        return $this->belongsToMany(Site::class)->withTimestamps()->orderBy('name');
+    }
+
     /** Caractères permis : lettres sans accent, chiffres, point, tiret, souligné ; 3 à 30. */
     public const USERNAME_RULE = 'regex:/^[a-z0-9._-]{3,30}$/';
 

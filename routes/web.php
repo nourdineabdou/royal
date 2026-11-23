@@ -41,7 +41,7 @@ use App\Http\Controllers\ResidenceController;
 // Home page redirect
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route('dashboard-modern');
+        return redirect()->route(auth()->user()->isCookOnly() ? 'kitchen.requests.index' : 'dashboard-modern');
     }
     return redirect()->route('login');
 });
@@ -81,6 +81,10 @@ Route::middleware(['auth'])->group(function () {
 
     // Dashboard moderne
     Route::get('/dashboard-modern', function () {
+        // Le cuisinier n'a pas de tableau de bord : son accueil est la liste de ses demandes de sortie
+        if (auth()->user()?->isCookOnly()) {
+            return redirect()->route('kitchen.requests.index');
+        }
         if (auth()->check() && auth()->user()->employee) {
             $attendance = \App\Models\Attendance::where('employee_id', auth()->user()->employee->id)
                 ->where('date', today())
@@ -411,6 +415,8 @@ Route::middleware(['auth'])->group(function () {
         // Responsable des achats : approbation des sorties (stock / sortie / reste, quantités modifiables)
         Route::get('/sorties-a-approuver',                          [KitchenRequestController::class, 'approvals'])->name('kitchen-requests.approvals');
         Route::post('/sorties-a-approuver/seuil',                   [KitchenRequestController::class, 'updateThreshold'])->name('kitchen-requests.threshold');
+        // Produits reçus par les cuisiniers, par site (répartition faite à la réception)
+        Route::get('/consommation-par-site',                        [KitchenRequestController::class, 'siteConsumption'])->name('site-consumption');
         Route::get('/demandes-cuisine/{kitchenRequest}/approuver',  [KitchenRequestController::class, 'approveForm'])->name('kitchen-requests.approve');
         Route::post('/demandes-cuisine/{kitchenRequest}/approuver', [KitchenRequestController::class, 'approve'])->name('kitchen-requests.approve.store');
         Route::post('/demandes-cuisine/{kitchenRequest}/refuser',   [KitchenRequestController::class, 'reject'])->name('kitchen-requests.reject');

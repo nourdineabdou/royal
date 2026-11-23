@@ -22,12 +22,12 @@
         <a href="{{ route('kitchen.requests.index') }}" class="flex items-center gap-3 min-w-0">
             <span class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0"><i class="fa-solid fa-utensils text-lg"></i></span>
             <span class="min-w-0">
-                <span class="block font-bold leading-tight truncate">Demandes au magasin</span>
+                <span class="block font-bold leading-tight truncate">Mes demandes de sortie</span>
                 <span class="block text-xs text-amber-100 truncate">{{ auth()->user()->name ?? '' }}</span>
             </span>
         </a>
         <div class="flex items-center gap-2 shrink-0">
-            <a href="{{ route('dashboard-modern') }}" class="w-10 h-10 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center" title="Accueil"><i class="fa-solid fa-house"></i></a>
+            @unless(auth()->user()?->isCookOnly())<a href="{{ route('dashboard-modern') }}" class="w-10 h-10 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center" title="Accueil"><i class="fa-solid fa-house"></i></a>@endunless
             <a href="{{ route('password.edit') }}" class="w-10 h-10 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center" title="Mon compte"><i class="fa-solid fa-circle-user"></i></a>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf

@@ -55,7 +55,8 @@
     </div>
 
     <table>
-        <thead><tr><th>Produit</th><th>Unité</th><th style="text-align:right">Quantité demandée</th><th style="text-align:right">Quantité remise</th></tr></thead>
+        @php $withSites = $kr->items->contains(fn ($i) => $i->siteAllocations->isNotEmpty()); @endphp
+        <thead><tr><th>Produit</th><th>Unité</th><th style="text-align:right">Quantité demandée</th><th style="text-align:right">Quantité remise</th>@if($withSites)<th>Site(s)</th>@endif</tr></thead>
         <tbody>
         @foreach($kr->items as $item)
             @php $u = $item->product->unit->symbol ?? ''; @endphp
@@ -64,6 +65,9 @@
                 <td>{{ Qty::displayUnit($u)['label'] }}</td>
                 <td class="num">{{ Qty::format($item->requested_quantity, $u) }}</td>
                 <td class="num"><strong>{{ Qty::format($item->delivered_quantity ?? 0, $u) }}</strong></td>
+                @if($withSites)
+                    <td>{{ $item->siteAllocations->map(fn ($a) => ($a->site->name ?? '—') . ' ' . Qty::format($a->quantity, $u))->implode(' · ') }}</td>
+                @endif
             </tr>
         @endforeach
         </tbody>

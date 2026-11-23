@@ -61,6 +61,7 @@ class PasswordController extends Controller
         // Les autres sessions ouvertes avec l'ancien mot de passe sont fermées
         auth()->logoutOtherDevices($request->input('password'));
 
-        return redirect()->route('dashboard-modern')->with('success', 'Votre mot de passe a été changé.');
+        return redirect()->route($user->isCookOnly() ? 'kitchen.requests.index' : 'dashboard-modern')
+            ->with('success', 'Votre mot de passe a été changé.');
     }
 }

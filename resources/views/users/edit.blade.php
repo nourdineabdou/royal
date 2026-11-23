@@ -66,6 +66,20 @@
             </select>
         </div>
 
+        <div class="mb-4">
+            <p class="block text-gray-700 font-bold mb-1">Sites servis</p>
+            <p class="text-xs text-gray-500 mb-2">Pour les cuisiniers : un seul site → ce qu'il reçoit est attribué à ce site ; plusieurs → il indique, à la réception, à quel(s) site(s) vont les produits.</p>
+            @php $userSites = old('sites', $user->sites->pluck('id')->toArray()); @endphp
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                @foreach($sites as $site)
+                    <label class="flex items-center gap-2 border rounded px-3 py-2 text-sm cursor-pointer hover:bg-gray-50">
+                        <input type="checkbox" name="sites[]" value="{{ $site->id }}" @checked(in_array($site->id, $userSites))>
+                        {{ $site->name }}
+                    </label>
+                @endforeach
+            </div>
+        </div>
+
         <div class="flex justify-between">
             <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                 Mettre à jour

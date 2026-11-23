@@ -90,6 +90,17 @@ class KitchenRequest extends Model
         return $this->receiver_id === null || $this->receiver_id === $user->id || $user->hasRole(['admin', 'super-admin']);
     }
 
+    /**
+     * Sites entre lesquels le cuisinier répartit ce qu'il reçoit : ceux du cuisinier désigné
+     * (ou, à défaut, de celui qui confirme). Un seul site : tout lui est attribué automatiquement.
+     */
+    public function receivingSites(?User $taker = null)
+    {
+        $user = $this->receiver ?? $taker;
+
+        return $user ? $user->sites()->where('sites.status', 'active')->get(['sites.id', 'sites.name']) : collect();
+    }
+
     /** Les cuisiniers parmi lesquels le magasinier choisit le réceptionnaire. */
     public static function cooks()
     {

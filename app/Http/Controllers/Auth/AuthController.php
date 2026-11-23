@@ -53,9 +53,11 @@ class AuthController extends Controller
                 return redirect()->intended(route('cashier.open'))->with('success', 'Bienvenue!');
             }
 
-            // Cuisinier : arrive sur ses demandes au magasin (à confirmer en premier)
-            if ($user->hasRole('cuisinier')) {
-                return redirect()->intended(route('kitchen.requests.index'))->with('success', 'Bienvenue!');
+            // Cuisinier : toujours directement sur ses demandes de sortie (à confirmer en premier),
+            // pas sur la dernière page tentée avant la connexion.
+            if ($user->isCookOnly()) {
+                $request->session()->forget('url.intended');
+                return redirect()->route('kitchen.requests.index')->with('success', 'Bienvenue!');
             }
 
             // Magasinier : arrive directement sur les livraisons à réceptionner

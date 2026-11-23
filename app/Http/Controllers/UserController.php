@@ -83,8 +83,9 @@ class UserController extends Controller
     {
         $this->perm('users.edit');
         $roles = Role::all();
-        $user->load('roles');
-        return view('users.edit', compact('user', 'roles'));
+        $user->load('roles', 'sites');
+        $sites = \App\Models\Site::active()->orderBy('name')->get(['id', 'name']);
+        return view('users.edit', compact('user', 'roles', 'sites'));
     }
 
     /**
@@ -103,10 +104,15 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8|confirmed',
             'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,id',
+            'sites' => 'nullable|array',
+            'sites.*' => 'exists:sites,id',
         ], [
             'username.regex'  => 'Nom d’utilisateur : 3 à 30 caractères, lettres sans accent, chiffres, point, tiret ou souligné.',
             'username.unique' => 'Ce nom d’utilisateur est déjà pris.',
         ]);
+
+        // Sites servis (cuisiniers) : un seul → sorties attribuées automatiquement ; plusieurs → répartition à la réception
+        $user->sites()->sync($validated['sites'] ?? []);
 
         $user->update([
             'name' => $validated['name'],

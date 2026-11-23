@@ -106,6 +106,12 @@
                class="sidebar-link {{ request()->routeIs('stock.transfer') ? 'active' : '' }}">
                 <i class="fa-solid fa-right-left"></i> Transfert de stock
             </a>
+            @canany(['stock.movements.all', 'kitchen.requests.approve'])
+            <a href="{{ route('stock.site-consumption') }}"
+               class="sidebar-link {{ request()->routeIs('stock.site-consumption') ? 'active' : '' }}">
+                <i class="fa-solid fa-location-dot"></i> Consommation par site
+            </a>
+            @endcanany
             @can('kitchen.requests.approve')
             <a href="{{ route('stock.kitchen-requests.approvals') }}"
                class="sidebar-link {{ request()->routeIs('stock.kitchen-requests.approvals', 'stock.kitchen-requests.approve') ? 'active' : '' }}">

@@ -22,4 +22,10 @@ class KitchenRequestItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    /** Répartition par site de ce qui a été reçu (renseignée à la confirmation du cuisinier). */
+    public function siteAllocations()
+    {
+        return $this->hasMany(KitchenRequestItemSite::class);
+    }
 }

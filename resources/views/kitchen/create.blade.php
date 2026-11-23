@@ -9,18 +9,18 @@
         <h1 class="font-bold text-lg text-slate-800">Nouvelle demande au magasin</h1>
         <div class="grid grid-cols-2 gap-3">
             <div class="col-span-2 sm:col-span-1">
-                <label for="kitchen" class="block text-xs font-semibold text-slate-500 mb-1">Cuisine <span class="text-red-500">*</span></label>
+                <label for="kitchen" class="block text-sm font-semibold text-slate-600 mb-1">Cuisine <span class="text-red-500">*</span></label>
                 <input id="kitchen" name="kitchen" list="kitchenList" required maxlength="100" value="{{ old('kitchen', $lastKitchen) }}"
                        placeholder="ex : Cuisine TCN" class="k-input w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400">
                 <datalist id="kitchenList">@foreach($kitchens as $k)<option value="{{ $k }}">@endforeach</datalist>
             </div>
             <div class="col-span-2 sm:col-span-1">
-                <label for="needed_on" class="block text-xs font-semibold text-slate-500 mb-1">Pour le</label>
+                <label for="needed_on" class="block text-sm font-semibold text-slate-600 mb-1">Pour le</label>
                 <input id="needed_on" type="date" name="needed_on" value="{{ old('needed_on', now()->toDateString()) }}"
                        class="k-input w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400">
             </div>
             <div class="col-span-2">
-                <label for="notes" class="block text-xs font-semibold text-slate-500 mb-1">Remarque</label>
+                <label for="notes" class="block text-sm font-semibold text-slate-600 mb-1">Remarque</label>
                 <input id="notes" name="notes" maxlength="500" value="{{ old('notes') }}" placeholder="ex : pour le déjeuner de lundi"
                        class="k-input w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400">
             </div>
@@ -44,7 +44,7 @@
     </p>
     <div id="hidden"></div>
 
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))">
         <div class="max-w-3xl mx-auto flex items-center gap-3">
             <p id="summary" class="flex-1 text-sm text-slate-500">0 produit</p>
             <button id="submitBtn" disabled class="px-6 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 text-white font-bold">

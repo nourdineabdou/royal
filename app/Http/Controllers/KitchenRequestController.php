@@ -40,12 +40,19 @@ class KitchenRequestController extends Controller
                 ->oldest('prepared_at')->get()
             : collect();
 
-        $mine = KitchenRequest::with(['items.product.unit', 'validator'])
-            ->where('requested_by', $user->id)
-            ->where('status', '!=', 'prepared')
-            ->latest()->limit(30)->get();
+        // Mes demandes, et les sorties que le magasinier a saisies pour moi
+        $isAdmin = $user->hasRole(['admin', 'super-admin']);
+        $mineQuery = fn () => KitchenRequest::with(['items.product.unit', 'validator', 'approver', 'preparer', 'receiver', 'items.siteAllocations.site'])
+            ->when(!$isAdmin, fn ($q) => $q->where(fn ($w) => $w->where('requested_by', $user->id)->orWhere('receiver_id', $user->id)));
 
-        return view('kitchen.index', compact('toConfirm', 'mine'));
+        // En cours : pas encore chez moi (à approuver, chez le magasinier), ou remises à un autre cuisinier
+        $inProgress = $mineQuery()->whereIn('status', ['to_approve', 'pending', 'prepared'])
+            ->whereNotIn('id', $toConfirm->pluck('id'))
+            ->latest()->get();
+        $history = $mineQuery()->whereIn('status', ['validated', 'cancelled'])
+            ->latest('updated_at')->limit(20)->get();
+
+        return view('kitchen.index', compact('toConfirm', 'inProgress', 'history'));
     }
 
     public function create()
@@ -107,29 +114,59 @@ class KitchenRequestController extends Controller
     public function show(KitchenRequest $kitchenRequest)
     {
         $this->anyPerm(['kitchen.requests.create', 'kitchen.requests.validate', 'kitchen.requests.prepare', 'kitchen.requests.approve']);
-        $kitchenRequest->load(['items.product.unit', 'requester', 'preparer', 'approver', 'validator', 'receiver', 'stock']);
+        $kitchenRequest->load(['items.product.unit', 'items.siteAllocations.site', 'requester', 'preparer', 'approver', 'validator', 'receiver', 'stock']);
 
-        return view('kitchen.show', ['kr' => $kitchenRequest]);
+        return view('kitchen.show', [
+            'kr'    => $kitchenRequest,
+            'sites' => $kitchenRequest->status === 'prepared' ? $kitchenRequest->receivingSites(auth()->user()) : collect(),
+        ]);
     }
 
     /** Le cuisinier prend la marchandise : c'est ici que le stock diminue. */
-    public function take(KitchenRequest $kitchenRequest)
+    public function take(Request $request, KitchenRequest $kitchenRequest)
     {
         $this->perm('kitchen.requests.validate');
         abort_unless($kitchenRequest->canBeTakenBy(auth()->user()), 403, 'Cette sortie est remise à un autre cuisinier : c\'est lui qui doit la confirmer.');
 
+        $request->validate([
+            'sites'     => 'nullable|array',
+            'sites.*'   => 'array',
+            'sites.*.*' => 'nullable|numeric|min:0|max:99999999', // unité de base
+        ]);
+        $sitesInput = (array) $request->input('sites', []);
+
         $belowMin = [];
-        DB::transaction(function () use ($kitchenRequest, &$belowMin) {
-            $kr = KitchenRequest::lockForUpdate()->with('items.product.unit')->findOrFail($kitchenRequest->id);
+        DB::transaction(function () use ($kitchenRequest, $sitesInput, &$belowMin) {
+            $kr = KitchenRequest::lockForUpdate()->with(['items.product.unit', 'receiver'])->findOrFail($kitchenRequest->id);
             if ($kr->status !== 'prepared') {
                 throw ValidationException::withMessages(['status' => 'Cette demande n\'est plus à confirmer.']);
             }
+
+            // Sites du cuisinier : un seul → tout lui est attribué ; plusieurs → répartition obligatoire.
+            $siteIds = $kr->receivingSites(auth()->user())->pluck('id')->all();
+            $siteErrors = [];
 
             $bs = 'BS-' . str_pad((string) $kr->id, 5, '0', STR_PAD_LEFT);
             foreach ($kr->items as $item) {
                 $qty = (float) $item->delivered_quantity;
                 if ($qty <= 0) {
                     continue;
+                }
+
+                if (count($siteIds) === 1) {
+                    $item->siteAllocations()->create(['site_id' => $siteIds[0], 'quantity' => $qty]);
+                } elseif (count($siteIds) > 1) {
+                    $split = collect($sitesInput[$item->id] ?? [])
+                        ->map(fn ($q) => round((float) $q, 2))
+                        ->filter(fn ($q, $sid) => $q > 0 && in_array((int) $sid, $siteIds, true));
+                    if (abs($split->sum() - $qty) > 0.01) {
+                        $unit = $item->product->unit->symbol ?? '';
+                        $siteErrors[] = "{$item->product->name} : reçu " . Qty::format($qty, $unit) . ', réparti ' . Qty::format($split->sum(), $unit);
+                        continue;
+                    }
+                    foreach ($split as $sid => $q) {
+                        $item->siteAllocations()->create(['site_id' => (int) $sid, 'quantity' => $q]);
+                    }
                 }
                 $stockItem = StockItem::where('stock_id', $kr->stock_id)->where('product_id', $item->product_id)->lockForUpdate()->first();
                 if (!$stockItem || (float) $stockItem->quantity + 0.0001 < $qty) {
@@ -156,6 +193,11 @@ class KitchenRequestController extends Controller
                 if (app(\App\Services\StockAlertService::class)->isBelow($item->product)) {
                     $belowMin[] = $item->product->name;
                 }
+            }
+
+            if ($siteErrors) {
+                throw ValidationException::withMessages(['sites' => array_merge(
+                    ['Répartissez tout ce que vous recevez entre vos sites :'], $siteErrors)]);
             }
 
             $kr->update([
@@ -318,7 +360,7 @@ class KitchenRequestController extends Controller
     {
         $this->anyPerm(['kitchen.requests.create', 'kitchen.requests.validate', 'kitchen.requests.prepare', 'kitchen.requests.approve']);
         abort_unless(in_array($kitchenRequest->status, ['prepared', 'validated']), 404);
-        $kitchenRequest->load(['items.product.unit', 'requester', 'preparer', 'approver', 'validator', 'receiver', 'stock']);
+        $kitchenRequest->load(['items.product.unit', 'items.siteAllocations.site', 'requester', 'preparer', 'approver', 'validator', 'receiver', 'stock']);
 
         return view('kitchen.print-bs', ['kr' => $kitchenRequest]);
     }
@@ -441,6 +483,54 @@ class KitchenRequestController extends Controller
             ->with('success', $status === 'to_approve'
                 ? "Demande {$kitchenRequest->reference} préparée : quantité importante (plus de " . KitchenRequest::thresholdLabel() . " du stock), en attente de l'approbation du responsable des achats."
                 : "Demande {$kitchenRequest->reference} remise : en attente de la validation du cuisinier.");
+    }
+
+    // ═══ Consommation par site ══════════════════════════════════════════════
+
+    /** Ce que chaque site a reçu (sorties validées, réparties par le cuisinier), sur une période. */
+    public function siteConsumption(Request $request)
+    {
+        $this->anyPerm(['stock.movements.all', 'kitchen.requests.approve']);
+
+        $filters = $request->validate([
+            'from'    => 'nullable|date',
+            'to'      => 'nullable|date',
+            'site_id' => 'nullable|integer|exists:sites,id',
+        ]);
+        $from = \Carbon\Carbon::parse($filters['from'] ?? now()->startOfMonth())->startOfDay();
+        $to   = \Carbon\Carbon::parse($filters['to'] ?? now())->endOfDay();
+        $siteId = $filters['site_id'] ?? null;
+
+        $rows = \App\Models\KitchenRequestItemSite::query()
+            ->join('kitchen_request_items as i', 'i.id', '=', 'kitchen_request_item_sites.kitchen_request_item_id')
+            ->join('kitchen_requests as r', 'r.id', '=', 'i.kitchen_request_id')
+            ->join('sites as s', 's.id', '=', 'kitchen_request_item_sites.site_id')
+            ->join('products as p', 'p.id', '=', 'i.product_id')
+            ->leftJoin('units as u', 'u.id', '=', 'p.unit_id')
+            ->where('r.status', 'validated')
+            ->whereBetween('r.validated_at', [$from, $to])
+            ->when($siteId, fn ($q) => $q->where('kitchen_request_item_sites.site_id', $siteId))
+            ->groupBy('s.id', 's.name', 'p.id', 'p.name', 'u.symbol')
+            ->orderBy('s.name')->orderBy('p.name')
+            ->selectRaw('s.id as site_id, s.name as site_name, p.id as product_id, p.name as product_name, u.symbol as unit,
+                         SUM(kitchen_request_item_sites.quantity) as qty, COUNT(DISTINCT r.id) as exits')
+            ->get()
+            ->groupBy('site_name');
+
+        // Sorties validées sur la période sans site (cuisinier rattaché à aucun site)
+        $unassigned = KitchenRequestItem::query()
+            ->join('kitchen_requests as r', 'r.id', '=', 'kitchen_request_items.kitchen_request_id')
+            ->where('r.status', 'validated')->whereBetween('r.validated_at', [$from, $to])
+            ->where('kitchen_request_items.delivered_quantity', '>', 0)
+            ->whereDoesntHave('siteAllocations')
+            ->distinct()->count('r.id');
+
+        return view('stock.site-consumption', [
+            'rows'       => $rows,
+            'unassigned' => $siteId ? 0 : $unassigned,
+            'sites'      => \App\Models\Site::active()->orderBy('name')->get(['id', 'name']),
+            'from'       => $from, 'to' => $to, 'siteId' => $siteId,
+        ]);
     }
 
     // ═══ Côté responsable des achats : approbation des sorties ══════════════

@@ -52,11 +52,16 @@
             $diff = $item->delivered_quantity !== null && abs((float) $item->delivered_quantity - (float) $item->requested_quantity) > 0.001;
         @endphp
         <div class="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 items-center">
-            <span class="font-semibold text-slate-800">{{ $item->product->name ?? '—' }}</span>
+            <span class="font-semibold text-slate-800 text-base break-words">{{ $item->product->name ?? '—' }}</span>
             <span class="text-right w-20 text-slate-500">{{ Qty::format($item->requested_quantity, $u) }}</span>
             <span class="text-right w-20 font-bold {{ $diff ? 'text-amber-700' : 'text-slate-800' }}">
                 @if(($kr->isPrepared() && in_array($kr->status, ['to_approve', 'prepared', 'validated']))){{ Qty::format($item->delivered_quantity ?? 0, $u) }}@endif
             </span>
+            @if($item->siteAllocations->isNotEmpty())
+                <p class="col-span-3 -mt-2 text-xs text-violet-700">
+                    <i class="fa-solid fa-location-dot mr-1"></i>{{ $item->siteAllocations->map(fn ($a) => ($a->site->name ?? '—') . ' ' . Qty::format($a->quantity, $u))->implode(' · ') }}
+                </p>
+            @endif
         </div>
     @endforeach
 </div>
@@ -65,12 +70,96 @@
 @if($canTake)
     <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
         <p class="text-sm text-amber-900"><strong>Vérifiez les quantités remises.</strong> En validant, vous confirmez avoir pris la marchandise : elle sort du stock du magasin et le bon de sortie est créé.</p>
-        <form method="POST" action="{{ route('kitchen.requests.take', $kr) }}" onsubmit="this.querySelector('button').disabled = true">
+        <form method="POST" action="{{ route('kitchen.requests.take', $kr) }}" id="takeForm" class="space-y-3">
             @csrf
-            <button class="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg">
+            @if($errors->has('sites') || $errors->has('stock') || $errors->has('status'))
+                <div class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2 text-sm">
+                    @foreach(array_merge($errors->get('sites'), $errors->get('stock'), $errors->get('status')) as $e)<p>{{ $e }}</p>@endforeach
+                </div>
+            @endif
+
+            @if($sites->count() === 1)
+                <p class="text-sm text-violet-800 bg-violet-50 rounded-xl px-3 py-2">
+                    <i class="fa-solid fa-location-dot mr-1"></i> Tout sera attribué au site <strong>{{ $sites->first()->name }}</strong>.
+                </p>
+            @elseif($sites->count() > 1)
+                {{-- Plusieurs sites : le cuisinier dit où vont les produits (tout sur un site, ou réparti) --}}
+                <div class="bg-white rounded-xl border border-violet-200 p-3 space-y-3">
+                    <p class="text-sm font-semibold text-violet-800"><i class="fa-solid fa-location-dot mr-1"></i> Pour quel site sont ces produits ?</p>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <select id="allTo" class="k-input w-full sm:flex-1 px-3 py-2.5 border border-slate-300 rounded-xl bg-white">
+                            @foreach($sites as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
+                        </select>
+                        <button type="button" id="allToBtn" class="w-full sm:w-auto whitespace-nowrap px-4 py-2.5 rounded-xl bg-violet-600 text-white text-base font-semibold">Tout pour ce site</button>
+                    </div>
+                    <p class="text-xs text-slate-500">Ou répartissez produit par produit :</p>
+                    @foreach($kr->items->filter(fn ($i) => (float) $i->delivered_quantity > 0) as $item)
+                        @php $u = $item->product->unit->symbol ?? ''; $du = Qty::displayUnit($u); @endphp
+                        <div class="split-row border-t border-slate-100 pt-2" data-total="{{ (float) $item->delivered_quantity }}" data-factor="{{ $du['factor'] }}" data-unit="{{ $u }}">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="font-semibold text-slate-800">{{ $item->product->name ?? '—' }}</span>
+                                <span class="text-xs left font-semibold">—</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                                @foreach($sites as $s)
+                                    <label class="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2">
+                                        <span class="flex-1 text-sm text-slate-700 break-words">{{ $s->name }}</span>
+                                        <input type="number" inputmode="decimal" min="0" step="any" data-site="{{ $s->id }}"
+                                               class="disp k-input w-20 text-right font-bold py-1 border-b border-violet-300 focus:outline-none" value="{{ $loop->first ? round((float) $item->delivered_quantity / $du['factor'], 3) : 0 }}">
+                                        <span class="text-xs text-slate-400">{{ $du['label'] }}</span>
+                                        <input type="hidden" name="sites[{{ $item->id }}][{{ $s->id }}]" class="base">
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            <button id="takeBtn" class="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-lg">
                 <i class="fa-solid fa-check mr-1"></i> Je confirme, je prends
             </button>
         </form>
+        @if($sites->count() > 1)
+        <script>
+        (function () {
+            const rows = [...document.querySelectorAll('.split-row')];
+            const nf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
+            const fmt = (q, u) => {
+                const f = ({ g: ['kg', 1000], ml: ['L', 1000] })[(u || '').toLowerCase()];
+                return f && Math.abs(q) >= f[1] ? nf.format(q / f[1]) + ' ' + f[0] : nf.format(q) + ' ' + u;
+            };
+            function refresh() {
+                let ok = true;
+                rows.forEach(r => {
+                    let sum = 0;
+                    r.querySelectorAll('.disp').forEach(i => {
+                        const base = Math.round((parseFloat(i.value) || 0) * (+r.dataset.factor) * 100) / 100;
+                        i.parentElement.querySelector('.base').value = base;
+                        sum += base;
+                    });
+                    const left = Math.round(((+r.dataset.total) - sum) * 100) / 100;
+                    const el = r.querySelector('.left');
+                    if (Math.abs(left) <= 0.01) { el.textContent = '✓ tout réparti'; el.className = 'text-xs left font-semibold text-emerald-600'; }
+                    else { el.textContent = (left > 0 ? 'reste ' : 'trop de ') + fmt(Math.abs(left), r.dataset.unit); el.className = 'text-xs left font-semibold text-red-600'; ok = false; }
+                });
+                document.getElementById('takeBtn').disabled = !ok;
+            }
+            document.getElementById('allToBtn').addEventListener('click', () => {
+                const sid = document.getElementById('allTo').value;
+                rows.forEach(r => r.querySelectorAll('.disp').forEach(i => {
+                    i.value = i.dataset.site === sid ? Math.round((+r.dataset.total) / (+r.dataset.factor) * 1000) / 1000 : 0;
+                }));
+                refresh();
+            });
+            rows.forEach(r => r.querySelectorAll('.disp').forEach(i => i.addEventListener('input', refresh)));
+            document.getElementById('takeForm').addEventListener('submit', () => { refresh(); setTimeout(() => document.getElementById('takeBtn').disabled = true); });
+            refresh();
+        })();
+        </script>
+        @else
+        <script>document.getElementById('takeForm').addEventListener('submit', () => setTimeout(() => document.getElementById('takeBtn').disabled = true));</script>
+        @endif
         <details class="bg-white rounded-xl border border-amber-200">
             <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-red-700">Ce n'est pas correct (écart, produit abîmé…)</summary>
             <form method="POST" action="{{ route('kitchen.requests.contest', $kr) }}" class="px-4 pb-4 space-y-2">
