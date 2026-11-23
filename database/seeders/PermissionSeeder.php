@@ -328,21 +328,18 @@ class PermissionSeeder extends Seeder
         ]);
 
         // ── RH : module RH + comptabilité (le RH gère aussi la comptabilité) ───
-        $rh->syncPermissions([
+        // Toute la partie RH (hr.*) : employés, postes, pointage, congés (demande + validation),
+        // paie, avances (création + approbation)… y compris les permissions RH ajoutées plus tard.
+        $rh->syncPermissions(array_merge(
+            Permission::where('name', 'like', 'hr.%')->pluck('name')->all(),
+            [
             'dashboard.view',
-            'hr.dashboard',
-            'hr.employees.view', 'hr.employees.create', 'hr.employees.edit', 'hr.employees.delete',
-            'hr.job-titles.view', 'hr.job-titles.create', 'hr.job-titles.edit', 'hr.job-titles.delete',
-            'hr.attendance.view', 'hr.attendance.record',
-            'hr.leaves.view', 'hr.leaves.approve', 'hr.leaves.reject',
-            'hr.payroll.view', 'hr.payroll.generate', 'hr.payroll.mark-paid',
-            'hr.advances.view', 'hr.advances.approve',
             'accounting.view', 'accounting.validate',
             'pos.accounting.view', 'pos.accounting.traces.view', 'pos.accounting.traces.export',
             'pos.accounting.sessions.export', 'pos.accounting.register.open', 'pos.accounting.register.close',
             'pos.accounting.register.validate', 'pos.accounting.register.view-detail', 'pos.accounting.profitability',
             // La RH n'intervient plus dans le circuit des achats.
-        ]);
+        ]));
 
         // ── Achat (acheteur) : fait ou approuve les DA, va chez les fournisseurs, ramène les devis
         // et prépare le BC (fournisseur, prix, devis joint). Le BC doit être confirmé par le
