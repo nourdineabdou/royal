@@ -6,6 +6,7 @@
     use App\Support\Qty;
     $badge = [
         'pending'   => 'bg-sky-100 text-sky-700',
+        'to_approve' => 'bg-violet-100 text-violet-700',
         'prepared'  => 'bg-amber-100 text-amber-800',
         'validated' => 'bg-emerald-100 text-emerald-700',
         'cancelled' => 'bg-slate-100 text-slate-500',
@@ -26,20 +27,24 @@
     <dl class="text-sm grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-slate-600">
         <dt class="text-slate-400">Demandé par</dt><dd>{{ $kr->requester->name ?? '—' }}@if($kr->requested_by === $kr->prepared_by) <span class="text-xs text-slate-400">(saisie au magasin)</span>@endif</dd>
         @if($kr->preparer)<dt class="text-slate-400">Remis par</dt><dd>{{ $kr->preparer->name }} · {{ $kr->prepared_at?->format('d/m H:i') }} · {{ $kr->stock->name ?? '' }}</dd>@endif
+        @if($kr->approver)<dt class="text-slate-400">Approuvé par</dt><dd>{{ $kr->approver->name }} · {{ $kr->approved_at?->format('d/m H:i') }}</dd>@endif
         @if($kr->receiver)<dt class="text-slate-400">Remis à</dt><dd class="font-semibold text-slate-700">{{ $kr->receiver->name }}</dd>@endif
         @if($kr->validator)<dt class="text-slate-400">Pris par</dt><dd>{{ $kr->validator->name }} · {{ $kr->validated_at?->format('d/m H:i') }}</dd>@endif
         @if($kr->bs_number)<dt class="text-slate-400">Bon de sortie</dt><dd class="font-semibold text-emerald-700">{{ $kr->bs_number }}</dd>@endif
         @if($kr->notes)<dt class="text-slate-400">Remarque</dt><dd>{{ $kr->notes }}</dd>@endif
     </dl>
-    @if($kr->status === 'pending' && $kr->contest_note)
-        <p class="text-sm bg-red-50 text-red-700 rounded-xl px-3 py-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Écart signalé : {{ $kr->contest_note }}</p>
+    @if($kr->status === 'to_approve')
+        <p class="text-sm bg-violet-50 text-violet-700 rounded-xl px-3 py-2"><i class="fa-solid fa-stamp mr-1"></i>Quantité importante (plus de {{ \App\Models\KitchenRequest::thresholdLabel() }} du stock) : en attente de l'approbation du responsable des achats.</p>
+    @endif
+    @if(in_array($kr->status, ['pending', 'cancelled']) && $kr->contest_note)
+        <p class="text-sm bg-red-50 text-red-700 rounded-xl px-3 py-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>{{ $kr->contest_note }}</p>
     @endif
 </div>
 
 {{-- ── Produits ─────────────────────────────────────────────────────── --}}
 <div class="bg-white rounded-2xl border {{ $canTake ? 'border-2 border-amber-300' : 'border-slate-200' }} divide-y divide-slate-100">
     <div class="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 text-[11px] font-semibold uppercase text-slate-400">
-        <span>Produit</span><span class="text-right w-20">Demandé</span><span class="text-right w-20">{{ in_array($kr->status, ['prepared', 'validated']) ? 'Remis' : '' }}</span>
+        <span>Produit</span><span class="text-right w-20">Demandé</span><span class="text-right w-20">{{ ($kr->isPrepared() && in_array($kr->status, ['to_approve', 'prepared', 'validated'])) ? 'Remis' : '' }}</span>
     </div>
     @foreach($kr->items as $item)
         @php
@@ -50,7 +55,7 @@
             <span class="font-semibold text-slate-800">{{ $item->product->name ?? '—' }}</span>
             <span class="text-right w-20 text-slate-500">{{ Qty::format($item->requested_quantity, $u) }}</span>
             <span class="text-right w-20 font-bold {{ $diff ? 'text-amber-700' : 'text-slate-800' }}">
-                @if(in_array($kr->status, ['prepared', 'validated'])){{ Qty::format($item->delivered_quantity ?? 0, $u) }}@endif
+                @if(($kr->isPrepared() && in_array($kr->status, ['to_approve', 'prepared', 'validated']))){{ Qty::format($item->delivered_quantity ?? 0, $u) }}@endif
             </span>
         </div>
     @endforeach

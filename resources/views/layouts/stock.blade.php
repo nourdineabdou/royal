@@ -106,6 +106,14 @@
                class="sidebar-link {{ request()->routeIs('stock.transfer') ? 'active' : '' }}">
                 <i class="fa-solid fa-right-left"></i> Transfert de stock
             </a>
+            @can('kitchen.requests.approve')
+            <a href="{{ route('stock.kitchen-requests.approvals') }}"
+               class="sidebar-link {{ request()->routeIs('stock.kitchen-requests.approvals', 'stock.kitchen-requests.approve') ? 'active' : '' }}">
+                <i class="fa-solid fa-stamp"></i> Sorties à approuver
+                @php $__toApproveKr = \App\Models\KitchenRequest::where('status', 'to_approve')->count(); @endphp
+                @if($__toApproveKr)<span class="ml-auto bg-white text-violet-700 text-[11px] font-bold px-2 py-0.5 rounded-full">{{ $__toApproveKr }}</span>@endif
+            </a>
+            @endcan
             @can('stock.products.adjust')
             @can('kitchen.requests.prepare')
             <a href="{{ route('stock.kitchen-requests.index') }}"

@@ -218,6 +218,8 @@ class PermissionSeeder extends Seeder
             'kitchen.requests.create',   // cuisinier : demander
             'kitchen.requests.prepare',  // magasinier : préparer / remettre
             'kitchen.requests.validate', // cuisinier : « je prends » (sortie de stock)
+            'kitchen.requests.approve',  // responsable des achats : approuve les sorties importantes (quantités modifiables)
+            'kitchen.requests.threshold', // Direction : fixe le % du stock au-delà duquel une sortie doit être approuvée
 
             // ── Résidence ─────────────────────────────────────────────────────
             'residence.dashboard',
@@ -367,6 +369,8 @@ class PermissionSeeder extends Seeder
             'purchases.orders.cancel', 'purchases.orders.validate-invoice',
             'purchases.stock-ruptures.view',
             'stock.view', 'stock.movements.view', 'stock.movements.all',
+            // Sorties vers les cuisines : approuve (et corrige au besoin) avant la remise au cuisinier
+            'kitchen.requests.approve',
         ]);
         // ── Magasinier : entrées (réceptions BL uniquement) et sorties de stock ─
         // Pas de création de commande, ni facture, ni paiement.

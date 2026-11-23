@@ -17,7 +17,9 @@ use Illuminate\Validation\ValidationException;
 /**
  * Sorties de stock vers les cuisines (procédure Complex Royal, workflow B) :
  *   1. la cuisine fait une demande (produits + quantités) ;
- *   2. le magasinier prépare et remet les quantités réelles (elles sont réservées) ;
+ *   2. le magasinier prépare les quantités réelles (elles sont réservées) ;
+ *   2b. le responsable des achats approuve : il voit le stock, ce qui sort et ce qui reste,
+ *       et peut corriger les quantités (ou renvoyer la sortie au magasinier) ;
  *   3. le cuisinier valide « je prends » → le stock diminue et un bon de sortie BS est créé.
  *   Une demande de cuisine n'est pas une sortie tant que le cuisinier n'a pas validé.
  */
@@ -74,29 +76,38 @@ class KitchenRequestController extends Controller
         ]);
 
         $kr = DB::transaction(function () use ($data) {
+            // Un même produit saisi deux fois est regroupé
+            $lines = collect($data['items'])->groupBy('product_id')->map(fn ($rows) => round($rows->sum('quantity'), 2));
+
+            // Demande importante (> seuil % du stock d'un produit, tous magasins) : le responsable des achats
+            // l'approuve d'abord, ensuite seulement elle arrive chez le magasinier.
+            $inStock = KitchenRequest::stockQuantities(null, $lines->keys());
+            $big = $lines->contains(fn ($qty, $pid) => KitchenRequest::exceedsThreshold($qty, $inStock[$pid] ?? 0));
+
             $kr = KitchenRequest::create([
                 'kitchen'      => trim($data['kitchen']),
                 'needed_on'    => $data['needed_on'] ?? null,
                 'notes'        => $data['notes'] ?? null,
                 'requested_by' => auth()->id(),
-                'status'       => 'pending',
+                'status'       => $big ? 'to_approve' : 'pending',
             ]);
-            // Un même produit saisi deux fois est regroupé
-            collect($data['items'])->groupBy('product_id')->each(function ($rows, $pid) use ($kr) {
-                $kr->items()->create(['product_id' => $pid, 'requested_quantity' => round($rows->sum('quantity'), 2)]);
-            });
+            foreach ($lines as $pid => $qty) {
+                $kr->items()->create(['product_id' => $pid, 'requested_quantity' => $qty]);
+            }
 
             return $kr;
         });
 
         return redirect()->route('kitchen.requests.show', $kr)
-            ->with('success', "Demande {$kr->reference} envoyée au magasin.");
+            ->with('success', $kr->status === 'to_approve'
+                ? "Demande {$kr->reference} envoyée : quantité importante (plus de " . KitchenRequest::thresholdLabel() . " du stock), le responsable des achats doit l'approuver avant le magasin."
+                : "Demande {$kr->reference} envoyée au magasin.");
     }
 
     public function show(KitchenRequest $kitchenRequest)
     {
-        $this->anyPerm(['kitchen.requests.create', 'kitchen.requests.validate', 'kitchen.requests.prepare']);
-        $kitchenRequest->load(['items.product.unit', 'requester', 'preparer', 'validator', 'receiver', 'stock']);
+        $this->anyPerm(['kitchen.requests.create', 'kitchen.requests.validate', 'kitchen.requests.prepare', 'kitchen.requests.approve']);
+        $kitchenRequest->load(['items.product.unit', 'requester', 'preparer', 'approver', 'validator', 'receiver', 'stock']);
 
         return view('kitchen.show', ['kr' => $kitchenRequest]);
     }
@@ -173,7 +184,7 @@ class KitchenRequestController extends Controller
 
         $kitchenRequest->update([
             'status'       => 'pending',
-            'contest_note' => $data['contest_note'],
+            'contest_note' => 'Cuisine : ' . $data['contest_note'],
             'prepared_by'  => null,
             'prepared_at'  => null,
         ]);
@@ -194,7 +205,7 @@ class KitchenRequestController extends Controller
             $kitchenRequest->requested_by === $user?->id || $isStore || $user?->hasRole(['admin', 'super-admin']),
             403
         );
-        $allowed = $isStore ? ['pending', 'prepared'] : ['pending'];
+        $allowed = $isStore ? ['pending', 'to_approve', 'prepared'] : ['pending'];
         abort_unless(in_array($kitchenRequest->status, $allowed), 422, 'Cette demande ne peut plus être annulée.');
         $kitchenRequest->update(['status' => 'cancelled']);
 
@@ -260,12 +271,15 @@ class KitchenRequestController extends Controller
             $products = Product::with('unit')->whereIn('id', $lines->keys())->get()->keyBy('id');
 
             $errors = [];
+            $big = false;
             foreach ($lines as $pid => $qty) {
-                $free = (float) StockItem::where('stock_id', $stockId)->where('product_id', $pid)->lockForUpdate()->value('quantity') - ($reserved[$pid] ?? 0);
+                $inStock = (float) StockItem::where('stock_id', $stockId)->where('product_id', $pid)->lockForUpdate()->value('quantity');
+                $free = $inStock - ($reserved[$pid] ?? 0);
                 if ($qty > $free + 0.0001) {
                     $unit = $products[$pid]->unit->symbol ?? '';
                     $errors[] = "{$products[$pid]->name} : disponible " . Qty::format(max(0, $free), $unit) . ', remis ' . Qty::format($qty, $unit);
                 }
+                $big = $big || KitchenRequest::exceedsThreshold($qty, $inStock);
             }
             if ($errors) {
                 throw ValidationException::withMessages(['items' => array_merge(['Stock insuffisant :'], $errors)]);
@@ -281,7 +295,9 @@ class KitchenRequestController extends Controller
                 'prepared_by'  => auth()->id(),
                 'prepared_at'  => now(),
                 'receiver_id'  => (int) $data['receiver_id'],
-                'status'       => 'prepared', // remise faite : en attente de la validation du cuisinier
+                // Sortie importante (> seuil % du stock d'un produit) : le responsable des achats approuve d'abord.
+                // Sinon elle part directement au cuisinier, qui confirme la réception.
+                'status'       => $big ? 'to_approve' : 'prepared',
             ]);
             foreach ($lines as $pid => $qty) {
                 $kr->items()->create(['product_id' => $pid, 'requested_quantity' => $qty, 'delivered_quantity' => $qty]);
@@ -293,14 +309,16 @@ class KitchenRequestController extends Controller
         $kr->load('receiver');
 
         return redirect()->route('stock.kitchen-requests.index')
-            ->with('success', "Sortie {$kr->reference} remise à {$kr->receiver->name} (« {$kr->kitchen} ») : il doit se connecter et la confirmer pour qu'elle sorte du stock.");
+            ->with('success', $kr->status === 'to_approve'
+                ? "Sortie {$kr->reference} pour {$kr->receiver->name} : quantité importante (plus de " . KitchenRequest::thresholdLabel() . " du stock), le responsable des achats doit l'approuver, puis le cuisinier la confirme."
+                : "Sortie {$kr->reference} remise à {$kr->receiver->name} (« {$kr->kitchen} ») : il doit se connecter et la confirmer pour qu'elle sorte du stock.");
     }
 
     public function printBs(KitchenRequest $kitchenRequest)
     {
-        $this->anyPerm(['kitchen.requests.create', 'kitchen.requests.validate', 'kitchen.requests.prepare']);
+        $this->anyPerm(['kitchen.requests.create', 'kitchen.requests.validate', 'kitchen.requests.prepare', 'kitchen.requests.approve']);
         abort_unless(in_array($kitchenRequest->status, ['prepared', 'validated']), 404);
-        $kitchenRequest->load(['items.product.unit', 'requester', 'preparer', 'validator', 'receiver', 'stock']);
+        $kitchenRequest->load(['items.product.unit', 'requester', 'preparer', 'approver', 'validator', 'receiver', 'stock']);
 
         return view('kitchen.print-bs', ['kr' => $kitchenRequest]);
     }
@@ -311,12 +329,13 @@ class KitchenRequestController extends Controller
     {
         $this->perm('kitchen.requests.prepare');
 
-        $base = KitchenRequest::with(['items.product.unit', 'requester', 'preparer', 'validator', 'receiver', 'stock']);
+        $base = KitchenRequest::with(['items.product.unit', 'requester', 'preparer', 'approver', 'validator', 'receiver', 'stock']);
         $pending   = (clone $base)->where('status', 'pending')->oldest()->get();
+        $toApprove = (clone $base)->where('status', 'to_approve')->oldest('updated_at')->get();
         $prepared  = (clone $base)->where('status', 'prepared')->oldest('prepared_at')->get();
         $validated = (clone $base)->where('status', 'validated')->latest('validated_at')->limit(20)->get();
 
-        return view('stock.kitchen-requests.index', compact('pending', 'prepared', 'validated'));
+        return view('stock.kitchen-requests.index', compact('pending', 'toApprove', 'prepared', 'validated'));
     }
 
     public function prepare(KitchenRequest $kitchenRequest)
@@ -381,6 +400,7 @@ class KitchenRequestController extends Controller
             $reserved = KitchenRequest::reservedQuantities($stockId, $kr->id);
             $errors = [];
             $any = false;
+            $big = false;
 
             foreach ($kr->items as $item) {
                 $qty = round((float) ($data['delivered'][$item->id] ?? 0), 2);
@@ -390,6 +410,10 @@ class KitchenRequestController extends Controller
                     $unit = $item->product->unit->symbol ?? '';
                     $errors[] = "{$item->product->name} : disponible " . Qty::format(max(0, $free), $unit) . ', remis ' . Qty::format($qty, $unit);
                 }
+                // Au-delà du seuil : approbation nécessaire, sauf si le responsable des achats
+                // a déjà approuvé cette quantité sur la demande de la cuisine.
+                $alreadyApproved = $kr->approved_at && $qty <= (float) $item->requested_quantity + 0.0001;
+                $big = $big || (KitchenRequest::exceedsThreshold($qty, $inStock) && !$alreadyApproved);
                 $item->update(['delivered_quantity' => $qty]);
                 $any = $any || $qty > 0;
             }
@@ -401,18 +425,189 @@ class KitchenRequestController extends Controller
                 throw ValidationException::withMessages(['delivered' => 'Aucune quantité remise.']);
             }
 
-            $kr->update([
-                'status'       => 'prepared',
+            $kr->update(array_merge([
+                'status'       => $big ? 'to_approve' : 'prepared',
                 'stock_id'     => $stockId,
                 'prepared_by'  => auth()->id(),
                 'prepared_at'  => now(),
                 'receiver_id'  => (int) $data['receiver_id'],
                 'contest_note' => null,
-            ]);
+            ], $big ? ['approved_by' => null, 'approved_at' => null] : []));
         });
 
+        $status = $kitchenRequest->fresh()->status;
+
         return redirect()->route('stock.kitchen-requests.index')
-            ->with('success', "Demande {$kitchenRequest->reference} remise : en attente de la validation du cuisinier.");
+            ->with('success', $status === 'to_approve'
+                ? "Demande {$kitchenRequest->reference} préparée : quantité importante (plus de " . KitchenRequest::thresholdLabel() . " du stock), en attente de l'approbation du responsable des achats."
+                : "Demande {$kitchenRequest->reference} remise : en attente de la validation du cuisinier.");
+    }
+
+    // ═══ Côté responsable des achats : approbation des sorties ══════════════
+
+    /** Sorties importantes à approuver (+ réglage du seuil pour la Direction). */
+    public function approvals()
+    {
+        $this->anyPerm(['kitchen.requests.approve', 'kitchen.requests.threshold']);
+
+        $toApprove = KitchenRequest::with(['items.product.unit', 'requester', 'preparer', 'receiver', 'stock'])
+            ->where('status', 'to_approve')->oldest('updated_at')->get();
+        $approved = KitchenRequest::with(['items.product.unit', 'approver', 'receiver', 'stock'])
+            ->where('status', '!=', 'to_approve')
+            ->whereNotNull('approved_at')->latest('approved_at')->limit(20)->get();
+        $thresholdSetting = \App\Models\Setting::with('updater')->where('key', KitchenRequest::THRESHOLD_SETTING)->first();
+
+        return view('stock.kitchen-requests.approvals', compact('toApprove', 'approved', 'thresholdSetting'));
+    }
+
+    /**
+     * Change le seuil d'approbation (% du stock). Effet immédiat sur les nouvelles demandes et sorties ;
+     * celles déjà en attente d'approbation restent à approuver.
+     */
+    public function updateThreshold(Request $request)
+    {
+        $this->perm('kitchen.requests.threshold');
+        $data = $request->validate([
+            'threshold' => 'required|numeric|min:1|max:100',
+        ], [
+            'threshold.required' => 'Indiquez le pourcentage.',
+            'threshold.min'      => 'Le seuil doit être d\'au moins 1 %.',
+            'threshold.max'      => 'Le seuil ne peut pas dépasser 100 %.',
+        ]);
+
+        \App\Models\Setting::set(KitchenRequest::THRESHOLD_SETTING, round((float) $data['threshold'], 2));
+
+        return redirect()->route('stock.kitchen-requests.approvals')
+            ->with('success', 'Seuil d\'approbation fixé à ' . KitchenRequest::thresholdLabel() . ' du stock.');
+    }
+
+    /** Pour chaque produit : en stock, ce qui sort, ce qui reste — quantités modifiables. */
+    public function approveForm(KitchenRequest $kitchenRequest)
+    {
+        $this->perm('kitchen.requests.approve');
+        abort_unless($kitchenRequest->status === 'to_approve', 404);
+        $kitchenRequest->load(['items.product.unit', 'requester', 'preparer', 'receiver', 'stock']);
+
+        return view('stock.kitchen-requests.approve', [
+            'kr'    => $kitchenRequest,
+            'lines' => $this->stockLines($kitchenRequest),
+        ]);
+    }
+
+    public function approve(Request $request, KitchenRequest $kitchenRequest)
+    {
+        $this->perm('kitchen.requests.approve');
+
+        $data = $request->validate([
+            'qty'   => 'required|array',
+            'qty.*' => 'nullable|numeric|min:0|max:99999999', // unité de base
+        ]);
+
+        [$changed, $prepared] = DB::transaction(function () use ($data, $kitchenRequest) {
+            $kr = KitchenRequest::lockForUpdate()->with('items.product.unit')->findOrFail($kitchenRequest->id);
+            if ($kr->status !== 'to_approve') {
+                throw ValidationException::withMessages(['status' => 'Cette sortie n\'est plus à approuver.']);
+            }
+
+            // Avant préparation (demande de la cuisine) : on approuve les quantités demandées, la demande
+            // part ensuite au magasinier. Après préparation : on approuve ce qui sort du magasin choisi.
+            $prepared = $kr->isPrepared();
+            $column = $prepared ? 'delivered_quantity' : 'requested_quantity';
+            $reserved = $prepared ? KitchenRequest::reservedQuantities($kr->stock_id, $kr->id) : [];
+            $errors = [];
+            $any = false;
+            $changed = false;
+
+            foreach ($kr->items as $item) {
+                $qty = round((float) ($data['qty'][$item->id] ?? $item->{$column} ?? 0), 2);
+                if ($prepared) {
+                    $inStock = (float) StockItem::where('stock_id', $kr->stock_id)->where('product_id', $item->product_id)->lockForUpdate()->value('quantity');
+                    $free = $inStock - ($reserved[$item->product_id] ?? 0);
+                    if ($qty > $free + 0.0001) {
+                        $unit = $item->product->unit->symbol ?? '';
+                        $errors[] = "{$item->product->name} : disponible " . Qty::format(max(0, $free), $unit) . ', sortie ' . Qty::format($qty, $unit);
+                    }
+                }
+                if (abs($qty - (float) $item->{$column}) > 0.0001) {
+                    $changed = true;
+                    $item->update([$column => $qty]);
+                }
+                $any = $any || $qty > 0;
+            }
+
+            if ($errors) {
+                throw ValidationException::withMessages(['qty' => array_merge(['Stock insuffisant :'], $errors)]);
+            }
+            if (!$any) {
+                throw ValidationException::withMessages(['qty' => 'Aucune quantité : utilisez plutôt « Refuser ».']);
+            }
+
+            $kr->update([
+                'status'      => $prepared ? 'prepared' : 'pending', // → cuisinier / → magasinier
+                'approved_by' => auth()->id(),
+                'approved_at' => now(),
+            ]);
+
+            return [$changed, $prepared];
+        });
+
+        return redirect()->route('stock.kitchen-requests.approvals')
+            ->with('success', ($prepared ? 'Sortie ' : 'Demande ') . "{$kitchenRequest->reference} approuvée"
+                . ($changed ? ' avec quantités modifiées' : '')
+                . ($prepared ? ' : le cuisinier peut la confirmer.' : ' : elle part au magasinier, qui fera la sortie.'));
+    }
+
+    /**
+     * Le responsable des achats refuse :
+     *  - une demande de la cuisine (pas encore au magasin) est refusée (annulée) avec le motif ;
+     *  - une sortie préparée revient au magasinier avec le motif.
+     */
+    public function reject(Request $request, KitchenRequest $kitchenRequest)
+    {
+        $this->perm('kitchen.requests.approve');
+        $data = $request->validate(['contest_note' => 'required|string|max:500'], ['contest_note.required' => 'Indiquez le motif.']);
+        abort_unless($kitchenRequest->status === 'to_approve', 422, 'Cette sortie n\'est plus à approuver.');
+
+        if (!$kitchenRequest->isPrepared()) {
+            $kitchenRequest->update([
+                'status'       => 'cancelled',
+                'contest_note' => 'Refusée par le resp. achats : ' . $data['contest_note'],
+            ]);
+
+            return redirect()->route('stock.kitchen-requests.approvals')
+                ->with('success', "Demande {$kitchenRequest->reference} refusée : le cuisinier verra le motif.");
+        }
+
+        $kitchenRequest->update([
+            'status'       => 'pending',
+            'contest_note' => 'Resp. achats : ' . $data['contest_note'],
+            'prepared_by'  => null,
+            'prepared_at'  => null,
+        ]);
+
+        return redirect()->route('stock.kitchen-requests.approvals')
+            ->with('success', "Sortie {$kitchenRequest->reference} renvoyée au magasinier.");
+    }
+
+    /**
+     * En stock, déjà réservé par d'autres sorties, pour chaque ligne.
+     * Sortie préparée : dans le magasin choisi. Demande pas encore préparée : tous magasins confondus.
+     */
+    private function stockLines(KitchenRequest $kr): array
+    {
+        $stockId = $kr->isPrepared() ? (int) $kr->stock_id : null;
+        $reserved = KitchenRequest::reservedQuantities($stockId, $kr->id);
+        $inStock = KitchenRequest::stockQuantities($stockId, $kr->items->pluck('product_id'));
+
+        $lines = [];
+        foreach ($kr->items as $item) {
+            $lines[$item->id] = [
+                'in_stock' => (float) ($inStock[$item->product_id] ?? 0),
+                'reserved' => (float) ($reserved[$item->product_id] ?? 0),
+            ];
+        }
+
+        return $lines;
     }
 
     private function anyPerm(array $perms): void

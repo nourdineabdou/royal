@@ -476,6 +476,7 @@ img { max-width: 100%; }
     <div class="rule"><span class="ok">✓</span><b>Une DA n'est pas une entrée.</b><p>La demande d'achat ne touche pas le stock.</p></div>
     <div class="rule"><span class="ok">✓</span><b>Une commande n'est pas une réception.</b><p>Le stock ne monte qu'à la validation de la réception (BE), avec la quantité réellement arrivée. Le reste devient un reliquat.</p></div>
     <div class="rule"><span class="ok">✓</span><b>Une demande cuisine n'est pas une sortie tant que les produits ne sont pas remis.</b><p>Que la demande vienne de la cuisine ou soit saisie par le magasinier, le stock ne baisse que lorsque le cuisinier valide « je prends ». Entre la remise et la validation, les quantités sont réservées.</p></div>
+    <div class="rule"><span class="ok">✓</span><b>Les sorties importantes sont approuvées par le responsable achat.</b><p>Si un produit sort pour plus de {{ \App\Models\KitchenRequest::thresholdLabel() }} de son stock, le responsable achat approuve (il voit le stock, ce qui sort et ce qui reste, et peut corriger). En dessous, pas d'approbation. Le pourcentage se change à tout moment dans <span class="path">Paramètres › Approbation des sorties</span>.</p></div>
     <div class="rule"><span class="ok">✓</span><b>Aucun mouvement sans pièce numérotée.</b><p>Chaque entrée porte un REC (BE) et un n° de BL fournisseur ; chaque sortie cuisine un BS ; chaque ajustement un motif et son auteur.</p></div>
     <div class="rule"><span class="ok">✓</span><b>Stock négatif interdit.</b><p>Une remise ou une sortie supérieure au stock disponible est refusée.</p></div>
     <div class="rule"><span class="ok">✓</span><b>Alerte sur seuil minimum, avec demande d'achat préparée.</b><p>Chaque produit a un seuil, comparé au <b>Stock Catering</b> : <b>3 emballages d'achat par défaut</b> (3 sacs, 3 cartons…), ou un seuil précis fixé dans sa fiche. Dès qu'il est atteint, le système ajoute le produit à une demande d'achat brouillon (sauf s'il est déjà en commande). Le magasinier la relit et l'envoie.</p></div>
@@ -507,11 +508,12 @@ img { max-width: 100%; }
     <div class="st"><span class="m-pill bad">Annulée</span><p>Abandonnée, seulement si rien n'a été reçu.</p></div>
   </div>
   <p class="eyebrow">Demande de la cuisine</p>
-  <div class="statuses" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+  <div class="statuses" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+    <div class="st"><span class="m-pill" style="background:#ede9fe;color:#6d28d9">À approuver</span><p>Plus de {{ \App\Models\KitchenRequest::thresholdLabel() }} du stock d'un produit : le responsable achat doit approuver (avant le magasinier, ou avant la remise).</p></div>
     <div class="st"><span class="m-pill info">À préparer</span><p>Envoyée par le cuisinier. Apparaît chez le magasinier.</p></div>
     <div class="st"><span class="m-pill warn">À confirmer</span><p>Remise par le magasinier, quantités réservées. Le cuisinier doit valider.</p></div>
     <div class="st"><span class="m-pill ok">Sortie validée</span><p>Le cuisinier a pris : stock diminué, BS créé.</p></div>
-    <div class="st"><span class="m-pill">Annulée</span><p>Annulée par la cuisine avant préparation.</p></div>
+    <div class="st"><span class="m-pill">Annulée</span><p>Annulée par la cuisine ou le magasinier, ou refusée par le responsable achat (motif visible).</p></div>
   </div>
 </section>
 
@@ -557,6 +559,7 @@ img { max-width: 100%; }
     <details class="faq"><summary>Le cuisinier ne trouve pas le bouton « Je confirme, je prends »</summary><div><p>Le magasinier n'a pas encore remis la demande. Elle apparaît dans « À confirmer » dès que le magasinier a cliqué sur <b>Remettre à la cuisine</b>.</p></div></details>
     <details class="faq"><summary>Les quantités remises ne correspondent pas à ce que la cuisine a reçu</summary><div><p>Le cuisinier ne valide pas : il ouvre « Ce n'est pas correct », explique l'écart, et la demande revient chez le magasinier avec la remarque. Le stock ne bouge pas.</p></div></details>
     <details class="faq"><summary>J'ai validé une réception avec une erreur de quantité</summary><div><p>Une réception validée ne se modifie pas. Trop reçu : retour fournisseur (marchandise rendue) ou ajustement par l'administrateur (erreur de comptage). Pas assez : réceptionner le reliquat quand il arrive.</p></div></details>
+    <details class="faq"><summary>Pourquoi une demande ou une sortie est « À approuver » ?</summary><div><p>Au moins un produit dépasse <b>{{ \App\Models\KitchenRequest::thresholdLabel() }} de son stock</b>. Le responsable achat doit l'approuver dans <span class="path">Stock › Sorties à approuver</span> ; il peut réduire les quantités ou refuser avec un motif. Le seuil se règle dans <span class="path">Paramètres › Approbation des sorties</span>.</p></div></details>
     <details class="faq"><summary>Les feuilles manuscrites des cuisines, que faut-il en faire ?</summary><div><p>Le magasinier les saisit avec <b>Nouvelle sortie vers une cuisine</b> (une sortie par cuisine). Elles ne sont pas encore des sorties : la marchandise ne sort du stock que lorsque le cuisinier valide « je prends ».</p></div></details>
     <details class="faq"><summary>La caméra ne s'ouvre pas sur mon téléphone</summary><div><p>La caméra ne fonctionne qu'en <b>https://</b>. En attendant, tapez le code ou utilisez une douchette.</p></div></details>
   </div>
@@ -575,6 +578,7 @@ img { max-width: 100%; }
     <div><b>BL · Bon de livraison</b><span>Le papier remis par le fournisseur avec la marchandise.</span></div>
     <div><b>BE · Bon d'entrée</b><span>La réception enregistrée par le magasinier (<span class="mono">REC-00042</span>). Fait monter le stock.</span></div>
     <div><b>DC · Demande de cuisine</b><span>Ce qu'une cuisine demande au magasin (<span class="mono">DC-00012</span>).</span></div>
+    <div><b>Sortie importante</b><span>Sortie d'un produit supérieure à {{ \App\Models\KitchenRequest::thresholdLabel() }} de son stock : elle doit être approuvée par le responsable achat.</span></div>
     <div><b>BS · Bon de sortie</b><span>Créé quand le cuisinier valide (<span class="mono">BS-00012</span>). Fait baisser le stock.</span></div>
     <div><b>Reliquat</b><span>Ce qui reste à livrer quand une livraison est incomplète.</span></div>
     <div><b>Seuil minimum</b><span>Quantité sous laquelle le produit doit être recommandé. Par défaut : 3 emballages d'achat (3 sacs, 3 cartons…).</span></div>
@@ -609,7 +613,8 @@ img { max-width: 100%; }
     { id: 'a8', t: 'Retour fournisseur', role: 'achat', where: 'Page du BC › Retour fournisseur', does: 'Si besoin : marchandise abîmée ou erronée rendue.', after: 'Stock <b style="color:var(--danger)">−</b> · avoir fournisseur' },
   ];
   const FLOW_B = [
-    { id: 'b1', t: 'Demande (cuisine ou magasin)', role: 'cuisinier', where: 'Cuisinier : Demandes au magasin › Nouvelle demande · ou magasinier : Stock › Demandes des cuisines › Nouvelle sortie vers une cuisine', does: 'Le cuisinier fait sa demande depuis son téléphone. Le magasinier peut aussi l\'initier lui-même (feuille manuscrite, cuisinier au comptoir) : il saisit ce qu\'il remet et la demande passe directement « à confirmer ».', after: 'DC <span class="m-pill info">À préparer</span> (ou <span class="m-pill warn">À confirmer</span> si saisie au magasin) · stock inchangé' },
+    { id: 'b1', t: 'Demande (cuisine ou magasin)', role: 'cuisinier', where: 'Cuisinier : Demandes au magasin › Nouvelle demande · ou magasinier : Stock › Demandes des cuisines › Nouvelle sortie vers une cuisine', does: 'Le cuisinier fait sa demande depuis son téléphone. Le magasinier peut aussi l\'initier lui-même (feuille manuscrite, cuisinier au comptoir) : il saisit ce qu\'il remet et la demande passe directement « à confirmer ». Si un produit dépasse {{ \App\Models\KitchenRequest::thresholdLabel() }} du stock, elle passe d\'abord par l\'approbation du responsable achat.', after: 'DC <span class="m-pill info">À préparer</span> (ou <span class="m-pill warn">À confirmer</span> si saisie au magasin) · stock inchangé' },
+    { id: 'b1a', t: 'Approbation · resp. achat (sorties importantes)', role: 'achat', where: 'Stock › Sorties à approuver', does: 'Seulement si un produit dépasse {{ \App\Models\KitchenRequest::thresholdLabel() }} du stock. Le responsable achat voit, produit par produit, ce qui est en stock, ce qui sort et ce qui reste ; il peut modifier les quantités, approuver ou refuser. Demande du cuisinier : il approuve avant qu\'elle arrive au magasinier. Sortie saisie par le magasinier : il approuve avant la remise au cuisinier.', after: 'DC <span class="m-pill info">À préparer</span> (demande du cuisinier) ou <span class="m-pill warn">À confirmer</span> (sortie du magasinier)' },
     { id: 'b2', t: 'Préparation et remise', role: 'magasinier', where: 'Stock › Demandes des cuisines › Préparer', does: 'Le magasinier vérifie la disponibilité, choisit le magasin et saisit les quantités réellement remises.', after: 'DC <span class="m-pill warn">À confirmer</span> · quantités réservées' },
     { id: 'b3', t: 'Validation « je prends »', role: 'cuisinier', key: true, where: 'Demandes au magasin › À confirmer › Je confirme, je prends', does: 'Le cuisinier vérifie ce qu\'il reçoit et valide. En cas d\'écart, il renvoie la demande au magasinier avec une remarque.', after: 'Stock <b style="color:var(--danger)">−</b> · BS-… créé · alerte si sous le seuil' },
     { id: 'b4', t: 'Bon de sortie signé', role: 'magasinier', where: 'Demandes des cuisines › Dernières sorties › 🖨', does: 'Le BS s\'imprime avec les quantités demandées et remises, et les zones de signature magasinier et cuisinier.', after: 'Pièce papier archivée' },
@@ -724,6 +729,17 @@ img { max-width: 100%; }
         { who: 'magasinier', title: '« Code inconnu »', where: 'Écran de réception ou de sortie', points: ['Bip grave et alerte rouge.', 'Saisir la quantité à la main et prévenir un responsable.'], result: ['Rien n\'est ajouté par le scan'], resultKind: 'bad', shots: [['p', 'code-inconnu', 'Vu par le magasinier']] },
         { who: 'admin', title: 'Associer le code', where: 'Panneau « Associer un code-barres »', points: ['Choisir le produit puis l\'emballage (ou en créer un).'], result: ['Code reconnu partout, définitivement'], shots: [['p', 'code-recherche', 'Choisir le produit'], ['p', 'code-associer', 'Choisir l\'emballage']] },
         { who: 'admin', title: 'Ou depuis la fiche produit', where: 'Achats › Produits › ✏️ Modifier', points: ['Un code par emballage, avec sa contenance.'], result: ['« contient 12 × Bouteille »'], shots: [['d', 'produit-codes', 'Codes-barres des emballages']] },
+      ],
+    },
+    {
+      id: 'importante', tag: 'exception', title: 'Sortie importante à approuver', sub: 'Plus de {{ \App\Models\KitchenRequest::thresholdLabel() }} du stock d\'un produit',
+      roles: ['cuisinier', 'achat', 'magasinier'],
+      when: 'La Cuisine TCN demande 60 kg de riz alors qu\'il en reste 100 kg : c\'est plus de {{ \App\Models\KitchenRequest::thresholdLabel() }} du stock. Le responsable achat doit approuver avant que la demande arrive au magasinier.',
+      steps: [
+        { who: 'cuisinier', title: 'La cuisine demande', where: 'Demandes au magasin › Nouvelle demande', points: ['Riz cassé : <b>60 kg</b>.', '<b>Envoyer au magasin</b>.'], result: ['DC « À approuver (resp. achats) »', 'Message : quantité importante, en attente d\'approbation'], resultKind: 'warn' },
+        { who: 'achat', title: 'Le responsable achat vérifie', where: 'Stock › Sorties à approuver (ou carte violette du tableau de bord)', points: ['Pour chaque produit : <b>en stock</b> 100 kg, <b>sort</b> 60 kg, <b>reste</b> 40 kg.', 'Il ramène la sortie à <b>40 kg</b> ; le reste se recalcule (60 kg).', '<b>Approuver</b> — ou <b>Refuser</b> avec un motif, que le cuisinier verra.'], result: ['DC « À préparer » chez le magasinier, marquée « approuvée »', 'Quantité demandée : 40 kg'] },
+        { who: 'magasinier', title: 'Le magasinier fait la sortie', where: 'Stock › Demandes des cuisines › Préparer', points: ['Il prépare les 40 kg approuvés et choisit le cuisinier.', 'S\'il remet plus que ce qui a été approuvé et que cela dépasse le seuil, la sortie repart en approbation.'], result: ['DC « À confirmer »', '40 kg réservés'] },
+        { who: 'cuisinier', title: 'Le cuisinier confirme la réception', where: 'Demandes au magasin › À confirmer', points: ['<b>Je confirme, je prends</b>.'], result: ['Stock 100 kg → <b>60 kg</b>', 'BS-… créé, avec le nom du responsable qui a approuvé'] },
       ],
     },
     {
@@ -846,6 +862,8 @@ img { max-width: 100%; }
     ['Réception (BE), avec ou sans BC', 'Réceptions (BL)', ['magasinier', 'achat', 'admin']],
     ['Demande au magasin', 'Demandes au magasin', ['cuisinier', 'admin']],
     ['Saisir une sortie pour une cuisine (feuille papier)', 'Stock › Demandes des cuisines › Nouvelle sortie', ['magasinier', 'admin']],
+    ['Approuver les sorties importantes (> {{ \App\Models\KitchenRequest::thresholdLabel() }} du stock)', 'Stock › Sorties à approuver', ['achat', 'admin']],
+    ['Changer le seuil d\'approbation des sorties', 'Paramètres › Approbation des sorties', ['admin']],
     ['Préparer et remettre aux cuisines', 'Stock › Demandes des cuisines', ['magasinier', 'admin']],
     ['Valider « je prends » (BS)', 'Demandes au magasin › À confirmer', ['cuisinier', 'admin']],
     ['Perte / casse / sortie exceptionnelle', 'Stock › Scanner une sortie', ['magasinier', 'admin']],

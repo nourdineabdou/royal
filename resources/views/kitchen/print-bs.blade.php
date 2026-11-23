@@ -50,6 +50,7 @@
         <div class="box"><small>Pour le</small><strong>{{ $kr->needed_on?->format('d/m/Y') ?? '—' }}</strong></div>
         <div class="box"><small>Demandé par</small>{{ $kr->requester->name ?? '—' }}</div>
         <div class="box"><small>Remis par (magasinier)</small>{{ $kr->preparer->name ?? '—' }}</div>
+        <div class="box"><small>Approuvé par (resp. achats)</small>{{ $kr->approver->name ?? '—' }}</div>
         <div class="box"><small>Reçu par (cuisinier)</small>{{ $kr->validator->name ?? $kr->receiver->name ?? '—' }}</div>
     </div>
 

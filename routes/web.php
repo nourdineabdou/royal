@@ -408,6 +408,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/demandes-cuisine/nouvelle', [KitchenRequestController::class, 'storeFromStore'])->name('kitchen-requests.store');
         Route::get('/demandes-cuisine/{kitchenRequest}/preparer',  [KitchenRequestController::class, 'prepare'])->name('kitchen-requests.prepare');
         Route::post('/demandes-cuisine/{kitchenRequest}/preparer', [KitchenRequestController::class, 'storePrepare'])->name('kitchen-requests.prepare.store');
+        // Responsable des achats : approbation des sorties (stock / sortie / reste, quantités modifiables)
+        Route::get('/sorties-a-approuver',                          [KitchenRequestController::class, 'approvals'])->name('kitchen-requests.approvals');
+        Route::post('/sorties-a-approuver/seuil',                   [KitchenRequestController::class, 'updateThreshold'])->name('kitchen-requests.threshold');
+        Route::get('/demandes-cuisine/{kitchenRequest}/approuver',  [KitchenRequestController::class, 'approveForm'])->name('kitchen-requests.approve');
+        Route::post('/demandes-cuisine/{kitchenRequest}/approuver', [KitchenRequestController::class, 'approve'])->name('kitchen-requests.approve.store');
+        Route::post('/demandes-cuisine/{kitchenRequest}/refuser',   [KitchenRequestController::class, 'reject'])->name('kitchen-requests.reject');
         Route::get('/all-movements',           [StockController::class, 'allMovements'])->name('all-movements');
         Route::get('/export/inventory',        [StockController::class, 'exportInventoryCsv'])->name('export.inventory');
         Route::get('/export/movements',        [StockController::class, 'exportMovementsCsv'])->name('export.movements');

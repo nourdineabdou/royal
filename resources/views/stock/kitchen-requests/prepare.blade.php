@@ -22,7 +22,7 @@
             </p>
             @if($kr->notes)<p class="text-sm text-slate-600 mt-1">« {{ $kr->notes }} »</p>@endif
             @if($kr->contest_note)
-                <p class="text-sm bg-red-50 text-red-700 rounded-lg px-3 py-2 mt-2"><i class="fa-solid fa-rotate-left mr-1"></i>Renvoyée par la cuisine : {{ $kr->contest_note }}</p>
+                <p class="text-sm bg-red-50 text-red-700 rounded-lg px-3 py-2 mt-2"><i class="fa-solid fa-rotate-left mr-1"></i>Renvoyée — {{ $kr->contest_note }}</p>
             @endif
         </div>
         <div>

@@ -130,9 +130,18 @@
                 ? \App\Models\PurchaseOrder::whereIn('status', ['received', 'partial'])->whereNull('invoice_validated_at')->count() : 0;
             // BC préparés (par l'acheteur) qui attendent la confirmation du responsable des achats
             $toConfirmBc = $u->can('purchases.orders.confirm') ? \App\Models\PurchaseOrder::where('status', 'pending')->count() : 0;
+            // Sorties vers les cuisines préparées par le magasinier, à approuver
+            $toApproveOut = $u->can('kitchen.requests.approve') ? \App\Models\KitchenRequest::where('status', 'to_approve')->count() : 0;
         @endphp
-        @if($toApprove || $toValidate || $toPay || $toCheck || $toConfirmBc)
+        @if($toApprove || $toValidate || $toPay || $toCheck || $toConfirmBc || $toApproveOut)
         <div class="mb-4 grid sm:grid-cols-2 gap-3">
+            @if($toApproveOut)
+            <a href="{{ route('stock.kitchen-requests.approvals') }}" class="flex items-center gap-4 rounded-2xl p-4 bg-violet-700 text-white shadow-sm hover:shadow-md transition">
+                <i class="fas fa-dolly text-2xl"></i>
+                <div class="flex-1"><p class="font-bold text-lg">{{ $toApproveOut }} sortie{{ $toApproveOut > 1 ? 's' : '' }} de stock à approuver</p><p class="text-sm text-violet-100">en stock · ce qui sort · ce qui reste</p></div>
+                <i class="fas fa-arrow-right"></i>
+            </a>
+            @endif
             @if($toConfirmBc)
             <a href="{{ route('purchases.orders', ['todo' => 'to_confirm']) }}" class="flex items-center gap-4 rounded-2xl p-4 bg-blue-600 text-white shadow-sm hover:shadow-md transition">
                 <i class="fas fa-paper-plane text-2xl"></i>

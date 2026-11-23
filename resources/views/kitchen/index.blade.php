@@ -6,6 +6,7 @@
     use App\Support\Qty;
     $badge = [
         'pending'   => 'bg-sky-100 text-sky-700',
+        'to_approve' => 'bg-violet-100 text-violet-700',
         'prepared'  => 'bg-amber-100 text-amber-800',
         'validated' => 'bg-emerald-100 text-emerald-700',
         'cancelled' => 'bg-slate-100 text-slate-500',
@@ -58,6 +59,7 @@
                         {{ $kr->created_at->format('d/m H:i') }} · {{ $kr->items->count() }} produit(s)
                         @if($kr->bs_number) · {{ $kr->bs_number }} @endif
                         @if($kr->status === 'pending' && $kr->contest_note) · <span class="text-red-600">écart signalé</span> @endif
+                        @if($kr->status === 'cancelled' && $kr->contest_note) · <span class="text-red-600">{{ $kr->contest_note }}</span> @endif
                     </p>
                 </div>
                 <span class="shrink-0 text-[11px] font-bold px-2 py-1 rounded-full {{ $badge[$kr->status] ?? '' }}">{{ $kr->status_label }}</span>

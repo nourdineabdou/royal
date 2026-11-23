@@ -760,7 +760,48 @@ class HRController extends Controller
     public function approveAdvance(Advance $advance)
     {
         $this->perm('hr.advances.approve');
-        $advance->update(['status' => 'approved']);
-        return redirect()->back()->with('success', 'Avance approuvée.');
+        if ($advance->status !== 'pending') {
+            return redirect()->back()->with('error', 'Cette avance a déjà été traitée.');
+        }
+
+        $message = \Illuminate\Support\Facades\DB::transaction(function () use ($advance) {
+            $advance->update(['status' => 'approved']);
+
+            // Si la fiche de paie du mois de l'avance est déjà générée mais pas encore payée,
+            // on y applique tout de suite la retenue (sinon la génération l'ignorerait,
+            // puisqu'elle saute les fiches déjà existantes).
+            $payroll = Payroll::where('employee_id', $advance->employee_id)
+                ->where('month', $advance->date->month)
+                ->where('year', $advance->date->year)
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->first();
+            if (!$payroll) {
+                return 'Avance approuvée. Elle sera retenue sur la prochaine fiche de paie générée.';
+            }
+
+            $monthly = $advance->monthlyDeductionFor((float) $payroll->base_salary);
+            if ($monthly <= 0) {
+                return 'Avance approuvée.';
+            }
+
+            $newRemaining = round((float) $advance->remaining_balance - $monthly, 2);
+            $advance->update([
+                'remaining_balance' => max(0, $newRemaining),
+                'status'            => $newRemaining <= 0 ? 'completed' : 'approved',
+            ]);
+
+            $advanceDeduction = (float) $payroll->advance_deduction + $monthly;
+            $payroll->update([
+                'advance_deduction' => $advanceDeduction,
+                'net_salary'        => max(0, (float) $payroll->base_salary + (float) $payroll->bonus
+                                              - (float) $payroll->deduction - $advanceDeduction),
+            ]);
+
+            return 'Avance approuvée et retenue de ' . number_format($monthly, 0, ',', ' ')
+                . ' appliquée sur la fiche de paie de ' . $advance->date->format('m/Y') . '.';
+        });
+
+        return redirect()->back()->with('success', $message);
     }
 }

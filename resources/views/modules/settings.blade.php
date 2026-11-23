@@ -22,6 +22,20 @@
         </div>
     </a>
 
+    @can('kitchen.requests.threshold')
+    <!-- Seuil d'approbation des sorties de stock -->
+    <a href="{{ route('stock.kitchen-requests.approvals') }}" class="group">
+        <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300 p-8 text-center h-full border-t-4 border-violet-500">
+            <i class="fas fa-sliders text-4xl text-violet-600 mb-4"></i>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Approbation des sorties</h3>
+            <p class="text-gray-600 text-sm mb-4">Seuil actuel : <strong>{{ \App\Models\KitchenRequest::thresholdLabel() }}</strong> du stock. Au-delà, le responsable des achats doit approuver.</p>
+            <span class="inline-block px-4 py-2 bg-violet-100 text-violet-700 rounded-lg text-sm font-semibold group-hover:bg-violet-600 group-hover:text-white transition">
+                Modifier
+            </span>
+        </div>
+    </a>
+    @endcan
+
     <!-- Payment Types Link -->
     <a href="{{ route('payment-types.index') }}" class="group">
         <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300 p-8 text-center h-full border-t-4 border-amber-500">
