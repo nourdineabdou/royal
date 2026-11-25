@@ -108,7 +108,7 @@
 
                 <div id="packaging-rows" class="space-y-2 mb-2">
                     @foreach($existingRows as $row)
-                        <div class="packaging-row flex flex-wrap items-center gap-2">
+                        <div class="packaging-row flex flex-wrap items-center gap-2 p-3 sm:p-0 border border-gray-200 sm:border-0 rounded-xl bg-gray-50 sm:bg-transparent">
                             <select name="packaging_id[]" class="flex-1 min-w-[10rem] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                 <option value="">-- Emballage --</option>
                                 @foreach($packagings as $packaging)
@@ -189,7 +189,7 @@
 </div>
 
 <template id="packaging-row-template">
-    <div class="packaging-row flex flex-wrap items-center gap-2">
+    <div class="packaging-row flex flex-wrap items-center gap-2 p-3 sm:p-0 border border-gray-200 sm:border-0 rounded-xl bg-gray-50 sm:bg-transparent">
         <select name="packaging_id[]" class="flex-1 min-w-[10rem] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="">-- Emballage --</option>
             @foreach($packagings as $packaging)
@@ -247,4 +247,7 @@
     consumableCheckbox.addEventListener('change', syncConsumableUi);
     syncConsumableUi();
 </script>
+
+{{-- Bouton caméra à côté de chaque code-barres (scan au téléphone) --}}
+@include('partials.barcode-camera')
 @endsection
