@@ -27,10 +27,10 @@
                 name="search"
                 placeholder="Rechercher par nom..."
                 value="{{ request('search') }}"
-                class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                class="flex-1 min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200">
-                <i class="fas fa-search mr-2"></i>Rechercher
+            <button type="submit" class="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 sm:px-6 rounded-lg transition duration-200" title="Rechercher">
+                <i class="fas fa-search sm:mr-2"></i><span class="hidden sm:inline">Rechercher</span>
             </button>
         </form>
     </div>

@@ -285,6 +285,8 @@
     });
 </script>
 
+{{-- Sur téléphone, les tableaux deviennent des cartes lisibles --}}
+@include('partials.responsive-tables')
 @stack('scripts')
 </body>
 </html>
