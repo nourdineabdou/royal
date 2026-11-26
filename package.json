@@ -4,7 +4,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "css": "npx --yes tailwindcss@3.4.17 -c resources/css/tailwind-static.config.cjs -i resources/css/tailwind-static.css -o public/css/tailwind.css --minify"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
