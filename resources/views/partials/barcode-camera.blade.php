@@ -75,6 +75,7 @@
 
     // ── Fenêtre caméra ──────────────────────────────────────────────────────
     function labelFor(input) {
+        if (input.dataset.bcLabel) return input.dataset.bcLabel;
         if (input.name === 'barcode') return 'Unité de base';
         const row = input.closest('.packaging-row');
         const sel = row && row.querySelector('select');
