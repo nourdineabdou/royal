@@ -137,6 +137,61 @@
         </tbody>
     </table>
 
+    @if($advances->isNotEmpty())
+    <table>
+        <thead>
+            <tr>
+                <th>Avance sur salaire</th>
+                <th class="right">Montant</th>
+                <th class="right">Retenue / mois</th>
+                <th class="right">Reste à rembourser</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($advances as $adv)
+            <tr>
+                <td>Avance du {{ $adv->date->format('d/m/Y') }}</td>
+                <td class="right">{{ number_format($adv->amount, 2, ',', ' ') }}</td>
+                <td class="right">{{ number_format($adv->repayment_percentage, 0) }} % du salaire</td>
+                <td class="right">{{ number_format($adv->remaining_balance, 2, ',', ' ') }}</td>
+                <td>{{ ['pending' => 'En attente d\'approbation', 'approved' => 'En remboursement', 'completed' => 'Soldée'][$adv->status] ?? $adv->status }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @endif
+
+    @php
+        $pendingAdv = $advances->where('status', 'pending');
+        $warn = $canApply || ($payroll->status === 'pending' && $pendingAdv->isNotEmpty());
+    @endphp
+    @if($warn)
+    <div class="no-print" style="border:1px solid #f59e0b; background:#fffbeb; color:#92400e; border-radius:6px; padding:10px 14px; margin-bottom:20px; font-size:12px; line-height:1.5;">
+        @if($canApply)
+            <strong>Avance non retenue sur cette fiche.</strong> Elle a été approuvée après la génération de la fiche.
+            <form method="POST" action="{{ route('hr.payroll.apply-advances', $payroll) }}" style="margin-top:8px;">
+                @csrf
+                <button type="submit" style="padding:7px 16px; background:#b45309; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">
+                    Appliquer la retenue sur cette fiche
+                </button>
+            </form>
+        @endif
+        @if($payroll->status === 'pending' && $pendingAdv->isNotEmpty())
+            <div style="{{ $canApply ? 'margin-top:8px;' : '' }}">
+                <strong>{{ $pendingAdv->count() }} avance(s) en attente d'approbation</strong> : elles ne sont pas encore retenues.
+                Approuvez-les dans <a href="{{ route('hr.advances') }}" style="color:#92400e;">RH › Avances</a>, la retenue s'ajoutera alors à cette fiche.
+            </div>
+        @endif
+    </div>
+    @endif
+
+    @if(session('success') || session('error'))
+    <div class="no-print" style="border:1px solid {{ session('error') ? '#fca5a5' : '#6ee7b7' }}; background:{{ session('error') ? '#fef2f2' : '#ecfdf5' }}; border-radius:6px; padding:8px 14px; margin-bottom:16px; font-size:12px;">
+        {{ session('success') ?? session('error') }}
+    </div>
+    @endif
+
     <div class="totals">
         <div class="totals-box">
             <div class="row"><span>Mode de paiement</span><span>{{ $payroll->paymentType->name ?? '—' }}</span></div>
@@ -155,7 +210,9 @@
     </div>
 
     <script>
+        @unless($warn || session('success') || session('error'))
         window.onload = function () { window.print(); };
+        @endunless
     </script>
 </body>
 </html>

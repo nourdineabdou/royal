@@ -251,6 +251,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/payroll/generate', [HRController::class, 'generatePayroll'])->name('payroll.generate');
         Route::post('/payroll/{payroll}/paid', [HRController::class, 'markPayrollPaid'])->name('payroll.paid');
         Route::get('/payroll/{payroll}/payslip', [HRController::class, 'payslip'])->name('payroll.payslip');
+        Route::post('/payroll/{payroll}/apply-advances', [HRController::class, 'applyPayrollAdvances'])->name('payroll.apply-advances');
 
         Route::get('/advances', [HRController::class, 'advances'])->name('advances');
         Route::post('/advances', [HRController::class, 'storeAdvance'])->name('advances.store');

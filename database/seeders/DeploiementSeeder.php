@@ -29,6 +29,7 @@ class DeploiementSeeder extends Seeder
         $this->call([
             PermissionSeeder::class,
             ReferenceDataSeeder::class,
+            MagasinSeeder::class,
             ComplexRoyalProductSeeder::class,
             UserSeeder::class,
         ]);

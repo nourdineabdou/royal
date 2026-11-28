@@ -442,7 +442,23 @@ class HRController extends Controller
         $payroll->load('employee.jobTitle', 'paymentType');
         $company = config('app.company');
 
-        return view('hr.payslip', compact('payroll', 'company'));
+        // Avances de l'employé utiles pour cette fiche : non soldées, ou datées du mois de la fiche
+        $end = \Carbon\Carbon::createFromDate($payroll->year, $payroll->month, 1)->endOfMonth();
+        $advances = Advance::where('employee_id', $payroll->employee_id)
+            ->whereIn('status', ['pending', 'approved', 'completed'])
+            ->whereDate('date', '<=', $end)
+            ->where(fn ($q) => $q->where('remaining_balance', '>', 0)
+                ->orWhere(fn ($q) => $q->whereMonth('date', $payroll->month)->whereYear('date', $payroll->year)))
+            ->orderBy('date')
+            ->get();
+
+        // Avance approuvée mais pas encore retenue sur cette fiche (fiche générée avant l'approbation)
+        $canApply = $payroll->status === 'pending'
+            && (float) $payroll->advance_deduction <= 0
+            && $this->unappliedAdvances($payroll)->isNotEmpty()
+            && auth()->user()?->can('hr.advances.approve');
+
+        return view('hr.payslip', compact('payroll', 'company', 'advances', 'canApply'));
     }
 
     public function generatePayroll(Request $request)
@@ -767,41 +783,92 @@ class HRController extends Controller
         $message = \Illuminate\Support\Facades\DB::transaction(function () use ($advance) {
             $advance->update(['status' => 'approved']);
 
-            // Si la fiche de paie du mois de l'avance est déjà générée mais pas encore payée,
-            // on y applique tout de suite la retenue (sinon la génération l'ignorerait,
-            // puisqu'elle saute les fiches déjà existantes).
+            // Fiche déjà générée mais pas encore payée, du mois de l'avance ou d'un mois suivant :
+            // on y applique tout de suite la retenue (la génération saute les fiches existantes).
+            $period  = $advance->date->year * 12 + $advance->date->month;
             $payroll = Payroll::where('employee_id', $advance->employee_id)
-                ->where('month', $advance->date->month)
-                ->where('year', $advance->date->year)
                 ->where('status', 'pending')
+                ->whereRaw('(year * 12 + month) >= ?', [$period])
+                ->orderBy('year')->orderBy('month')
                 ->lockForUpdate()
                 ->first();
             if (!$payroll) {
                 return 'Avance approuvée. Elle sera retenue sur la prochaine fiche de paie générée.';
             }
 
-            $monthly = $advance->monthlyDeductionFor((float) $payroll->base_salary);
+            $monthly = $this->applyAdvanceToPayroll($advance, $payroll);
             if ($monthly <= 0) {
                 return 'Avance approuvée.';
             }
 
-            $newRemaining = round((float) $advance->remaining_balance - $monthly, 2);
-            $advance->update([
-                'remaining_balance' => max(0, $newRemaining),
-                'status'            => $newRemaining <= 0 ? 'completed' : 'approved',
-            ]);
-
-            $advanceDeduction = (float) $payroll->advance_deduction + $monthly;
-            $payroll->update([
-                'advance_deduction' => $advanceDeduction,
-                'net_salary'        => max(0, (float) $payroll->base_salary + (float) $payroll->bonus
-                                              - (float) $payroll->deduction - $advanceDeduction),
-            ]);
-
             return 'Avance approuvée et retenue de ' . number_format($monthly, 0, ',', ' ')
-                . ' appliquée sur la fiche de paie de ' . $advance->date->format('m/Y') . '.';
+                . ' appliquée sur la fiche de paie de ' . str_pad($payroll->month, 2, '0', STR_PAD_LEFT) . '/' . $payroll->year . '.';
         });
 
         return redirect()->back()->with('success', $message);
+    }
+
+    /**
+     * Fiche de paie générée avant l'approbation d'une avance : bouton « Appliquer la retenue ».
+     * Applique les avances approuvées non soldées, datées au plus tard du mois de la fiche.
+     */
+    public function applyPayrollAdvances(Payroll $payroll)
+    {
+        $this->perm('hr.advances.approve');
+        if ($payroll->status !== 'pending') {
+            return back()->with('error', 'Fiche déjà payée : la retenue se fera sur la prochaine fiche.');
+        }
+        if ((float) $payroll->advance_deduction > 0) {
+            return back()->with('error', 'Une retenue d\'avance est déjà appliquée sur cette fiche.');
+        }
+
+        $total = \Illuminate\Support\Facades\DB::transaction(function () use ($payroll) {
+            $payroll = Payroll::lockForUpdate()->find($payroll->id);
+            $sum = 0;
+            foreach ($this->unappliedAdvances($payroll) as $advance) {
+                $sum += $this->applyAdvanceToPayroll($advance, $payroll);
+            }
+            return $sum;
+        });
+
+        return back()->with('success', $total > 0
+            ? 'Retenue d\'avance de ' . number_format($total, 0, ',', ' ') . ' MRU appliquée sur la fiche.'
+            : 'Aucune avance à retenir sur cette fiche.');
+    }
+
+    /** Avances approuvées non soldées, datées au plus tard du mois de la fiche. */
+    private function unappliedAdvances(Payroll $payroll)
+    {
+        $end = \Carbon\Carbon::createFromDate($payroll->year, $payroll->month, 1)->endOfMonth();
+        return Advance::where('employee_id', $payroll->employee_id)
+            ->where('status', 'approved')
+            ->where('remaining_balance', '>', 0)
+            ->whereDate('date', '<=', $end)
+            ->orderBy('date')
+            ->get();
+    }
+
+    /** Retient la mensualité d'une avance sur une fiche (non payée) et recalcule le net. */
+    private function applyAdvanceToPayroll(Advance $advance, Payroll $payroll): float
+    {
+        $monthly = $advance->monthlyDeductionFor((float) $payroll->base_salary);
+        if ($monthly <= 0) {
+            return 0;
+        }
+
+        $newRemaining = round((float) $advance->remaining_balance - $monthly, 2);
+        $advance->update([
+            'remaining_balance' => max(0, $newRemaining),
+            'status'            => $newRemaining <= 0 ? 'completed' : 'approved',
+        ]);
+
+        $advanceDeduction = (float) $payroll->advance_deduction + $monthly;
+        $payroll->update([
+            'advance_deduction' => $advanceDeduction,
+            'net_salary'        => max(0, (float) $payroll->base_salary + (float) $payroll->bonus
+                                          - (float) $payroll->deduction - $advanceDeduction),
+        ]);
+
+        return $monthly;
     }
 }
